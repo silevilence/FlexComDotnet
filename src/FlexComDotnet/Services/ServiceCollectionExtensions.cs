@@ -14,6 +14,9 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAppServices(this IServiceCollection services)
     {
+        // 配置服务 (单例)
+        services.AddSingleton<IConfigurationService, JsonConfigurationService>();
+        
         // 串口服务 (单例)
         services.AddSingleton<ISerialPortService, SerialPortService>();
 

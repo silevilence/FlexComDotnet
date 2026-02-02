@@ -12,6 +12,7 @@ namespace FlexComDotnet.Core.Features.Serial.ViewModels;
 public partial class SerialConfigViewModel : ObservableObject
 {
     private readonly ISerialPortService _serialPortService;
+    private readonly IConfigurationService _configurationService;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleConnectionCommand))]
@@ -81,15 +82,39 @@ public partial class SerialConfigViewModel : ObservableObject
     /// </summary>
     public bool IsConfigEnabled => !IsConnected;
 
-    public SerialConfigViewModel(ISerialPortService serialPortService)
+    public SerialConfigViewModel(ISerialPortService serialPortService, IConfigurationService configurationService)
     {
         _serialPortService = serialPortService;
+        _configurationService = configurationService;
         
         _serialPortService.ConnectionStateChanged += OnConnectionStateChanged;
         _serialPortService.ErrorOccurred += OnErrorOccurred;
 
+        // 加载保存的配置
+        LoadSavedConfig();
+        
         RefreshPorts();
     }
+
+    /// <summary>
+    /// 加载保存的配置
+    /// </summary>
+    private void LoadSavedConfig()
+    {
+        var config = _configurationService.Load();
+        var serialConfig = config.SerialConfig;
+        
+        SelectedBaudRate = serialConfig.BaudRate;
+        SelectedDataBits = serialConfig.DataBits;
+        SelectedStopBits = serialConfig.StopBits;
+        SelectedParity = serialConfig.Parity;
+        SelectedFlowControl = serialConfig.FlowControl;
+        
+        // 保存端口名用于刷新后恢复选择
+        _savedPortName = serialConfig.PortName;
+    }
+
+    private string? _savedPortName;
 
     /// <summary>
     /// 刷新串口列表
@@ -97,7 +122,7 @@ public partial class SerialConfigViewModel : ObservableObject
     [RelayCommand]
     private void RefreshPorts()
     {
-        var currentSelection = SelectedPort?.PortName;
+        var currentSelection = SelectedPort?.PortName ?? _savedPortName;
         
         AvailablePorts.Clear();
         foreach (var port in _serialPortService.GetAvailablePorts())
@@ -105,7 +130,7 @@ public partial class SerialConfigViewModel : ObservableObject
             AvailablePorts.Add(port);
         }
 
-        // 尝试恢复之前的选择
+        // 尝试恢复之前的选择（优先使用当前选择，其次使用保存的配置）
         if (currentSelection != null)
         {
             SelectedPort = AvailablePorts.FirstOrDefault(p => p.PortName == currentSelection);
@@ -163,7 +188,22 @@ public partial class SerialConfigViewModel : ObservableObject
         if (_serialPortService.Open(config))
         {
             StatusMessage = $"已连接到 {SelectedPort.PortName}";
+            
+            // 连接成功后保存配置
+            SaveConfig(config);
         }
+    }
+
+    /// <summary>
+    /// 保存当前配置
+    /// </summary>
+    private void SaveConfig(SerialPortConfig serialConfig)
+    {
+        var appConfig = new AppConfig
+        {
+            SerialConfig = serialConfig.Clone()
+        };
+        _configurationService.Save(appConfig);
     }
 
     private void OnConnectionStateChanged(object? sender, bool connected)

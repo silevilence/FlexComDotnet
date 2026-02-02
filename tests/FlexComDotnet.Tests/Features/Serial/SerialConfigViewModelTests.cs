@@ -9,13 +9,18 @@ namespace FlexComDotnet.Tests.Features.Serial;
 public class SerialConfigViewModelTests
 {
     private readonly Mock<ISerialPortService> _mockSerialService;
+    private readonly Mock<IConfigurationService> _mockConfigService;
     private readonly SerialConfigViewModel _viewModel;
 
     public SerialConfigViewModelTests()
     {
         _mockSerialService = new Mock<ISerialPortService>();
         _mockSerialService.Setup(s => s.GetAvailablePorts()).Returns([]);
-        _viewModel = new SerialConfigViewModel(_mockSerialService.Object);
+        
+        _mockConfigService = new Mock<IConfigurationService>();
+        _mockConfigService.Setup(s => s.Load()).Returns(new AppConfig());
+        
+        _viewModel = new SerialConfigViewModel(_mockSerialService.Object, _mockConfigService.Object);
     }
 
     [Fact]
@@ -279,6 +284,84 @@ public class SerialConfigViewModelTests
     {
         mock = new Mock<ISerialPortService>();
         mock.Setup(s => s.GetAvailablePorts()).Returns([]);
-        return new SerialConfigViewModel(mock.Object);
+        var mockConfig = new Mock<IConfigurationService>();
+        mockConfig.Setup(s => s.Load()).Returns(new AppConfig());
+        return new SerialConfigViewModel(mock.Object, mockConfig.Object);
+    }
+
+    [Fact]
+    public void Constructor_ShouldLoadConfigOnInit()
+    {
+        // Assert
+        _mockConfigService.Verify(s => s.Load(), Times.Once);
+    }
+
+    [Fact]
+    public void Constructor_ShouldApplySavedConfig()
+    {
+        // Arrange
+        var savedConfig = new AppConfig
+        {
+            SerialConfig = new SerialPortConfig
+            {
+                PortName = "COM5",
+                BaudRate = BaudRate.Baud9600,
+                DataBits = DataBitsOption.Seven,
+                StopBits = StopBitsOption.Two,
+                Parity = ParityOption.Even,
+                FlowControl = FlowControlOption.RtsCts
+            }
+        };
+        var mockSerial = new Mock<ISerialPortService>();
+        mockSerial.Setup(s => s.GetAvailablePorts()).Returns([
+            new SerialPortInfo { PortName = "COM3" },
+            new SerialPortInfo { PortName = "COM5" }
+        ]);
+        var mockConfig = new Mock<IConfigurationService>();
+        mockConfig.Setup(s => s.Load()).Returns(savedConfig);
+
+        // Act
+        var vm = new SerialConfigViewModel(mockSerial.Object, mockConfig.Object);
+
+        // Assert
+        vm.SelectedBaudRate.Should().Be(BaudRate.Baud9600);
+        vm.SelectedDataBits.Should().Be(DataBitsOption.Seven);
+        vm.SelectedStopBits.Should().Be(StopBitsOption.Two);
+        vm.SelectedParity.Should().Be(ParityOption.Even);
+        vm.SelectedFlowControl.Should().Be(FlowControlOption.RtsCts);
+        vm.SelectedPort?.PortName.Should().Be("COM5");
+    }
+
+    [Fact]
+    public void ToggleConnection_WhenOpenSucceeds_ShouldSaveConfig()
+    {
+        // Arrange
+        var port = new SerialPortInfo { PortName = "COM1" };
+        _viewModel.SelectedPort = port;
+        _viewModel.SelectedBaudRate = BaudRate.Baud9600;
+        _mockSerialService.Setup(s => s.Open(It.IsAny<SerialPortConfig>())).Returns(true);
+
+        // Act
+        _viewModel.ToggleConnectionCommand.Execute(null);
+
+        // Assert
+        _mockConfigService.Verify(s => s.Save(It.Is<AppConfig>(c =>
+            c.SerialConfig.PortName == "COM1" &&
+            c.SerialConfig.BaudRate == BaudRate.Baud9600)), Times.Once);
+    }
+
+    [Fact]
+    public void ToggleConnection_WhenOpenFails_ShouldNotSaveConfig()
+    {
+        // Arrange
+        var port = new SerialPortInfo { PortName = "COM1" };
+        _viewModel.SelectedPort = port;
+        _mockSerialService.Setup(s => s.Open(It.IsAny<SerialPortConfig>())).Returns(false);
+
+        // Act
+        _viewModel.ToggleConnectionCommand.Execute(null);
+
+        // Assert
+        _mockConfigService.Verify(s => s.Save(It.IsAny<AppConfig>()), Times.Never);
     }
 }

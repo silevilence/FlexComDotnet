@@ -148,3 +148,53 @@ public class InverseBooleanConverter : IValueConverter
         return value;
     }
 }
+
+/// <summary>
+/// 校验和类型显示转换器
+/// </summary>
+public class ChecksumTypeToDisplayConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is ChecksumType checksumType)
+        {
+            return checksumType switch
+            {
+                ChecksumType.None => "无",
+                ChecksumType.Sum8 => "Sum8",
+                ChecksumType.Crc16Modbus => "CRC16-MODBUS",
+                _ => checksumType.ToString()
+            };
+        }
+        return value?.ToString() ?? "";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// 布尔值到文本转换器
+/// </summary>
+public class BoolToTextConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool boolValue && parameter is string texts)
+        {
+            var parts = texts.Split('|');
+            if (parts.Length >= 2)
+            {
+                return boolValue ? parts[0] : parts[1];
+            }
+        }
+        return value?.ToString() ?? "";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

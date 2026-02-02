@@ -4,8 +4,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:FlexComDotnet.Features.Serial.Views"
+             xmlns:converters="clr-namespace:FlexComDotnet.Converters"
+             xmlns:models="clr-namespace:FlexComDotnet.Core.Features.Serial.Models;assembly=FlexComDotnet.Core"
              mc:Ignorable="d" 
-             d:DesignHeight="500" d:DesignWidth="600"
+             d:DesignHeight="600" d:DesignWidth="800"
              Background="White">
     
     <UserControl.Resources>
@@ -25,17 +27,87 @@
             <Setter Property="Padding" Value="8,4"/>
             <Setter Property="Margin" Value="4,0"/>
         </Style>
+
+        <Style x:Key="SmallToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+
+        <Style x:Key="StatusLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#666666"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+        </Style>
+
+        <!-- ChecksumType 枚举值提供器 -->
+        <ObjectDataProvider x:Key="ChecksumTypeValues" 
+                            MethodName="GetValues" 
+                            ObjectType="{x:Type models:ChecksumType}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="models:ChecksumType"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+
+        <converters:ChecksumTypeToDisplayConverter x:Key="ChecksumTypeConverter"/>
+        <converters:BoolToTextConverter x:Key="BoolToTextConverter"/>
     </UserControl.Resources>
     
     <Grid Margin="12">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*" MinHeight="150"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto" MinHeight="120"/>
+            <RowDefinition Height="Auto" MinHeight="160"/>
         </Grid.RowDefinitions>
         
-        <!-- 接收区 -->
+        <!-- 状态栏: Rx/Tx 计数器 -->
         <Border Grid.Row="0" 
+                Background="#F0F0F0" 
+                BorderBrush="#E0E0E0"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="8,4"
+                Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="📥 RX:" Style="{StaticResource StatusLabelStyle}"/>
+                    <TextBlock Text="{Binding RxBytes}" 
+                               Style="{StaticResource StatusLabelStyle}"
+                               FontWeight="SemiBold"
+                               Foreground="#0078D4"
+                               Margin="4,0,0,0"/>
+                    <TextBlock Text="字节" Style="{StaticResource StatusLabelStyle}" Margin="2,0,0,0"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
+                    <TextBlock Text="📤 TX:" Style="{StaticResource StatusLabelStyle}"/>
+                    <TextBlock Text="{Binding TxBytes}" 
+                               Style="{StaticResource StatusLabelStyle}"
+                               FontWeight="SemiBold"
+                               Foreground="#107C10"
+                               Margin="4,0,0,0"/>
+                    <TextBlock Text="字节" Style="{StaticResource StatusLabelStyle}" Margin="2,0,0,0"/>
+                </StackPanel>
+
+                <Button Grid.Column="3"
+                        Content="重置计数"
+                        Command="{Binding ResetCountersCommand}"
+                        Padding="8,2"
+                        FontSize="11"/>
+            </Grid>
+        </Border>
+        
+        <!-- 接收区 -->
+        <Border Grid.Row="1" 
                 BorderBrush="#E0E0E0" 
                 BorderThickness="1" 
                 CornerRadius="4"
@@ -66,13 +138,40 @@
                         
                         <StackPanel Grid.Column="2" 
                                     Orientation="Horizontal">
+                            <!-- 显示选项 -->
                             <ToggleButton Content="HEX"
                                           IsChecked="{Binding IsHexDisplayMode}"
-                                          Style="{StaticResource ToggleButtonStyle}"
+                                          Style="{StaticResource SmallToggleStyle}"
                                           ToolTip="切换十六进制显示"/>
+                            <ToggleButton Content="时间戳"
+                                          IsChecked="{Binding ShowTimestamp}"
+                                          Style="{StaticResource SmallToggleStyle}"
+                                          ToolTip="显示时间戳 (精确到毫秒)"/>
+                            <ToggleButton Content="自动换行"
+                                          IsChecked="{Binding AutoLineBreak}"
+                                          Style="{StaticResource SmallToggleStyle}"
+                                          ToolTip="每条数据自动换行"/>
+                            
+                            <Separator Margin="8,2"/>
+                            
+                            <!-- 控制按钮 -->
+                            <ToggleButton IsChecked="{Binding IsPaused}"
+                                          ToolTip="暂停/继续屏幕滚动">
+                                <ToggleButton.Style>
+                                    <Style TargetType="ToggleButton" BasedOn="{StaticResource SmallToggleStyle}">
+                                        <Setter Property="Content" Value="暂停"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter Property="Content" Value="继续"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ToggleButton.Style>
+                            </ToggleButton>
                             <Button Content="清空"
                                     Command="{Binding ClearReceivedCommand}"
-                                    Style="{StaticResource ActionButtonStyle}"/>
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Padding="8,2"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -93,14 +192,14 @@
         </Border>
         
         <!-- 分隔条 -->
-        <GridSplitter Grid.Row="1" 
+        <GridSplitter Grid.Row="2" 
                       Height="4" 
                       HorizontalAlignment="Stretch"
                       Background="Transparent"
                       Cursor="SizeNS"/>
         
         <!-- 发送区 -->
-        <Border Grid.Row="2" 
+        <Border Grid.Row="3" 
                 BorderBrush="#E0E0E0" 
                 BorderThickness="1" 
                 CornerRadius="4"
@@ -109,6 +208,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 
@@ -134,11 +234,12 @@
                                     Orientation="Horizontal">
                             <ToggleButton Content="HEX"
                                           IsChecked="{Binding IsHexSendMode}"
-                                          Style="{StaticResource ToggleButtonStyle}"
+                                          Style="{StaticResource SmallToggleStyle}"
                                           ToolTip="切换十六进制发送"/>
                             <Button Content="清空"
                                     Command="{Binding ClearSendCommand}"
-                                    Style="{StaticResource ActionButtonStyle}"/>
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Padding="8,2"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -160,8 +261,67 @@
                     </TextBox.InputBindings>
                 </TextBox>
                 
+                <!-- 发送选项栏 -->
+                <Border Grid.Row="2"
+                        Background="#FAFAFA"
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="0,1,0,0"
+                        Padding="8,4">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- 追加选项 -->
+                        <CheckBox Content="追加 ↵ (CR LF)"
+                                  IsChecked="{Binding AppendCrLf}"
+                                  VerticalAlignment="Center"
+                                  ToolTip="发送时自动追加回车换行符"/>
+                        
+                        <Separator Margin="12,2"/>
+                        
+                        <!-- 校验和选项 -->
+                        <TextBlock Text="校验和:" 
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,4,0"/>
+                        <ComboBox ItemsSource="{Binding Source={StaticResource ChecksumTypeValues}}"
+                                  SelectedItem="{Binding AppendChecksumType}"
+                                  Width="120"
+                                  VerticalAlignment="Center">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource ChecksumTypeConverter}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <Separator Margin="12,2"/>
+
+                        <!-- 定时发送 -->
+                        <ToggleButton IsChecked="{Binding IsTimerEnabled}"
+                                      Command="{Binding ToggleTimerCommand}"
+                                      ToolTip="启用/停止定时循环发送">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton" BasedOn="{StaticResource SmallToggleStyle}">
+                                    <Setter Property="Content" Value="定时发送"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter Property="Content" Value="停止"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                        <TextBox Text="{Binding TimerInterval, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="60"
+                                 VerticalAlignment="Center"
+                                 Margin="4,0,0,0"
+                                 ToolTip="发送间隔 (毫秒)"/>
+                        <TextBlock Text="ms" 
+                                   VerticalAlignment="Center"
+                                   Margin="2,0,0,0"
+                                   Style="{StaticResource StatusLabelStyle}"/>
+                    </StackPanel>
+                </Border>
+                
                 <!-- 发送按钮区 -->
-                <Border Grid.Row="2" 
+                <Border Grid.Row="3" 
                         Background="#F5F5F5"
                         BorderBrush="#E0E0E0"
                         BorderThickness="0,1,0,0"

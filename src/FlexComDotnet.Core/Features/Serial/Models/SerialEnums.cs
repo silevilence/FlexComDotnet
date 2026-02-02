@@ -106,3 +106,24 @@ public enum FlowControlOption
     /// </summary>
     DtrDsr = 3
 }
+
+/// <summary>
+/// 校验和类型
+/// </summary>
+public enum ChecksumType
+{
+    /// <summary>
+    /// 不追加校验和
+    /// </summary>
+    None = 0,
+    
+    /// <summary>
+    /// Sum8 累加和校验
+    /// </summary>
+    Sum8 = 1,
+    
+    /// <summary>
+    /// CRC16 MODBUS 校验
+    /// </summary>
+    Crc16Modbus = 2
+}
