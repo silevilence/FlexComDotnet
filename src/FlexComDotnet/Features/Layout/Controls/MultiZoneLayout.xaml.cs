@@ -419,6 +419,12 @@ public partial class MultiZoneLayout : UserControl
 
             // 显示浮动窗口
             floatingWindow.ShowAt(x, y, width, height);
+
+            // 隐藏原位置的 CollapsiblePanel（因为内容已移到浮动窗口）
+            if (_panelControls.TryGetValue(panelId, out var panel))
+            {
+                panel.Visibility = Visibility.Collapsed;
+            }
         }
         finally
         {
