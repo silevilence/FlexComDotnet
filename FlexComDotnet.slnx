@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FlexComDotnet.Core/FlexComDotnet.Core.csproj" />
+    <Project Path="src/FlexComDotnet/FlexComDotnet.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FlexComDotnet.Tests/FlexComDotnet.Tests.csproj" />
+  </Folder>
+</Solution>
