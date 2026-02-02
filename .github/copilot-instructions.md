@@ -19,7 +19,7 @@ FlexComDotnet/
 │   │   ├── Converters/           # XAML 值转换器
 │   │   ├── Features/
 │   │   │   └── Serial/
-│   │   │       └── Views/        # 串口配置视图 (XAML)
+│   │   │       └── Views/        # 串口视图 (Config/Communication/CommandList)
 │   │   ├── Services/             # DI 服务注册
 │   │   ├── App.xaml(.cs)         # 应用入口
 │   │   └── MainWindow.xaml(.cs)  # 主窗口
@@ -27,12 +27,13 @@ FlexComDotnet/
 │   └── FlexComDotnet.Core/       # 核心业务层 (无 UI 依赖)
 │       └── Features/
 │           └── Serial/
+│               ├── Helpers/      # 工具类 (HexHelper, ChecksumHelper)
 │               ├── Models/       # 数据模型 & 枚举
-│               ├── Services/     # 串口服务接口与实现
+│               ├── Services/     # 串口/配置/存储服务
 │               └── ViewModels/   # MVVM ViewModel
 │
 └── tests/
-    └── FlexComDotnet.Tests/      # 单元测试
+    └── FlexComDotnet.Tests/      # 单元测试 (199 个用例)
         └── Features/
             └── Serial/           # 串口功能测试
 ```

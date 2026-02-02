@@ -1,0 +1,108 @@
+<UserControl x:Class="FlexComDotnet.Features.Layout.Controls.CollapsiblePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="280"
+             Background="White">
+    
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        
+        <Style x:Key="HeaderButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#666666"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#E0E0E0"/>
+                                <Setter Property="Foreground" Value="#333333"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 标题栏 -->
+        <Border x:Name="HeaderBorder"
+                Grid.Row="0" 
+                Background="#F3F3F3"
+                BorderBrush="#E0E0E0"
+                BorderThickness="0,0,0,1"
+                Padding="8,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 展开/折叠图标 -->
+                <Button x:Name="ToggleButton"
+                        Grid.Column="0"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        Click="ToggleButton_Click"
+                        Margin="0,0,4,0">
+                    <TextBlock x:Name="ToggleIcon" 
+                               Text="▼" 
+                               FontSize="10"
+                               RenderTransformOrigin="0.5,0.5">
+                        <TextBlock.RenderTransform>
+                            <RotateTransform x:Name="ToggleIconRotation" Angle="0"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                </Button>
+                
+                <!-- 标题 -->
+                <TextBlock x:Name="TitleText"
+                           Grid.Column="1"
+                           Text="面板标题"
+                           FontWeight="SemiBold"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="#333333"/>
+                
+                <!-- 操作按钮区域 -->
+                <StackPanel x:Name="ActionButtons"
+                            Grid.Column="2"
+                            Orientation="Horizontal">
+                    <!-- 隐藏按钮 -->
+                    <Button x:Name="HideButton"
+                            Style="{StaticResource HeaderButtonStyle}"
+                            ToolTip="隐藏面板"
+                            Click="HideButton_Click"
+                            Margin="4,0,0,0">
+                        <TextBlock Text="✕" FontSize="10"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- 内容区域 -->
+        <Border x:Name="ContentBorder"
+                Grid.Row="1"
+                Visibility="Visible">
+            <ContentPresenter x:Name="ContentArea" Content="{Binding}"/>
+        </Border>
+    </Grid>
+</UserControl>

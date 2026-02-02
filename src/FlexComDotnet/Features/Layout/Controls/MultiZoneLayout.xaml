@@ -1,0 +1,101 @@
+<UserControl x:Class="FlexComDotnet.Features.Layout.Controls.MultiZoneLayout"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="1200"
+             Background="White">
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition x:Name="BottomRowDefinition" Height="0"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 上部区域 (Left + Center + Right) -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="LeftColumnDefinition" Width="280" MinWidth="200" MaxWidth="450"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*" MinWidth="400"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition x:Name="RightColumnDefinition" Width="300" MinWidth="200" MaxWidth="450"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- 左侧区域 -->
+            <Border x:Name="LeftZoneBorder"
+                    Grid.Column="0"
+                    Background="#FAFAFA"
+                    BorderBrush="#E0E0E0"
+                    BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" 
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="LeftZonePanel"/>
+                </ScrollViewer>
+            </Border>
+            
+            <!-- 左侧分隔条 -->
+            <GridSplitter x:Name="LeftSplitter"
+                          Grid.Column="1"
+                          Width="4"
+                          HorizontalAlignment="Center"
+                          Background="Transparent"
+                          Cursor="SizeWE"
+                          DragCompleted="Splitter_DragCompleted"/>
+            
+            <!-- 中央区域 (主要内容) -->
+            <Border x:Name="CenterZoneBorder"
+                    Grid.Column="2"
+                    Background="White">
+                <ContentPresenter x:Name="CenterContent"/>
+            </Border>
+            
+            <!-- 右侧分隔条 -->
+            <GridSplitter x:Name="RightSplitter"
+                          Grid.Column="3"
+                          Width="4"
+                          HorizontalAlignment="Center"
+                          Background="Transparent"
+                          Cursor="SizeWE"
+                          DragCompleted="Splitter_DragCompleted"/>
+            
+            <!-- 右侧区域 -->
+            <Border x:Name="RightZoneBorder"
+                    Grid.Column="4"
+                    Background="#FAFAFA"
+                    BorderBrush="#E0E0E0"
+                    BorderThickness="1,0,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" 
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="RightZonePanel"/>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+        
+        <!-- 底部分隔条 -->
+        <GridSplitter x:Name="BottomSplitter"
+                      Grid.Row="1"
+                      Height="4"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      Background="Transparent"
+                      Cursor="SizeNS"
+                      Visibility="Collapsed"
+                      DragCompleted="Splitter_DragCompleted"/>
+        
+        <!-- 底部区域 -->
+        <Border x:Name="BottomZoneBorder"
+                Grid.Row="2"
+                Background="#FAFAFA"
+                BorderBrush="#E0E0E0"
+                BorderThickness="0,1,0,0"
+                Visibility="Collapsed">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" 
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="BottomZonePanel" Orientation="Vertical"/>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

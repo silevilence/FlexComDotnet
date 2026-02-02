@@ -1,3 +1,5 @@
+using FlexComDotnet.Core.Features.Layout.Models;
+
 namespace FlexComDotnet.Core.Features.Serial.Models;
 
 /// <summary>
@@ -14,6 +16,11 @@ public class AppConfig
     /// 显示配置
     /// </summary>
     public DisplayConfig DisplayConfig { get; set; } = new();
+
+    /// <summary>
+    /// 布局状态配置
+    /// </summary>
+    public LayoutState LayoutState { get; set; } = new();
 
     /// <summary>
     /// 配置版本号，用于未来兼容性升级

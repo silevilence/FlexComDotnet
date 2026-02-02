@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using FlexComDotnet.Core.Features.Serial.Services;
 using FlexComDotnet.Core.Features.Serial.ViewModels;
+using FlexComDotnet.Core.Features.Layout.Services;
 
 namespace FlexComDotnet.Services;
 
@@ -25,6 +26,9 @@ public static class ServiceCollectionExtensions
 
         // 指令存储服务 (单例)
         services.AddSingleton<ICommandStorageService, LiteDbCommandStorageService>();
+
+        // 面板管理器 (单例)
+        services.AddSingleton<IPanelManager, PanelManager>();
 
         // ViewModels (瞬态)
         services.AddTransient<SerialConfigViewModel>();
