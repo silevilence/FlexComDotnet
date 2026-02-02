@@ -15,5 +15,8 @@ public partial class MainWindow : Window
         
         // 设置串口配置面板的 DataContext
         SerialConfigPanel.DataContext = App.Services.GetRequiredService<SerialConfigViewModel>();
+        
+        // 设置收发区域的 DataContext
+        SerialCommunicationPanel.DataContext = App.Services.GetRequiredService<SerialCommunicationViewModel>();
     }
 }

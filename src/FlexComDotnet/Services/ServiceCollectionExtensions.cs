@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
 
         // ViewModels (瞬态)
         services.AddTransient<SerialConfigViewModel>();
+        services.AddTransient<SerialCommunicationViewModel>();
 
         return services;
     }

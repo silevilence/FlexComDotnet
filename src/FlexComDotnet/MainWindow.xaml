@@ -34,13 +34,8 @@
                       Background="Transparent"
                       Cursor="SizeWE"/>
         
-        <!-- 右侧：主内容区 (预留) -->
-        <Grid Grid.Column="2" Background="White">
-            <TextBlock Text="收发区域（待实现）" 
-                       HorizontalAlignment="Center" 
-                       VerticalAlignment="Center"
-                       FontSize="18"
-                       Foreground="#888888"/>
-        </Grid>
+        <!-- 右侧：收发区域 -->
+        <serialViews:SerialCommunicationView Grid.Column="2" 
+                                              x:Name="SerialCommunicationPanel"/>
     </Grid>
 </Window>
