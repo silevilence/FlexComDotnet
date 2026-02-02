@@ -4,9 +4,43 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FlexComDotnet"
+        xmlns:serialViews="clr-namespace:FlexComDotnet.Features.Serial.Views"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="FlexCom - 串口调试助手" 
+        Height="600" 
+        Width="1000"
+        MinHeight="500"
+        MinWidth="800"
+        WindowStartupLocation="CenterScreen">
     <Grid>
-
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="280" MinWidth="240" MaxWidth="350"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- 左侧：串口配置面板 -->
+        <Border Grid.Column="0" 
+                Background="#FAFAFA"
+                BorderBrush="#E0E0E0"
+                BorderThickness="0,0,1,0">
+            <serialViews:SerialConfigView x:Name="SerialConfigPanel"/>
+        </Border>
+        
+        <!-- 分隔条 -->
+        <GridSplitter Grid.Column="1" 
+                      Width="4" 
+                      HorizontalAlignment="Center"
+                      Background="Transparent"
+                      Cursor="SizeWE"/>
+        
+        <!-- 右侧：主内容区 (预留) -->
+        <Grid Grid.Column="2" Background="White">
+            <TextBlock Text="收发区域（待实现）" 
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center"
+                       FontSize="18"
+                       Foreground="#888888"/>
+        </Grid>
     </Grid>
 </Window>

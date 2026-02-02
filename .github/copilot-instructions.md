@@ -11,8 +11,30 @@
 ## 2. 目录结构
 ```
 FlexComDotnet/
-├── src/                          # 应用源代码
-├── tests/                       # 测试代码
+├── .github/
+│   ├── prompts/                  # AI Prompt 模板
+│   └── copilot-instructions.md   # Copilot 开发指南
+├── src/
+│   ├── FlexComDotnet/            # WPF UI 层
+│   │   ├── Converters/           # XAML 值转换器
+│   │   ├── Features/
+│   │   │   └── Serial/
+│   │   │       └── Views/        # 串口配置视图 (XAML)
+│   │   ├── Services/             # DI 服务注册
+│   │   ├── App.xaml(.cs)         # 应用入口
+│   │   └── MainWindow.xaml(.cs)  # 主窗口
+│   │
+│   └── FlexComDotnet.Core/       # 核心业务层 (无 UI 依赖)
+│       └── Features/
+│           └── Serial/
+│               ├── Models/       # 数据模型 & 枚举
+│               ├── Services/     # 串口服务接口与实现
+│               └── ViewModels/   # MVVM ViewModel
+│
+└── tests/
+    └── FlexComDotnet.Tests/      # 单元测试
+        └── Features/
+            └── Serial/           # 串口功能测试
 ```
 
 **关键文件说明：**
@@ -40,11 +62,10 @@ FlexComDotnet/
 - **添加 NuGet 包**: `dotnet add xxx.csproj package [PackageName]`
 - **移除 NuGet 包**: `dotnet remove xxx.csproj package [PackageName]`
 - **列出依赖**: `dotnet list package`
-- **更新依赖**: `dotnet update`
 
 ### 项目管理
 - **创建新解决方案**: `dotnet new sln`
-- **添加项目到解决方案**: `dotnet sln add `
+- **添加项目到解决方案**: `dotnet sln add [项目路径]`
 - **检查 SDK 版本**: `dotnet --version`
 - **清理 NuGet 缓存**: `dotnet nuget locals all --clear`
 
@@ -66,6 +87,10 @@ FlexComDotnet/
 
 ## 5. Agent 行为准则 (Behavior Guidelines)
 
+### CLI First 原则
+- **依赖管理**: 添加/移除 NuGet 包**必须**使用 `dotnet add/remove package` 命令，**严禁**直接编辑 `.csproj` 文件。
+- **项目操作**: 创建项目、添加引用等操作优先使用 `dotnet` CLI。
+
 ### Git 操作
 - **被动模式**: 禁止主动执行 git commit, push, pull 等操作。
 - **显式触发**: 仅在用户明确使用相关 Skill 或指令要求进行版本控制操作时执行。
@@ -84,17 +109,19 @@ FlexComDotnet/
 - **架构模式**: MVVM with CommunityToolkit.Mvvm
 
 **核心功能库：**
-- **串口通信**: System.IO.Ports
-- **本地存储**: LiteDB (文档数据库)
-- **脚本引擎**: NLua (Lua 脚本支持)
-- **配置管理**: Microsoft.Extensions.Configuration.Json
-- **依赖注入**: Microsoft.Extensions.DependencyInjection
+- **串口通信**: System.IO.Ports 10.0.2
+- **WMI 查询**: System.Management 10.0.2
+- **本地存储**: LiteDB 5.0.21 (文档数据库)
+- **脚本引擎**: NLua 1.7.8 (Lua 脚本支持)
+- **配置管理**: Microsoft.Extensions.Configuration.Json 10.0.2
+- **依赖注入**: Microsoft.Extensions.DependencyInjection 10.0.2
+- **MVVM 工具包**: CommunityToolkit.Mvvm 8.4.0
 
 **开发工具：**
-- **测试框架**: xUnit
-- **断言库**: FluentAssertions
-- **模拟框架**: Moq
-- **代码覆盖率**: coverlet.collector
+- **测试框架**: xUnit 2.9.3
+- **断言库**: FluentAssertions 8.8.0
+- **模拟框架**: Moq 4.20.72
+- **代码覆盖率**: coverlet.collector 6.0.4
 
 ### 代码质量配置
 - **可为空引用类型**: 启用
@@ -117,6 +144,13 @@ FlexComDotnet/
 - **测试覆盖**: 所有功能必须包含单元测试
 
 ## 7. 开发最佳实践
+
+### 命名规范
+- **项目命名**: `FlexComDotnet.{Layer}` (如 Core, Tests)
+- **命名空间**: `FlexComDotnet.{Layer}.Features.{Feature}.{SubFolder}`
+- **接口**: `I{Name}` (如 `ISerialPortService`)
+- **ViewModel**: `{Feature}ViewModel` (如 `SerialConfigViewModel`)
+- **测试类**: `{ClassName}Tests` (如 `SerialPortServiceTests`)
 
 ### 功能开发流程
 1. **需求分析**: 参考 ROADMAP.md 确定功能优先级

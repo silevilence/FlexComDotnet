@@ -1,6 +1,6 @@
-﻿using System.Configuration;
-using System.Data;
-using System.Windows;
+﻿using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
+using FlexComDotnet.Services;
 
 namespace FlexComDotnet;
 
@@ -9,5 +9,23 @@ namespace FlexComDotnet;
 /// </summary>
 public partial class App : Application
 {
+    /// <summary>
+    /// 服务提供者
+    /// </summary>
+    public static IServiceProvider Services { get; private set; } = null!;
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+
+        // 配置依赖注入
+        var services = new ServiceCollection();
+        services.AddAppServices();
+        Services = services.BuildServiceProvider();
+
+        // 创建并显示主窗口
+        var mainWindow = new MainWindow();
+        mainWindow.Show();
+    }
 }
 
