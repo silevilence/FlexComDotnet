@@ -168,6 +168,11 @@
                                     </Style>
                                 </ToggleButton.Style>
                             </ToggleButton>
+                            <Button Content="保存"
+                                    Click="SaveLog_Click"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Padding="8,2"
+                                    ToolTip="保存通信日志"/>
                             <Button Content="清空"
                                     Command="{Binding ClearReceivedCommand}"
                                     Style="{StaticResource ActionButtonStyle}"

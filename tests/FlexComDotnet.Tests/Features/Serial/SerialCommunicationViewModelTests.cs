@@ -14,17 +14,22 @@ public class SerialCommunicationViewModelTests
 {
     private readonly Mock<ISerialPortService> _mockSerialPortService;
     private readonly Mock<IConfigurationService> _mockConfigurationService;
+    private readonly Mock<ILogSaveService> _mockLogSaveService;
     private readonly SerialCommunicationViewModel _viewModel;
 
     public SerialCommunicationViewModelTests()
     {
         _mockSerialPortService = new Mock<ISerialPortService>();
         _mockConfigurationService = new Mock<IConfigurationService>();
+        _mockLogSaveService = new Mock<ILogSaveService>();
         
         // 设置默认配置
         _mockConfigurationService.Setup(c => c.Load()).Returns(new AppConfig());
         
-        _viewModel = new SerialCommunicationViewModel(_mockSerialPortService.Object, _mockConfigurationService.Object);
+        _viewModel = new SerialCommunicationViewModel(
+            _mockSerialPortService.Object, 
+            _mockConfigurationService.Object,
+            _mockLogSaveService.Object);
     }
 
     #region 初始化测试
@@ -743,9 +748,10 @@ public class SerialCommunicationViewModelTests
         };
         mockConfig.Setup(c => c.Load()).Returns(appConfig);
         var mockSerialPort = new Mock<ISerialPortService>();
+        var mockLogSave = new Mock<ILogSaveService>();
 
         // Act
-        var viewModel = new SerialCommunicationViewModel(mockSerialPort.Object, mockConfig.Object);
+        var viewModel = new SerialCommunicationViewModel(mockSerialPort.Object, mockConfig.Object, mockLogSave.Object);
 
         // Assert
         viewModel.IsHexDisplayMode.Should().BeTrue();

@@ -17,6 +17,17 @@ public partial class MainWindow : Window
         SerialConfigPanel.DataContext = App.Services.GetRequiredService<SerialConfigViewModel>();
         
         // 设置收发区域的 DataContext
-        SerialCommunicationPanel.DataContext = App.Services.GetRequiredService<SerialCommunicationViewModel>();
+        var communicationViewModel = App.Services.GetRequiredService<SerialCommunicationViewModel>();
+        SerialCommunicationPanel.DataContext = communicationViewModel;
+        
+        // 设置指令列表面板的 DataContext
+        var commandListViewModel = App.Services.GetRequiredService<CommandListViewModel>();
+        CommandListPanel.DataContext = commandListViewModel;
+        
+        // 订阅指令列表的发送请求事件
+        commandListViewModel.SendDataRequested += (sender, data) =>
+        {
+            communicationViewModel.SendData(data);
+        };
     }
 }

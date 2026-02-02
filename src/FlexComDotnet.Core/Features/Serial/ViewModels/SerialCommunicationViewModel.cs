@@ -20,10 +20,45 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 {
     private readonly ISerialPortService _serialPortService;
     private readonly IConfigurationService _configurationService;
+    private readonly ILogSaveService _logSaveService;
     private readonly List<DataRecord> _dataRecords = [];
     private readonly List<DataRecord> _pausedRecords = [];
     private readonly System.Timers.Timer _sendTimer;
     private bool _disposed;
+
+    #region 日志保存属性
+
+    /// <summary>
+    /// 日志保存格式
+    /// </summary>
+    [ObservableProperty]
+    private LogSaveFormat _logSaveFormat = LogSaveFormat.Text;
+
+    /// <summary>
+    /// 日志保存是否包含发送数据
+    /// </summary>
+    [ObservableProperty]
+    private bool _logIncludeTx = true;
+
+    /// <summary>
+    /// 日志保存是否包含接收数据
+    /// </summary>
+    [ObservableProperty]
+    private bool _logIncludeRx = true;
+
+    /// <summary>
+    /// 日志保存是否使用 Hex 格式
+    /// </summary>
+    [ObservableProperty]
+    private bool _logUseHexFormat;
+
+    /// <summary>
+    /// 日志保存状态
+    /// </summary>
+    [ObservableProperty]
+    private string _logSaveStatus = string.Empty;
+
+    #endregion
 
     #region 基础属性
 
@@ -189,10 +224,11 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     #endregion
 
-    public SerialCommunicationViewModel(ISerialPortService serialPortService, IConfigurationService configurationService)
+    public SerialCommunicationViewModel(ISerialPortService serialPortService, IConfigurationService configurationService, ILogSaveService logSaveService)
     {
         _serialPortService = serialPortService;
         _configurationService = configurationService;
+        _logSaveService = logSaveService;
 
         // 初始化定时器
         _sendTimer = new System.Timers.Timer(TimerInterval);
@@ -493,6 +529,63 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         RxBytes += data.Length;
         
         AddDataRecord(data, isTx: false);
+    }
+
+    /// <summary>
+    /// 获取当前数据记录列表（用于日志保存）
+    /// </summary>
+    public IReadOnlyList<DataRecord> GetDataRecords() => _dataRecords.AsReadOnly();
+
+    /// <summary>
+    /// 保存日志到指定路径
+    /// </summary>
+    /// <param name="filePath">保存路径</param>
+    /// <returns>是否保存成功</returns>
+    public bool SaveLog(string filePath)
+    {
+        var options = new LogSaveOptions
+        {
+            Format = LogSaveFormat,
+            IncludeTx = LogIncludeTx,
+            IncludeRx = LogIncludeRx,
+            UseHexFormat = LogUseHexFormat
+        };
+
+        var records = _dataRecords.Select(r => new LogRecord(r.Data, r.IsTx, r.Timestamp));
+        var result = _logSaveService.Save(filePath, records, options);
+
+        LogSaveStatus = result
+            ? $"日志已保存: {Path.GetFileName(filePath)}"
+            : "日志保存失败";
+
+        return result;
+    }
+
+    /// <summary>
+    /// 获取推荐的日志文件扩展名
+    /// </summary>
+    public string GetRecommendedLogExtension() => _logSaveService.GetRecommendedExtension(LogSaveFormat);
+
+    /// <summary>
+    /// 发送外部数据（由指令列表调用）
+    /// </summary>
+    /// <param name="data">要发送的数据</param>
+    /// <returns>是否发送成功</returns>
+    public bool SendData(byte[] data)
+    {
+        if (!IsConnected || data == null || data.Length == 0)
+        {
+            return false;
+        }
+
+        var success = _serialPortService.Send(data);
+        if (success)
+        {
+            TxBytes += data.Length;
+            AddDataRecord(data, isTx: true);
+        }
+
+        return success;
     }
 
     /// <summary>

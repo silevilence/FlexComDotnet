@@ -20,9 +20,16 @@ public static class ServiceCollectionExtensions
         // 串口服务 (单例)
         services.AddSingleton<ISerialPortService, SerialPortService>();
 
+        // 日志保存服务 (单例)
+        services.AddSingleton<ILogSaveService, LogSaveService>();
+
+        // 指令存储服务 (单例)
+        services.AddSingleton<ICommandStorageService, LiteDbCommandStorageService>();
+
         // ViewModels (瞬态)
         services.AddTransient<SerialConfigViewModel>();
         services.AddTransient<SerialCommunicationViewModel>();
+        services.AddTransient<CommandListViewModel>();
 
         return services;
     }

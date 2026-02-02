@@ -198,3 +198,69 @@ public class BoolToTextConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// 布尔值到可见性转换器
+/// </summary>
+public class BoolToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool boolValue)
+        {
+            return boolValue ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        }
+        return System.Windows.Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is System.Windows.Visibility visibility)
+        {
+            return visibility == System.Windows.Visibility.Visible;
+        }
+        return false;
+    }
+}
+
+/// <summary>
+/// 空值到布尔值转换器（非空为 true）
+/// </summary>
+public class NullToBoolConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value != null;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// 日志保存格式显示转换器
+/// </summary>
+public class LogSaveFormatDisplayConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is Core.Features.Serial.Services.LogSaveFormat format)
+        {
+            return format switch
+            {
+                Core.Features.Serial.Services.LogSaveFormat.Text => "文本 (.txt)",
+                Core.Features.Serial.Services.LogSaveFormat.Binary => "二进制 (.bin)",
+                Core.Features.Serial.Services.LogSaveFormat.BinaryWithTimestamp => "带时间戳二进制 (.bin)",
+                _ => format.ToString()
+            };
+        }
+        return value?.ToString() ?? "";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

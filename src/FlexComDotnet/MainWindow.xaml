@@ -7,16 +7,18 @@
         xmlns:serialViews="clr-namespace:FlexComDotnet.Features.Serial.Views"
         mc:Ignorable="d"
         Title="FlexCom - 串口调试助手" 
-        Height="600" 
-        Width="1000"
+        Height="650" 
+        Width="1200"
         MinHeight="500"
-        MinWidth="800"
+        MinWidth="900"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="280" MinWidth="240" MaxWidth="350"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="300" MinWidth="250" MaxWidth="400"/>
         </Grid.ColumnDefinitions>
         
         <!-- 左侧：串口配置面板 -->
@@ -27,15 +29,30 @@
             <serialViews:SerialConfigView x:Name="SerialConfigPanel"/>
         </Border>
         
-        <!-- 分隔条 -->
+        <!-- 左分隔条 -->
         <GridSplitter Grid.Column="1" 
                       Width="4" 
                       HorizontalAlignment="Center"
                       Background="Transparent"
                       Cursor="SizeWE"/>
         
-        <!-- 右侧：收发区域 -->
+        <!-- 中间：收发区域 -->
         <serialViews:SerialCommunicationView Grid.Column="2" 
                                               x:Name="SerialCommunicationPanel"/>
+        
+        <!-- 右分隔条 -->
+        <GridSplitter Grid.Column="3" 
+                      Width="4" 
+                      HorizontalAlignment="Center"
+                      Background="Transparent"
+                      Cursor="SizeWE"/>
+        
+        <!-- 右侧：指令列表面板 -->
+        <Border Grid.Column="4" 
+                Background="#FAFAFA"
+                BorderBrush="#E0E0E0"
+                BorderThickness="1,0,0,0">
+            <serialViews:CommandListView x:Name="CommandListPanel"/>
+        </Border>
     </Grid>
 </Window>
