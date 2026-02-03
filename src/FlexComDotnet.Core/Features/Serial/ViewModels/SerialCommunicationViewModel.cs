@@ -149,6 +149,19 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     }
 
     /// <summary>
+    /// 时间戳是否显示日期
+    /// </summary>
+    [ObservableProperty]
+    private bool _showDateInTimestamp;
+
+    partial void OnShowDateInTimestampChanged(bool value)
+    {
+        // 切换日期显示时刷新显示并保存配置
+        RefreshDisplay();
+        SaveDisplayConfig();
+    }
+
+    /// <summary>
     /// 是否自动换行
     /// </summary>
     [ObservableProperty]
@@ -258,6 +271,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 #pragma warning disable MVVMTK0034
         _isHexDisplayMode = config.DisplayConfig.IsHexDisplayMode;
         _showTimestamp = config.DisplayConfig.ShowTimestamp;
+        _showDateInTimestamp = config.DisplayConfig.ShowDateInTimestamp;
         _autoLineBreak = config.DisplayConfig.AutoLineBreak;
         _isHexSendMode = config.DisplayConfig.IsHexSendMode;
 #pragma warning restore MVVMTK0034
@@ -265,6 +279,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         // 通知属性变化
         OnPropertyChanged(nameof(IsHexDisplayMode));
         OnPropertyChanged(nameof(ShowTimestamp));
+        OnPropertyChanged(nameof(ShowDateInTimestamp));
         OnPropertyChanged(nameof(AutoLineBreak));
         OnPropertyChanged(nameof(IsHexSendMode));
     }
@@ -277,6 +292,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         var config = _configurationService.Load();
         config.DisplayConfig.IsHexDisplayMode = IsHexDisplayMode;
         config.DisplayConfig.ShowTimestamp = ShowTimestamp;
+        config.DisplayConfig.ShowDateInTimestamp = ShowDateInTimestamp;
         config.DisplayConfig.AutoLineBreak = AutoLineBreak;
         config.DisplayConfig.IsHexSendMode = IsHexSendMode;
         _configurationService.Save(config);
@@ -464,7 +480,8 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         // 添加时间戳
         if (ShowTimestamp)
         {
-            var timestamp = record.Timestamp.ToString("HH:mm:ss.fff");
+            var format = ShowDateInTimestamp ? "yyyy-MM-dd HH:mm:ss.fff" : "HH:mm:ss.fff";
+            var timestamp = record.Timestamp.ToString(format);
             prefix = $"[{timestamp}] {prefix}";
         }
 

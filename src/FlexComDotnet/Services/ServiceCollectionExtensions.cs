@@ -15,6 +15,9 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAppServices(this IServiceCollection services)
     {
+        // 主题服务 (单例)
+        services.AddSingleton<IThemeService, ThemeService>();
+
         // 配置服务 (单例)
         services.AddSingleton<IConfigurationService, JsonConfigurationService>();
         

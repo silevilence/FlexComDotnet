@@ -4,14 +4,14 @@
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![WPF](https://img.shields.io/badge/WPF-Windows-0078D4?logo=windows)
-![Tests](https://img.shields.io/badge/Tests-199%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-236%20Passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## 📋 项目状态
 
-**🚧 开发中 - Phase 2 (高级功能与布局优化)**
+**🚧 开发中 - Phase 3 (UI 美化与高级功能)**
 
-当前版本已完成串口基础功能，正在开发多区域可折叠布局。
+当前版本已完成串口基础功能、多区域布局、主题系统，正在开发独立校验计算器。
 
 ## ✨ 功能列表
 
@@ -22,15 +22,16 @@
 - [x] **基础收发功能** - 实时数据接收显示、Hex/ASCII 模式切换、文本/Hex 发送
 - [x] **用户配置持久化** - JSON 配置文件自动保存/加载
 - [x] **发送辅助工具** - 定时循环发送、自动追加换行符、自动追加校验位 (Checksum/CRC16-MODBUS)
-- [x] **视图交互与日志** - 通信日志保存、时间戳显示、Rx/Tx 计数器、暂停滚动/清空接收区
+- [x] **视图交互与日志** - 通信日志保存、时间戳显示(支持日期切换)、Rx/Tx 计数器、暂停滚动/清空接收区
 - [x] **多条指令列表** - 预设指令管理 (添加/编辑/删除/拖拽排序)、LiteDB 数据持久化、快速发送
+- [x] **多区域可折叠布局** - VS Code 风格三区架构 (Left/Right/Bottom)、Activity Bar 导航、面板拖拽移动
+- [x] **主题系统** - 浅色/深色/跟随系统三种模式、科技风格 UI (Panuon.WPF.UI)、主题设置持久化
 
 ### 🚧 开发中
-- [ ] **多区域可折叠布局** - VS Code 风格三区架构 (Left/Right/Bottom)、Activity Bar 导航
+- [ ] **独立校验与摘要计算器** - CRC/Checksum/MD5/SHA 等算法支持
 
 ### 🔜 计划中
 - [ ] 智能自动回复系统 (匹配回复/顺序回复)
-- [ ] 独立校验与摘要计算器 (CRC/Checksum/MD5/SHA)
 - [ ] 数据可视化与实时示波器
 - [ ] 通用帧协议解析引擎
 - [ ] Lua 脚本系统
@@ -71,13 +72,18 @@ FlexComDotnet/
 │   ├── FlexComDotnet/              # WPF UI 层
 │   │   ├── Converters/             # XAML 值转换器
 │   │   ├── Features/
+│   │   │   ├── Layout/Controls/    # 布局控件 (ActivityBar, CollapsiblePanel 等)
 │   │   │   └── Serial/Views/       # 串口视图 (Config/Communication/CommandList)
-│   │   ├── Services/               # DI 服务注册
+│   │   ├── Services/               # UI 层服务 (主题服务)
+│   │   ├── Themes/                 # 主题资源 (Light/Dark)
 │   │   ├── App.xaml                # 应用入口
 │   │   └── MainWindow.xaml         # 主窗口
 │   │
 │   └── FlexComDotnet.Core/         # 核心业务层 (无 UI 依赖)
 │       └── Features/
+│           ├── Layout/             # 布局模型与服务
+│           │   ├── Models/         # 布局状态模型
+│           │   └── Services/       # 面板管理器
 │           └── Serial/
 │               ├── Helpers/        # 工具类 (Hex/Checksum)
 │               ├── Models/         # 数据模型 & 枚举
@@ -85,8 +91,10 @@ FlexComDotnet/
 │               └── ViewModels/     # MVVM ViewModel
 │
 └── tests/
-    └── FlexComDotnet.Tests/        # 单元测试 (199 个用例)
-        └── Features/Serial/        # 串口功能测试
+    └── FlexComDotnet.Tests/        # 单元测试 (236 个用例)
+        └── Features/
+            ├── Layout/             # 布局功能测试
+            └── Serial/             # 串口功能测试
 ```
 
 ### 架构模式
@@ -95,13 +103,14 @@ FlexComDotnet/
 - **依赖注入**: 通过 Microsoft.Extensions.DependencyInjection 管理服务生命周期
 - **Feature-first**: 按功能模块组织代码，便于扩展和维护
 - **TDD**: 测试驱动开发，确保代码质量
+- **主题系统**: DynamicResource 绑定实现运行时主题切换
 
 ## 🛠️ 技术栈
 
 | 类别 | 技术 | 版本 |
 |------|------|------|
 | 框架 | .NET | 10.0 |
-| UI | WPF | - |
+| UI | WPF + Panuon.WPF.UI | 1.3.0.2 |
 | MVVM | CommunityToolkit.Mvvm | 8.4.0 |
 | 串口 | System.IO.Ports | 10.0.2 |
 | WMI | System.Management | 10.0.2 |

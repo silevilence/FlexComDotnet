@@ -23,6 +23,10 @@ public partial class App : Application
         services.AddAppServices();
         Services = services.BuildServiceProvider();
 
+        // 初始化主题服务
+        var themeService = Services.GetRequiredService<IThemeService>() as ThemeService;
+        themeService?.Initialize();
+
         // 创建并显示主窗口
         var mainWindow = new MainWindow();
         mainWindow.Show();

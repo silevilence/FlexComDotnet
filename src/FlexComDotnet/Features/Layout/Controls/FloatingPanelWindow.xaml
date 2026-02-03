@@ -23,7 +23,7 @@
             <Setter Property="Height" Value="20"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="#666666"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Margin" Value="2,0"/>
@@ -36,7 +36,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#E0E0E0"/>
+                                <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -54,8 +54,8 @@
         <!-- 标题栏（可拖动） -->
         <Border x:Name="TitleBar" 
                 Grid.Row="0" 
-                Background="#F3F3F3"
-                BorderBrush="#E0E0E0"
+                Background="{DynamicResource PanelHeaderBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="8,4"
                 MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -71,7 +71,7 @@
                            FontWeight="SemiBold"
                            FontSize="12"
                            VerticalAlignment="Center"
-                           Foreground="#333333"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 
                 <!-- 停靠按钮组 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">

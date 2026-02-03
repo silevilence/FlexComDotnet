@@ -5,9 +5,10 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:FlexComDotnet.Features.Serial.Views"
              xmlns:converters="clr-namespace:FlexComDotnet.Converters"
+             xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
              mc:Ignorable="d" 
              d:DesignHeight="400" d:DesignWidth="280"
-             Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+             Background="{DynamicResource SurfaceBrush}">
     
     <UserControl.Resources>
         <converters:BaudRateDisplayConverter x:Key="BaudRateDisplayConverter"/>
@@ -20,16 +21,30 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         
-        <Style x:Key="ConfigComboBoxStyle" TargetType="ComboBox">
-            <Setter Property="Height" Value="28"/>
+        <Style x:Key="ConfigComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Height" Value="32"/>
             <Setter Property="Margin" Value="0,4"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="pu:ComboBoxHelper.CornerRadius" Value="4"/>
+            <Setter Property="pu:ComboBoxHelper.ShadowColor" Value="{DynamicResource PrimaryColor}"/>
+        </Style>
+        
+        <Style x:Key="TechButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="pu:ButtonHelper.CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
         </Style>
     </UserControl.Resources>
     
-    <Border Padding="12" CornerRadius="4">
+    <Border Padding="12" 
+            Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="0,0,1,0">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -44,11 +59,17 @@
             </Grid.RowDefinitions>
             
             <!-- 标题 -->
-            <TextBlock Grid.Row="0" 
-                       Text="串口配置" 
-                       FontSize="16" 
-                       FontWeight="SemiBold"
-                       Margin="0,0,0,12"/>
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                <Path Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"
+                      Fill="{DynamicResource PrimaryBrush}"
+                      Width="20" Height="20"
+                      Stretch="Uniform"
+                      Margin="0,0,8,0"/>
+                <TextBlock Text="串口配置" 
+                           FontSize="16" 
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+            </StackPanel>
             
             <!-- 串口选择 -->
             <Grid Grid.Row="1" Margin="0,4">
@@ -65,13 +86,20 @@
                           Style="{StaticResource ConfigComboBoxStyle}"/>
                 
                 <Button Grid.Column="1"
-                        Content="🔄"
-                        Width="28"
-                        Height="28"
+                        Width="32"
+                        Height="32"
                         Margin="4,4,0,4"
                         ToolTip="刷新串口列表"
                         Command="{Binding RefreshPortsCommand}"
-                        IsEnabled="{Binding IsConfigEnabled}"/>
+                        IsEnabled="{Binding IsConfigEnabled}"
+                        Style="{StaticResource TechButtonStyle}"
+                        Background="{DynamicResource CardBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}">
+                    <Path Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
+                          Fill="{DynamicResource TextSecondaryBrush}"
+                          Width="16" Height="16"
+                          Stretch="Uniform"/>
+                </Button>
             </Grid>
             
             <!-- 波特率 -->
@@ -89,7 +117,8 @@
                           Style="{StaticResource ConfigComboBoxStyle}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource BaudRateDisplayConverter}}"/>
+                            <TextBlock Text="{Binding Converter={StaticResource BaudRateDisplayConverter}}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -110,7 +139,8 @@
                           Style="{StaticResource ConfigComboBoxStyle}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource DataBitsDisplayConverter}}"/>
+                            <TextBlock Text="{Binding Converter={StaticResource DataBitsDisplayConverter}}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -131,7 +161,8 @@
                           Style="{StaticResource ConfigComboBoxStyle}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource StopBitsDisplayConverter}}"/>
+                            <TextBlock Text="{Binding Converter={StaticResource StopBitsDisplayConverter}}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -152,7 +183,8 @@
                           Style="{StaticResource ConfigComboBoxStyle}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource ParityDisplayConverter}}"/>
+                            <TextBlock Text="{Binding Converter={StaticResource ParityDisplayConverter}}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -173,7 +205,8 @@
                           Style="{StaticResource ConfigComboBoxStyle}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource FlowControlDisplayConverter}}"/>
+                            <TextBlock Text="{Binding Converter={StaticResource FlowControlDisplayConverter}}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -182,31 +215,21 @@
             <!-- 连接按钮 -->
             <Button Grid.Row="7"
                     Content="{Binding ConnectionButtonText}"
-                    Height="36"
+                    Height="40"
                     Margin="0,16,0,8"
                     FontSize="14"
-                    Command="{Binding ToggleConnectionCommand}">
+                    FontWeight="SemiBold"
+                    Command="{Binding ToggleConnectionCommand}"
+                    pu:ButtonHelper.CornerRadius="6"
+                    Cursor="Hand">
                 <Button.Style>
-                    <Style TargetType="Button">
-                        <Setter Property="Background" Value="#0078D4"/>
-                        <Setter Property="Foreground" Value="White"/>
+                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                        <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                         <Setter Property="BorderThickness" Value="0"/>
-                        <Setter Property="Cursor" Value="Hand"/>
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}"
-                                            CornerRadius="4"
-                                            Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center"
-                                                          VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                <Setter Property="Background" Value="#D83B01"/>
+                                <Setter Property="Background" Value="{DynamicResource ErrorBrush}"/>
                             </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Opacity" Value="0.9"/>
@@ -221,9 +244,11 @@
             
             <!-- 状态信息 -->
             <Border Grid.Row="8" 
-                    Background="#F5F5F5" 
-                    CornerRadius="4" 
-                    Padding="8"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6" 
+                    Padding="10"
                     VerticalAlignment="Top"
                     Margin="0,4">
                 <Grid>
@@ -232,28 +257,37 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     
-                    <!-- 连接状态指示灯 -->
-                    <Ellipse Grid.Column="0"
-                             Width="10"
-                             Height="10"
-                             Margin="0,0,8,0"
-                             VerticalAlignment="Center">
-                        <Ellipse.Style>
-                            <Style TargetType="Ellipse">
-                                <Setter Property="Fill" Value="#888888"/>
+                    <!-- 连接状态指示灯 (带发光效果) -->
+                    <Border Grid.Column="0"
+                            Width="12"
+                            Height="12"
+                            CornerRadius="6"
+                            Margin="0,0,10,0"
+                            VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{DynamicResource TextMutedBrush}"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                        <Setter Property="Fill" Value="#107C10"/>
+                                        <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
+                                        <Setter Property="Effect">
+                                            <Setter.Value>
+                                                <DropShadowEffect BlurRadius="8" 
+                                                                  ShadowDepth="0" 
+                                                                  Color="#22C55E" 
+                                                                  Opacity="0.8"/>
+                                            </Setter.Value>
+                                        </Setter>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </Ellipse.Style>
-                    </Ellipse>
+                        </Border.Style>
+                    </Border>
                     
                     <TextBlock Grid.Column="1"
                                Text="{Binding StatusMessage}"
-                               FontSize="11"
-                               Foreground="#666666"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap"
                                VerticalAlignment="Center"/>
                 </Grid>

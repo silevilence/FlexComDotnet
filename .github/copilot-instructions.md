@@ -4,7 +4,7 @@
 - **项目名称**: FlexComDotnet
 - **核心语言**: C#
 - **框架版本**: .NET 10
-- **UI 框架**: WPF (Windows Presentation Foundation)
+- **UI 框架**: WPF (Windows Presentation Foundation) + Panuon.WPF.UI
 - **架构模式**: MVVM
 - **核心库**: CommunityToolkit.Mvvm
 
@@ -18,23 +18,28 @@ FlexComDotnet/
 │   ├── FlexComDotnet/            # WPF UI 层
 │   │   ├── Converters/           # XAML 值转换器
 │   │   ├── Features/
-│   │   │   └── Serial/
-│   │   │       └── Views/        # 串口视图 (Config/Communication/CommandList)
-│   │   ├── Services/             # DI 服务注册
+│   │   │   ├── Layout/Controls/  # 布局控件 (ActivityBar, CollapsiblePanel, FloatingPanelWindow, MultiZoneLayout)
+│   │   │   └── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
+│   │   ├── Services/             # UI 层服务 (ThemeService, ServiceCollectionExtensions)
+│   │   ├── Themes/               # 主题资源字典 (DarkTheme.xaml, LightTheme.xaml)
 │   │   ├── App.xaml(.cs)         # 应用入口
 │   │   └── MainWindow.xaml(.cs)  # 主窗口
 │   │
 │   └── FlexComDotnet.Core/       # 核心业务层 (无 UI 依赖)
 │       └── Features/
+│           ├── Layout/
+│           │   ├── Models/       # 布局状态模型 (LayoutState, PanelInfo, PanelZone)
+│           │   └── Services/     # 面板管理器 (IPanelManager)
 │           └── Serial/
 │               ├── Helpers/      # 工具类 (HexHelper, ChecksumHelper)
-│               ├── Models/       # 数据模型 & 枚举
-│               ├── Services/     # 串口/配置/存储服务
-│               └── ViewModels/   # MVVM ViewModel
+│               ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem)
+│               ├── Services/     # 串口/配置/存储服务 (ISerialPortService, IConfigurationService, ICommandStorageService)
+│               └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
 │
 └── tests/
-    └── FlexComDotnet.Tests/      # 单元测试 (199 个用例)
+    └── FlexComDotnet.Tests/      # 单元测试 (236 个用例)
         └── Features/
+            ├── Layout/           # 布局功能测试
             └── Serial/           # 串口功能测试
 ```
 
@@ -50,18 +55,18 @@ FlexComDotnet/
 
 ### 构建与运行
 - **构建项目**: `dotnet build`
-- **运行应用**: `dotnet run --project xxx.csproj`
+- **运行应用**: `dotnet run --project src/FlexComDotnet/FlexComDotnet.csproj`
 - **清理项目**: `dotnet clean`
 - **构建无警告**: `dotnet build --warnaserror`
 
 ### 测试
 - **运行所有测试**: `dotnet test`
-- **运行特定测试项目**: `dotnet test xxx.csproj`
+- **运行特定测试项目**: `dotnet test tests/FlexComDotnet.Tests/FlexComDotnet.Tests.csproj`
 - **测试覆盖率**: `dotnet test --collect:"XPlat Code Coverage"`
 
 ### 依赖管理
-- **添加 NuGet 包**: `dotnet add xxx.csproj package [PackageName]`
-- **移除 NuGet 包**: `dotnet remove xxx.csproj package [PackageName]`
+- **添加 NuGet 包**: `dotnet add src/FlexComDotnet.Core/FlexComDotnet.Core.csproj package [PackageName]`
+- **移除 NuGet 包**: `dotnet remove src/FlexComDotnet.Core/FlexComDotnet.Core.csproj package [PackageName]`
 - **列出依赖**: `dotnet list package`
 
 ### 项目管理
@@ -106,7 +111,7 @@ FlexComDotnet/
 **核心框架：**
 - **.NET SDK**: 10.0.102 (通过 global.json 配置)
 - **目标框架**: net10.0-windows
-- **UI 框架**: WPF (UseWPF=true)
+- **UI 框架**: WPF (UseWPF=true) + Panuon.WPF.UI 1.3.0.2
 - **架构模式**: MVVM with CommunityToolkit.Mvvm
 
 **核心功能库：**
@@ -168,6 +173,12 @@ FlexComDotnet/
 3. **依赖倒置**: 依赖抽象，不依赖具体实现
 4. **接口隔离**: 客户端不应依赖不需要的接口
 5. **里氏替换**: 子类可以替换父类
+
+### 主题系统开发规范
+- **DynamicResource**: UI 元素颜色必须使用 `{DynamicResource BrushName}` 绑定
+- **主题资源**: 新增颜色需同时在 `DarkTheme.xaml` 和 `LightTheme.xaml` 中定义
+- **控件样式**: 全局控件样式覆盖定义在主题文件底部
+- **命名规范**: 颜色用 `{Name}Color`，画刷用 `{Name}Brush`
 
 ### 错误处理策略
 1. **结构化异常**: 使用 try-catch-finally

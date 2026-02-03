@@ -1,11 +1,13 @@
 using System.Windows;
 using System.Windows.Controls;
 using FlexComDotnet.Core.Features.Layout.Models;
+using FlexComDotnet.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlexComDotnet.Features.Layout.Controls;
 
 /// <summary>
-/// VS Code 风格的活动栏控件
+/// VS Code 风格的活动栏控件 (科技感设计)
 /// </summary>
 public partial class ActivityBar : UserControl
 {
@@ -49,12 +51,49 @@ public partial class ActivityBar : UserControl
 
     private readonly ContextMenu _panelMenu;
     private Func<IEnumerable<(string Id, string Title, bool IsVisible)>>? _getPanelsFunc;
+    private readonly IThemeService? _themeService;
 
     public ActivityBar()
     {
         InitializeComponent();
         _panelMenu = new ContextMenu();
         SettingsButton.ContextMenu = _panelMenu;
+
+        // 获取主题服务
+        _themeService = App.Services?.GetService<IThemeService>();
+        
+        // 初始化主题按钮状态
+        if (_themeService != null)
+        {
+            UpdateThemeIcon(_themeService.CurrentMode);
+            _themeService.ModeChanged += OnThemeModeChanged;
+        }
+    }
+
+    /// <summary>
+    /// 主题模式变化回调
+    /// </summary>
+    private void OnThemeModeChanged(object? sender, Services.ThemeMode mode)
+    {
+        Dispatcher.Invoke(() => UpdateThemeIcon(mode));
+    }
+
+    /// <summary>
+    /// 更新主题图标显示
+    /// </summary>
+    private void UpdateThemeIcon(Services.ThemeMode mode)
+    {
+        SunIcon.Visibility = mode == Services.ThemeMode.Light ? Visibility.Visible : Visibility.Collapsed;
+        MoonIcon.Visibility = mode == Services.ThemeMode.Dark ? Visibility.Visible : Visibility.Collapsed;
+        AutoIcon.Visibility = mode == Services.ThemeMode.System ? Visibility.Visible : Visibility.Collapsed;
+
+        ThemeCycleButton.ToolTip = mode switch
+        {
+            Services.ThemeMode.Light => "当前: 浅色模式\n点击切换到: 深色模式",
+            Services.ThemeMode.Dark => "当前: 深色模式\n点击切换到: 跟随系统",
+            Services.ThemeMode.System => "当前: 跟随系统\n点击切换到: 浅色模式",
+            _ => "切换主题"
+        };
     }
 
     /// <summary>
@@ -185,5 +224,11 @@ public partial class ActivityBar : UserControl
             }
         };
         _panelMenu.Items.Add(showAllItem);
+    }
+
+    private void ThemeCycleButton_Click(object sender, RoutedEventArgs e)
+    {
+        // 循环切换主题模式: 浅色→深色→跟随系统→浅色
+        _themeService?.CycleMode();
     }
 }

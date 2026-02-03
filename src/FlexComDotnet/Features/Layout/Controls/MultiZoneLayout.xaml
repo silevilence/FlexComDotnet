@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="1200"
-             Background="White">
+             Background="{DynamicResource BackgroundBrush}">
     
     <Grid>
         <Grid.RowDefinitions>
@@ -27,8 +27,8 @@
             <!-- 左侧区域 -->
             <Border x:Name="LeftZoneBorder"
                     Grid.Column="0"
-                    Background="#FAFAFA"
-                    BorderBrush="#E0E0E0"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="0,0,1,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" 
                               HorizontalScrollBarVisibility="Disabled">
@@ -48,7 +48,7 @@
             <!-- 中央区域 (主要内容) -->
             <Border x:Name="CenterZoneBorder"
                     Grid.Column="2"
-                    Background="White">
+                    Background="{DynamicResource BackgroundBrush}">
                 <ContentPresenter x:Name="CenterContent"/>
             </Border>
             
@@ -64,8 +64,8 @@
             <!-- 右侧区域 -->
             <Border x:Name="RightZoneBorder"
                     Grid.Column="4"
-                    Background="#FAFAFA"
-                    BorderBrush="#E0E0E0"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1,0,0,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" 
                               HorizontalScrollBarVisibility="Disabled">
@@ -88,8 +88,8 @@
         <!-- 底部区域 -->
         <Border x:Name="BottomZoneBorder"
                 Grid.Row="2"
-                Background="#FAFAFA"
-                BorderBrush="#E0E0E0"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="0,1,0,0"
                 Visibility="Collapsed">
             <ScrollViewer VerticalScrollBarVisibility="Auto" 

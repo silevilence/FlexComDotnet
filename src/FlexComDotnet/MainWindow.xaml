@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:FlexComDotnet"
         xmlns:serialViews="clr-namespace:FlexComDotnet.Features.Serial.Views"
         xmlns:layoutControls="clr-namespace:FlexComDotnet.Features.Layout.Controls"
+        xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
         mc:Ignorable="d"
         Title="FlexCom - 串口调试助手" 
         Height="700" 
@@ -13,11 +14,12 @@
         MinHeight="500"
         MinWidth="900"
         WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BackgroundBrush}"
         Closing="Window_Closing">
     
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="48"/>
+            <ColumnDefinition Width="52"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         

@@ -44,6 +44,11 @@ public class DisplayConfig
     public bool ShowTimestamp { get; set; }
 
     /// <summary>
+    /// 时间戳是否显示日期
+    /// </summary>
+    public bool ShowDateInTimestamp { get; set; }
+
+    /// <summary>
     /// 是否自动换行
     /// </summary>
     public bool AutoLineBreak { get; set; } = true;
@@ -52,4 +57,9 @@ public class DisplayConfig
     /// 发送区是否使用 HEX 模式
     /// </summary>
     public bool IsHexSendMode { get; set; }
+
+    /// <summary>
+    /// 主题模式: 0=Light, 1=Dark, 2=System
+    /// </summary>
+    public int ThemeMode { get; set; } = 1; // 默认深色主题
 }
