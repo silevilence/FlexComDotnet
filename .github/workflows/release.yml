@@ -50,10 +50,11 @@ jobs:
           $content = Get-Content $changelogPath -Raw
           
           # 匹配版本标题 (支持 v1.0.0 或 1.0.0 格式)
-          $pattern = "(?ms)^#\s*v?$([regex]::Escape($version))\s*$(.+?)(?=^#\s*v?\d+\.\d+\.\d+|\z)"
+          $escapedVersion = [regex]::Escape($version)
+          $pattern = '(?ms)^#\s*v?' + $escapedVersion + '\s*$(.+?)(?=^#\s*v?\d+\.\d+\.\d+|\z)'
           
           if ($content -match $pattern) {
-            $releaseNotes = $Matches[2].Trim()
+            $releaseNotes = $Matches[1].Trim()
             
             # 写入到文件以便后续步骤使用
             $releaseNotes | Out-File -FilePath "RELEASE_NOTES.md" -Encoding utf8
