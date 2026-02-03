@@ -17,13 +17,14 @@ FlexComDotnet/
 │   └── copilot-instructions.md   # Copilot 开发指南
 ├── src/
 │   ├── FlexComDotnet/            # WPF UI 层
-│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, InverseBoolConverter, EnumToIntConverter 等)
+│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, NetworkConverters, InverseBoolConverter, EnumToIntConverter 等)
 │   │   ├── Features/
 │   │   │   ├── AutoReply/Views/  # 自动回复视图 (AutoReplyView)
 │   │   │   ├── Checksum/Views/   # 校验计算器视图 (ChecksumCalculatorWindow)
 │   │   │   ├── Layout/Controls/  # 布局控件 (ActivityBar, CollapsiblePanel, FloatingPanelWindow, MultiZoneLayout)
 │   │   │   ├── Network/Views/    # 网络连接视图 (ConnectionConfigView)
-│   │   │   └── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
+│   │   │   ├── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
+│   │   │   └── Update/Views/     # 更新视图 (UpdateWindow)
 │   │   ├── Services/             # UI 层服务 (ThemeService, ServiceCollectionExtensions)
 │   │   ├── Themes/               # 主题资源字典 (DarkTheme.xaml, LightTheme.xaml)
 │   │   ├── App.xaml(.cs)         # 应用入口
@@ -46,20 +47,25 @@ FlexComDotnet/
 │           │   ├── Models/       # 连接模型 (ConnectionType, ConnectionState, TcpClientConfig, TcpServerConfig, UdpConfig)
 │           │   ├── Services/     # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
 │           │   └── ViewModels/   # 连接配置 ViewModel (ConnectionConfigViewModel)
-│           └── Serial/
-│               ├── Helpers/      # 工具类 (HexHelper, ChecksumHelper)
-│               ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem, ConnectionConfig)
-│               ├── Services/     # 串口/配置/存储服务 (ISerialPortService, IConfigurationService, ICommandStorageService)
-│               └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
+│           ├── Serial/
+│           │   ├── Helpers/      # 工具类 (HexHelper, ChecksumHelper)
+│           │   ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem, ConnectionConfig)
+│           │   ├── Services/     # 串口/配置/存储服务 (ISerialPortService, IConfigurationService, ICommandStorageService)
+│           │   └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
+│           └── Update/
+│               ├── Models/       # 版本信息模型 (VersionInfo, ReleaseInfo, UpdateCheckResult, DownloadProgress)
+│               ├── Services/     # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService, IDownloadService)
+│               └── ViewModels/   # 更新 ViewModel (UpdateViewModel)
 │
 └── tests/
-    └── FlexComDotnet.Tests/      # 单元测试 (491 个用例)
+    └── FlexComDotnet.Tests/      # 单元测试 (585 个用例)
         └── Features/
             ├── AutoReply/        # 自动回复测试
             ├── Checksum/         # 校验计算器测试
             ├── Layout/           # 布局功能测试
             ├── Network/          # 网络功能测试
-            └── Serial/           # 串口功能测试
+            ├── Serial/           # 串口功能测试
+            └── Update/           # 自动更新测试
 ```
 
 **关键文件说明：**

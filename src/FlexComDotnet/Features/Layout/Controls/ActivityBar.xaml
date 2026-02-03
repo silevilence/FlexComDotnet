@@ -196,6 +196,17 @@
                       Stretch="Uniform"/>
             </Button>
             
+            <!-- 检查更新按钮 -->
+            <Button x:Name="UpdateButton"
+                    Style="{StaticResource TechActivityBarRegularButtonStyle}"
+                    ToolTip="检查更新"
+                    Click="UpdateButton_Click">
+                <Path Data="M21,10.12H14.22L16.96,7.38C14.23,4.65 9.81,4.65 7.08,7.38C4.35,10.11 4.35,14.53 7.08,17.26C9.81,19.99 14.23,19.99 16.96,17.26C18.32,15.9 19,14.12 19,12.34H21C21,14.64 20.05,16.94 18.14,18.85C14.32,22.67 8.03,22.67 4.22,18.85C0.4,15.03 0.4,8.74 4.22,4.92C8.03,1.1 14.32,1.1 18.14,4.92L21,2V10.12Z"
+                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      Width="20" Height="20"
+                      Stretch="Uniform"/>
+            </Button>
+            
             <!-- 主题切换按钮 (三态: 浅色→深色→跟随系统) -->
             <Button x:Name="ThemeCycleButton"
                     Style="{StaticResource ThemeCycleButtonStyle}"
@@ -225,12 +236,12 @@
                 </Grid>
             </Button>
             
-            <!-- 设置按钮 -->
+            <!-- 面板管理按钮 -->
             <Button x:Name="SettingsButton"
                     Style="{StaticResource TechActivityBarRegularButtonStyle}"
-                    ToolTip="设置"
+                    ToolTip="面板管理"
                     Click="SettingsButton_Click">
-                <Path Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
+                <Path Data="M3,3H11V11H3V3M3,13H11V21H3V13M13,3H21V11H13V3M13,13H21V21H13V13M5,5V9H9V5H5M5,15V19H9V15H5M15,5V9H19V5H15M15,15V19H19V15H15Z"
                       Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                       Width="20" Height="20"
                       Stretch="Uniform"/>

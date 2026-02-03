@@ -8,10 +8,12 @@ using FlexComDotnet.Core.Features.Layout.Services;
 using FlexComDotnet.Core.Features.Checksum.ViewModels;
 using FlexComDotnet.Core.Features.AutoReply.ViewModels;
 using FlexComDotnet.Core.Features.Network.ViewModels;
+using FlexComDotnet.Core.Features.Update.ViewModels;
 using FlexComDotnet.Features.Serial.Views;
 using FlexComDotnet.Features.Network.Views;
 using FlexComDotnet.Features.Checksum.Views;
 using FlexComDotnet.Features.AutoReply.Views;
+using FlexComDotnet.Features.Update.Views;
 using static FlexComDotnet.Features.Layout.Controls.ActivityBar;
 
 namespace FlexComDotnet;
@@ -161,8 +163,10 @@ public partial class MainWindow : Window
         ActivityBar.IsRightPanelChecked = !_panelManager.IsZoneCollapsed(PanelZone.Right);
         ActivityBar.IsBottomPanelChecked = !_panelManager.IsZoneCollapsed(PanelZone.Bottom);
         
-        // 设置面板列表提供器（用于面板管理菜单）
-        ActivityBar.SetPanelsProvider(() => _panelManager.Panels.Select(p => (p.Id, p.Title, p.IsVisible)));
+        // 设置面板列表提供器（用于面板管理菜单，过滤掉不可移动的面板）
+        ActivityBar.SetPanelsProvider(() => _panelManager.Panels
+            .Where(p => p.Id != PanelIds.ConnectionConfig)
+            .Select(p => (p.Id, p.Title, p.IsVisible)));
         
         // 订阅面板可见性切换事件
         ActivityBar.PanelVisibilityToggled += (sender, args) =>
@@ -180,6 +184,12 @@ public partial class MainWindow : Window
         ActivityBar.ChecksumCalculatorClicked += (sender, args) =>
         {
             OpenChecksumCalculator();
+        };
+
+        // 订阅更新按钮点击事件
+        ActivityBar.UpdateClicked += (sender, args) =>
+        {
+            OpenUpdateWindow();
         };
     }
 
@@ -222,6 +232,20 @@ public partial class MainWindow : Window
                     ? hexString
                     : $"{communicationVm.SendText} {hexString}";
             }
+        };
+        
+        window.ShowDialog();
+    }
+
+    /// <summary>
+    /// 打开更新窗口
+    /// </summary>
+    private void OpenUpdateWindow()
+    {
+        var viewModel = App.Services.GetRequiredService<UpdateViewModel>();
+        var window = new UpdateWindow(viewModel)
+        {
+            Owner = this
         };
         
         window.ShowDialog();

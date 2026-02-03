@@ -8,6 +8,8 @@ using FlexComDotnet.Core.Features.AutoReply.Services;
 using FlexComDotnet.Core.Features.AutoReply.ViewModels;
 using FlexComDotnet.Core.Features.Network.Services;
 using FlexComDotnet.Core.Features.Network.ViewModels;
+using FlexComDotnet.Core.Features.Update.Services;
+using FlexComDotnet.Core.Features.Update.ViewModels;
 
 namespace FlexComDotnet.Services;
 
@@ -50,6 +52,12 @@ public static class ServiceCollectionExtensions
         // 自动回复服务 (单例)
         services.AddSingleton<IAutoReplyService, AutoReplyService>();
 
+        // 更新服务 (单例)
+        services.AddSingleton<IVersionService, VersionService>();
+        services.AddSingleton<IGitHubReleaseService, GitHubReleaseService>();
+        services.AddSingleton<IDownloadService, DownloadService>();
+        services.AddSingleton<IUpdateService, UpdateService>();
+
         // ViewModels (瞬态)
         services.AddTransient<SerialConfigViewModel>();
         services.AddTransient<SerialCommunicationViewModel>();
@@ -57,6 +65,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ChecksumCalculatorViewModel>();
         services.AddTransient<AutoReplyViewModel>();
         services.AddTransient<ConnectionConfigViewModel>();
+        services.AddTransient<UpdateViewModel>();
 
         return services;
     }

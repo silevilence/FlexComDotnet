@@ -176,11 +176,6 @@ public partial class ActivityBar : UserControl
     {
         _panelMenu.Items.Clear();
 
-        // 添加标题
-        var header = new MenuItem { Header = "面板管理", IsEnabled = false, FontWeight = FontWeights.Bold };
-        _panelMenu.Items.Add(header);
-        _panelMenu.Items.Add(new Separator());
-
         // 获取面板列表
         var panels = _getPanelsFunc?.Invoke();
         if (panels != null)
@@ -240,5 +235,15 @@ public partial class ActivityBar : UserControl
     private void ChecksumCalculatorButton_Click(object sender, RoutedEventArgs e)
     {
         ChecksumCalculatorClicked?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// 更新按钮点击事件
+    /// </summary>
+    public event EventHandler? UpdateClicked;
+
+    private void UpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateClicked?.Invoke(this, EventArgs.Empty);
     }
 }
