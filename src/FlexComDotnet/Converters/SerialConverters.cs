@@ -310,3 +310,67 @@ public class StringToVisibilityConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// 反转布尔值到可见性转换器
+/// </summary>
+public class InverseBoolToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool boolValue)
+        {
+            return boolValue ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+        }
+        return System.Windows.Visibility.Visible;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is System.Windows.Visibility visibility)
+        {
+            return visibility != System.Windows.Visibility.Visible;
+        }
+        return true;
+    }
+}
+
+/// <summary>
+/// 空值到可见性转换器（非空显示）
+/// </summary>
+public class NullToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value != null ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// 枚举到整数转换器
+/// </summary>
+public class EnumToIntConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is Enum enumValue)
+        {
+            return System.Convert.ToInt32(enumValue);
+        }
+        return 0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int intValue && targetType.IsEnum)
+        {
+            return Enum.ToObject(targetType, intValue);
+        }
+        return value;
+    }
+}

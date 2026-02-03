@@ -1,3 +1,4 @@
+using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.Layout.Models;
 
 namespace FlexComDotnet.Core.Features.Serial.Models;
@@ -21,6 +22,11 @@ public class AppConfig
     /// 布局状态配置
     /// </summary>
     public LayoutState LayoutState { get; set; } = new();
+
+    /// <summary>
+    /// 自动回复配置
+    /// </summary>
+    public AutoReplyConfig AutoReplyConfig { get; set; } = new();
 
     /// <summary>
     /// 配置版本号，用于未来兼容性升级

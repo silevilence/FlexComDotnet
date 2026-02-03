@@ -13,11 +13,13 @@
 FlexComDotnet/
 ├── .github/
 │   ├── prompts/                  # AI Prompt 模板
+│   ├── workflows/                # GitHub Actions CI/CD
 │   └── copilot-instructions.md   # Copilot 开发指南
 ├── src/
 │   ├── FlexComDotnet/            # WPF UI 层
-│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, InverseBoolConverter 等)
+│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, InverseBoolConverter, EnumToIntConverter 等)
 │   │   ├── Features/
+│   │   │   ├── AutoReply/Views/  # 自动回复视图 (AutoReplyView)
 │   │   │   ├── Checksum/Views/   # 校验计算器视图 (ChecksumCalculatorWindow)
 │   │   │   ├── Layout/Controls/  # 布局控件 (ActivityBar, CollapsiblePanel, FloatingPanelWindow, MultiZoneLayout)
 │   │   │   └── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
@@ -28,6 +30,10 @@ FlexComDotnet/
 │   │
 │   └── FlexComDotnet.Core/       # 核心业务层 (无 UI 依赖)
 │       └── Features/
+│           ├── AutoReply/
+│           │   ├── Models/       # 配置模型 (ReplyMode, MatchType, MatchRule, SequentialFrame, AutoReplyConfig)
+│           │   ├── Services/     # 回复服务与处理器 (IAutoReplyService, IReplyHandler, MatchReplyHandler, SequentialReplyHandler)
+│           │   └── ViewModels/   # 自动回复 ViewModel (AutoReplyViewModel)
 │           ├── Checksum/
 │           │   ├── Models/       # 算法枚举 (ChecksumAlgorithmType)
 │           │   ├── Services/     # 校验服务与算法策略 (IChecksumService, IChecksumAlgorithm, Algorithms/)
@@ -42,8 +48,9 @@ FlexComDotnet/
 │               └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
 │
 └── tests/
-    └── FlexComDotnet.Tests/      # 单元测试 (306 个用例)
+    └── FlexComDotnet.Tests/      # 单元测试 (377 个用例)
         └── Features/
+            ├── AutoReply/        # 自动回复测试
             ├── Checksum/         # 校验计算器测试
             ├── Layout/           # 布局功能测试
             └── Serial/           # 串口功能测试
@@ -52,6 +59,7 @@ FlexComDotnet/
 **关键文件说明：**
 - `README.md`: 项目说明文档
 - `ROADMAP.md`: 功能开发计划与进度
+- `CHANGELOG.md`: 版本更新日志
 - `FlexComDotnet.slnx`: 解决方案文件
 - `.editorconfig`: 代码风格配置
 - `.gitignore`: Git 忽略文件
@@ -232,8 +240,32 @@ public interface IChecksumService
 }
 ```
 
-### 扩展新算法
-1. 在 `ChecksumAlgorithmType` 枚举中添加新类型
-2. 创建实现 `IChecksumAlgorithm` 的新策略类
-3. 在 `ChecksumService` 构造函数中注册新策略
+### 示例：自动回复处理器策略
+```csharp
+// 接口定义
+public interface IReplyHandler
+{
+    ReplyMode Mode { get; }
+    ReplyResult? Handle(byte[] receivedData);
+    void Reset();
+}
+
+// 具体策略
+public class MatchReplyHandler : IReplyHandler { ... }      // 匹配回复
+public class SequentialReplyHandler : IReplyHandler { ... } // 顺序回复
+
+// 服务封装
+public interface IAutoReplyService
+{
+    void Start();
+    void Stop();
+    void UpdateConfig(AutoReplyConfig config);
+    event EventHandler<ReplyEventArgs>? ReplyTriggered;
+}
+```
+
+### 扩展新算法/处理器
+1. 在对应枚举中添加新类型 (如 `ChecksumAlgorithmType`, `ReplyMode`)
+2. 创建实现对应接口的策略类
+3. 在服务构造函数中注册新策略
 4. 无需修改 ViewModel 或 UI 层代码

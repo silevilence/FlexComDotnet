@@ -6,8 +6,10 @@ using FlexComDotnet.Core.Features.Serial.Helpers;
 using FlexComDotnet.Core.Features.Layout.Models;
 using FlexComDotnet.Core.Features.Layout.Services;
 using FlexComDotnet.Core.Features.Checksum.ViewModels;
+using FlexComDotnet.Core.Features.AutoReply.ViewModels;
 using FlexComDotnet.Features.Serial.Views;
 using FlexComDotnet.Features.Checksum.Views;
+using FlexComDotnet.Features.AutoReply.Views;
 using static FlexComDotnet.Features.Layout.Controls.ActivityBar;
 
 namespace FlexComDotnet;
@@ -21,6 +23,7 @@ public partial class MainWindow : Window
     private readonly IConfigurationService _configService;
     private readonly SerialConfigView _serialConfigView;
     private readonly CommandListView _commandListView;
+    private readonly AutoReplyView _autoReplyView;
     private readonly SerialCommunicationView _serialCommunicationView;
 
     /// <summary>
@@ -30,6 +33,7 @@ public partial class MainWindow : Window
     {
         public const string SerialConfig = "serial-config";
         public const string CommandList = "command-list";
+        public const string AutoReply = "auto-reply";
     }
 
     public MainWindow()
@@ -68,6 +72,9 @@ public partial class MainWindow : Window
             communicationViewModel.SendData(data);
         };
 
+        // 创建自动回复视图
+        _autoReplyView = new AutoReplyView(App.Services.GetRequiredService<AutoReplyViewModel>());
+
         // 初始化布局
         InitializeLayout();
         
@@ -102,6 +109,7 @@ public partial class MainWindow : Window
         // 检查是否已有保存的面板状态
         var savedSerialConfig = _panelManager.GetPanel(PanelIds.SerialConfig);
         var savedCommandList = _panelManager.GetPanel(PanelIds.CommandList);
+        var savedAutoReply = _panelManager.GetPanel(PanelIds.AutoReply);
 
         // 添加串口配置面板（固定在左侧，不可移动）
         MultiZoneLayout.AddPanel(
@@ -121,6 +129,16 @@ public partial class MainWindow : Window
             savedCommandList?.Zone ?? PanelZone.Right,
             isMovable: true,
             order: savedCommandList?.Order ?? 0
+        );
+
+        // 添加自动回复面板（可移动，默认在右侧）
+        MultiZoneLayout.AddPanel(
+            PanelIds.AutoReply,
+            "自动回复",
+            _autoReplyView,
+            savedAutoReply?.Zone ?? PanelZone.Right,
+            isMovable: true,
+            order: savedAutoReply?.Order ?? 1
         );
 
         // 同步 ActivityBar 状态

@@ -4,6 +4,8 @@ using FlexComDotnet.Core.Features.Serial.ViewModels;
 using FlexComDotnet.Core.Features.Layout.Services;
 using FlexComDotnet.Core.Features.Checksum.Services;
 using FlexComDotnet.Core.Features.Checksum.ViewModels;
+using FlexComDotnet.Core.Features.AutoReply.Services;
+using FlexComDotnet.Core.Features.AutoReply.ViewModels;
 
 namespace FlexComDotnet.Services;
 
@@ -38,11 +40,15 @@ public static class ServiceCollectionExtensions
         // 校验和服务 (单例)
         services.AddSingleton<IChecksumService, ChecksumService>();
 
+        // 自动回复服务 (单例)
+        services.AddSingleton<IAutoReplyService, AutoReplyService>();
+
         // ViewModels (瞬态)
         services.AddTransient<SerialConfigViewModel>();
         services.AddTransient<SerialCommunicationViewModel>();
         services.AddTransient<CommandListViewModel>();
         services.AddTransient<ChecksumCalculatorViewModel>();
+        services.AddTransient<AutoReplyViewModel>();
 
         return services;
     }
