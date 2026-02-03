@@ -16,8 +16,9 @@ FlexComDotnet/
 │   └── copilot-instructions.md   # Copilot 开发指南
 ├── src/
 │   ├── FlexComDotnet/            # WPF UI 层
-│   │   ├── Converters/           # XAML 值转换器
+│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, InverseBoolConverter 等)
 │   │   ├── Features/
+│   │   │   ├── Checksum/Views/   # 校验计算器视图 (ChecksumCalculatorWindow)
 │   │   │   ├── Layout/Controls/  # 布局控件 (ActivityBar, CollapsiblePanel, FloatingPanelWindow, MultiZoneLayout)
 │   │   │   └── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
 │   │   ├── Services/             # UI 层服务 (ThemeService, ServiceCollectionExtensions)
@@ -27,6 +28,10 @@ FlexComDotnet/
 │   │
 │   └── FlexComDotnet.Core/       # 核心业务层 (无 UI 依赖)
 │       └── Features/
+│           ├── Checksum/
+│           │   ├── Models/       # 算法枚举 (ChecksumAlgorithmType)
+│           │   ├── Services/     # 校验服务与算法策略 (IChecksumService, IChecksumAlgorithm, Algorithms/)
+│           │   └── ViewModels/   # 计算器 ViewModel (ChecksumCalculatorViewModel)
 │           ├── Layout/
 │           │   ├── Models/       # 布局状态模型 (LayoutState, PanelInfo, PanelZone)
 │           │   └── Services/     # 面板管理器 (IPanelManager)
@@ -37,8 +42,9 @@ FlexComDotnet/
 │               └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
 │
 └── tests/
-    └── FlexComDotnet.Tests/      # 单元测试 (236 个用例)
+    └── FlexComDotnet.Tests/      # 单元测试 (306 个用例)
         └── Features/
+            ├── Checksum/         # 校验计算器测试
             ├── Layout/           # 布局功能测试
             └── Serial/           # 串口功能测试
 ```
@@ -193,3 +199,41 @@ FlexComDotnet/
 3. **数据绑定**: 使用 ObservableCollection 优化 UI 更新
 4. **缓存策略**: 合理缓存频繁访问的数据
 5. **延迟加载**: 按需加载资源和数据
+
+## 8. 策略模式应用规范
+
+### 何时使用策略模式
+当功能涉及多种可互换算法或行为时（如校验算法、协议解析、回复规则），应采用策略模式：
+
+1. **定义接口**: 创建 `I{Feature}Algorithm` 或 `I{Feature}Handler` 接口
+2. **实现策略**: 每种算法/行为作为独立类实现接口
+3. **策略注册**: 通过枚举或工厂管理策略映射
+4. **服务封装**: 创建 `I{Feature}Service` 作为策略选择器
+
+### 示例：校验算法策略
+```csharp
+// 接口定义
+public interface IChecksumAlgorithm
+{
+    ChecksumAlgorithmType Type { get; }
+    string DisplayName { get; }
+    byte[] Calculate(byte[] data);
+}
+
+// 具体策略
+public class Crc16ModbusAlgorithm : IChecksumAlgorithm { ... }
+public class Md5Algorithm : IChecksumAlgorithm { ... }
+
+// 服务封装
+public interface IChecksumService
+{
+    IEnumerable<IChecksumAlgorithm> GetAllAlgorithms();
+    IChecksumAlgorithm GetAlgorithm(ChecksumAlgorithmType type);
+}
+```
+
+### 扩展新算法
+1. 在 `ChecksumAlgorithmType` 枚举中添加新类型
+2. 创建实现 `IChecksumAlgorithm` 的新策略类
+3. 在 `ChecksumService` 构造函数中注册新策略
+4. 无需修改 ViewModel 或 UI 层代码

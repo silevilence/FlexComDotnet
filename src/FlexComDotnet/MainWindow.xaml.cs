@@ -2,9 +2,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using FlexComDotnet.Core.Features.Serial.ViewModels;
 using FlexComDotnet.Core.Features.Serial.Services;
+using FlexComDotnet.Core.Features.Serial.Helpers;
 using FlexComDotnet.Core.Features.Layout.Models;
 using FlexComDotnet.Core.Features.Layout.Services;
+using FlexComDotnet.Core.Features.Checksum.ViewModels;
 using FlexComDotnet.Features.Serial.Views;
+using FlexComDotnet.Features.Checksum.Views;
 using static FlexComDotnet.Features.Layout.Controls.ActivityBar;
 
 namespace FlexComDotnet;
@@ -139,6 +142,56 @@ public partial class MainWindow : Window
         {
             // 可以在这里更新 ActivityBar 或其他 UI
         };
+        
+        // 订阅校验计算器按钮点击事件
+        ActivityBar.ChecksumCalculatorClicked += (sender, args) =>
+        {
+            OpenChecksumCalculator();
+        };
+    }
+
+    /// <summary>
+    /// 打开校验和计算器窗口
+    /// </summary>
+    private void OpenChecksumCalculator()
+    {
+        var viewModel = App.Services.GetRequiredService<ChecksumCalculatorViewModel>();
+        var window = new ChecksumCalculatorWindow(viewModel)
+        {
+            Owner = this
+        };
+        
+        // 设置回调以获取发送帧数据（返回原始数据和模式）
+        window.GetSendFrameData = () =>
+        {
+            var communicationVm = _serialCommunicationView.DataContext as SerialCommunicationViewModel;
+            if (communicationVm != null && !string.IsNullOrEmpty(communicationVm.SendText))
+            {
+                return (communicationVm.SendText, communicationVm.IsHexSendMode);
+            }
+            return (null, true);
+        };
+        
+        // 设置回调以附加数据到发送帧（强制切换到 Hex 模式）
+        window.AppendToSendFrame = (data) =>
+        {
+            var communicationVm = _serialCommunicationView.DataContext as SerialCommunicationViewModel;
+            if (communicationVm != null)
+            {
+                // 强制切换到 Hex 模式并转换现有内容
+                if (!communicationVm.IsHexSendMode)
+                {
+                    communicationVm.SwitchToHexModeWithConversion();
+                }
+                
+                var hexString = HexHelper.BytesToHexString(data);
+                communicationVm.SendText = string.IsNullOrEmpty(communicationVm.SendText)
+                    ? hexString
+                    : $"{communicationVm.SendText} {hexString}";
+            }
+        };
+        
+        window.ShowDialog();
     }
 
     private void ActivityBar_ZoneToggled(object? sender, ZoneToggleEventArgs e)

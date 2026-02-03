@@ -299,6 +299,28 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     }
 
     /// <summary>
+    /// 强制切换到 Hex 模式并转换现有内容
+    /// </summary>
+    public void SwitchToHexModeWithConversion()
+    {
+        if (IsHexSendMode)
+        {
+            // 已经是 Hex 模式，无需切换
+            return;
+        }
+
+        // 转换当前 ASCII 内容为 Hex
+        if (!string.IsNullOrEmpty(SendText))
+        {
+            var bytes = Encoding.ASCII.GetBytes(SendText);
+            SendText = HexHelper.BytesToHexString(bytes);
+        }
+
+        // 切换到 Hex 模式
+        IsHexSendMode = true;
+    }
+
+    /// <summary>
     /// 发送数据命令
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanSend))]

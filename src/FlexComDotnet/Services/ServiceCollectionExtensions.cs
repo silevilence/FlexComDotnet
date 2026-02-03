@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using FlexComDotnet.Core.Features.Serial.Services;
 using FlexComDotnet.Core.Features.Serial.ViewModels;
 using FlexComDotnet.Core.Features.Layout.Services;
+using FlexComDotnet.Core.Features.Checksum.Services;
+using FlexComDotnet.Core.Features.Checksum.ViewModels;
 
 namespace FlexComDotnet.Services;
 
@@ -33,10 +35,14 @@ public static class ServiceCollectionExtensions
         // 面板管理器 (单例)
         services.AddSingleton<IPanelManager, PanelManager>();
 
+        // 校验和服务 (单例)
+        services.AddSingleton<IChecksumService, ChecksumService>();
+
         // ViewModels (瞬态)
         services.AddTransient<SerialConfigViewModel>();
         services.AddTransient<SerialCommunicationViewModel>();
         services.AddTransient<CommandListViewModel>();
+        services.AddTransient<ChecksumCalculatorViewModel>();
 
         return services;
     }

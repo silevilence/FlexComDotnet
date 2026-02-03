@@ -59,6 +59,11 @@ public class DisplayConfig
     public bool IsHexSendMode { get; set; }
 
     /// <summary>
+    /// 切换发送模式时是否转换内容
+    /// </summary>
+    public bool ConvertContentOnModeSwitch { get; set; } = true;
+
+    /// <summary>
     /// 主题模式: 0=Light, 1=Dark, 2=System
     /// </summary>
     public int ThemeMode { get; set; } = 1; // 默认深色主题

@@ -185,6 +185,17 @@
                     Opacity="0.3"
                     Margin="8,4"/>
             
+            <!-- 校验计算器按钮 -->
+            <Button x:Name="ChecksumCalculatorButton"
+                    Style="{StaticResource TechActivityBarRegularButtonStyle}"
+                    ToolTip="校验和计算器"
+                    Click="ChecksumCalculatorButton_Click">
+                <Path Data="M4,2H14L20,8V22A2,2 0 0,1 18,24H4A2,2 0 0,1 2,22V4A2,2 0 0,1 4,2M13,3.5V9H18.5L13,3.5M7,14H9V15H10V13H7V12H11V16H9V15H8V17H11V18H7V14M14,12H18V13H15V14H17A1,1 0 0,1 18,15V17A1,1 0 0,1 17,18H14V17H17V16H15A1,1 0 0,1 14,15V13A1,1 0 0,1 15,12H14V12Z"
+                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      Width="20" Height="20"
+                      Stretch="Uniform"/>
+            </Button>
+            
             <!-- 主题切换按钮 (三态: 浅色→深色→跟随系统) -->
             <Button x:Name="ThemeCycleButton"
                     Style="{StaticResource ThemeCycleButtonStyle}"

@@ -231,4 +231,14 @@ public partial class ActivityBar : UserControl
         // 循环切换主题模式: 浅色→深色→跟随系统→浅色
         _themeService?.CycleMode();
     }
+
+    /// <summary>
+    /// 校验计算器按钮点击事件
+    /// </summary>
+    public event EventHandler? ChecksumCalculatorClicked;
+
+    private void ChecksumCalculatorButton_Click(object sender, RoutedEventArgs e)
+    {
+        ChecksumCalculatorClicked?.Invoke(this, EventArgs.Empty);
+    }
 }

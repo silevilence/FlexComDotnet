@@ -4,14 +4,14 @@
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![WPF](https://img.shields.io/badge/WPF-Windows-0078D4?logo=windows)
-![Tests](https://img.shields.io/badge/Tests-236%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-306%20Passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## 📋 项目状态
 
-**🚧 开发中 - Phase 3 (UI 美化与高级功能)**
+**🚧 开发中 - Phase 4 (高级功能扩展)**
 
-当前版本已完成串口基础功能、多区域布局、主题系统，正在开发独立校验计算器。
+当前版本已完成串口基础功能、多区域布局、主题系统、独立校验计算器，下一步开发智能自动回复系统。
 
 ## ✨ 功能列表
 
@@ -26,9 +26,7 @@
 - [x] **多条指令列表** - 预设指令管理 (添加/编辑/删除/拖拽排序)、LiteDB 数据持久化、快速发送
 - [x] **多区域可折叠布局** - VS Code 风格三区架构 (Left/Right/Bottom)、Activity Bar 导航、面板拖拽移动
 - [x] **主题系统** - 浅色/深色/跟随系统三种模式、科技风格 UI (Panuon.WPF.UI)、主题设置持久化
-
-### 🚧 开发中
-- [ ] **独立校验与摘要计算器** - CRC/Checksum/MD5/SHA 等算法支持
+- [x] **独立校验与摘要计算器** - 策略模式架构，支持 Sum8/16、CRC-8/16/32 多种变体、XOR、MD5、SHA-1/256；Hex 输入带 ASCII 预览，可导入/附加发送帧
 
 ### 🔜 计划中
 - [ ] 智能自动回复系统 (匹配回复/顺序回复)
@@ -37,6 +35,7 @@
 - [ ] Lua 脚本系统
 - [ ] TCP/UDP 网络扩展
 - [ ] 自动更新功能
+- [ ] CI/CD 自动发布 (GitHub Actions)
 
 ## 🚀 快速开始
 
@@ -72,6 +71,7 @@ FlexComDotnet/
 │   ├── FlexComDotnet/              # WPF UI 层
 │   │   ├── Converters/             # XAML 值转换器
 │   │   ├── Features/
+│   │   │   ├── Checksum/Views/     # 校验计算器视图
 │   │   │   ├── Layout/Controls/    # 布局控件 (ActivityBar, CollapsiblePanel 等)
 │   │   │   └── Serial/Views/       # 串口视图 (Config/Communication/CommandList)
 │   │   ├── Services/               # UI 层服务 (主题服务)
@@ -81,18 +81,23 @@ FlexComDotnet/
 │   │
 │   └── FlexComDotnet.Core/         # 核心业务层 (无 UI 依赖)
 │       └── Features/
-│           ├── Layout/             # 布局模型与服务
+│           ├── Checksum/           # 校验计算器功能
+│           │   ├── Models/         # 算法枚举
+│           │   ├── Services/       # 策略模式算法实现
+│           │   └── ViewModels/     # 计算器 ViewModel
+│           ├── Layout/             # 布局功能
 │           │   ├── Models/         # 布局状态模型
 │           │   └── Services/       # 面板管理器
-│           └── Serial/
+│           └── Serial/             # 串口功能
 │               ├── Helpers/        # 工具类 (Hex/Checksum)
 │               ├── Models/         # 数据模型 & 枚举
 │               ├── Services/       # 串口/配置/存储服务
 │               └── ViewModels/     # MVVM ViewModel
 │
 └── tests/
-    └── FlexComDotnet.Tests/        # 单元测试 (236 个用例)
+    └── FlexComDotnet.Tests/        # 单元测试 (306 个用例)
         └── Features/
+            ├── Checksum/           # 校验计算器测试
             ├── Layout/             # 布局功能测试
             └── Serial/             # 串口功能测试
 ```
