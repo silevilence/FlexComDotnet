@@ -10,6 +10,9 @@ env:
   DOTNET_VERSION: '10.0.x'
   PROJECT_PATH: src/FlexComDotnet/FlexComDotnet.csproj
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: windows-latest
