@@ -22,11 +22,12 @@ FlexComDotnet/
 │   │   │   ├── AutoReply/Views/  # 自动回复视图 (AutoReplyView)
 │   │   │   ├── Checksum/Views/   # 校验计算器视图 (ChecksumCalculatorWindow)
 │   │   │   ├── Layout/Controls/  # 布局控件 (ActivityBar, CollapsiblePanel, FloatingPanelWindow, MultiZoneLayout)
+│   │   │   ├── Network/Views/    # 网络连接视图 (ConnectionConfigView)
 │   │   │   └── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
 │   │   ├── Services/             # UI 层服务 (ThemeService, ServiceCollectionExtensions)
 │   │   ├── Themes/               # 主题资源字典 (DarkTheme.xaml, LightTheme.xaml)
 │   │   ├── App.xaml(.cs)         # 应用入口
-│   │   └── MainWindow.xaml(.cs)  # 主窗口
+│   │   └── MainWindow.xaml(.cs)  # 主窗口 (含状态栏 RX/TX 统计)
 │   │
 │   └── FlexComDotnet.Core/       # 核心业务层 (无 UI 依赖)
 │       └── Features/
@@ -41,18 +42,23 @@ FlexComDotnet/
 │           ├── Layout/
 │           │   ├── Models/       # 布局状态模型 (LayoutState, PanelInfo, PanelZone)
 │           │   └── Services/     # 面板管理器 (IPanelManager)
+│           ├── Network/
+│           │   ├── Models/       # 连接模型 (ConnectionType, ConnectionState, TcpClientConfig, TcpServerConfig, UdpConfig)
+│           │   ├── Services/     # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
+│           │   └── ViewModels/   # 连接配置 ViewModel (ConnectionConfigViewModel)
 │           └── Serial/
 │               ├── Helpers/      # 工具类 (HexHelper, ChecksumHelper)
-│               ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem)
+│               ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem, ConnectionConfig)
 │               ├── Services/     # 串口/配置/存储服务 (ISerialPortService, IConfigurationService, ICommandStorageService)
 │               └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
 │
 └── tests/
-    └── FlexComDotnet.Tests/      # 单元测试 (377 个用例)
+    └── FlexComDotnet.Tests/      # 单元测试 (491 个用例)
         └── Features/
             ├── AutoReply/        # 自动回复测试
             ├── Checksum/         # 校验计算器测试
             ├── Layout/           # 布局功能测试
+            ├── Network/          # 网络功能测试
             └── Serial/           # 串口功能测试
 ```
 

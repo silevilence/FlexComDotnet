@@ -6,6 +6,8 @@ using FlexComDotnet.Core.Features.Checksum.Services;
 using FlexComDotnet.Core.Features.Checksum.ViewModels;
 using FlexComDotnet.Core.Features.AutoReply.Services;
 using FlexComDotnet.Core.Features.AutoReply.ViewModels;
+using FlexComDotnet.Core.Features.Network.Services;
+using FlexComDotnet.Core.Features.Network.ViewModels;
 
 namespace FlexComDotnet.Services;
 
@@ -28,6 +30,11 @@ public static class ServiceCollectionExtensions
         // 串口服务 (单例)
         services.AddSingleton<ISerialPortService, SerialPortService>();
 
+        // 网络服务 (单例)
+        services.AddSingleton<ITcpClientService, TcpClientService>();
+        services.AddSingleton<ITcpServerService, TcpServerService>();
+        services.AddSingleton<IUdpService, UdpService>();
+
         // 日志保存服务 (单例)
         services.AddSingleton<ILogSaveService, LogSaveService>();
 
@@ -49,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<CommandListViewModel>();
         services.AddTransient<ChecksumCalculatorViewModel>();
         services.AddTransient<AutoReplyViewModel>();
+        services.AddTransient<ConnectionConfigViewModel>();
 
         return services;
     }

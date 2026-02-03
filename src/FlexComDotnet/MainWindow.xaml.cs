@@ -7,7 +7,9 @@ using FlexComDotnet.Core.Features.Layout.Models;
 using FlexComDotnet.Core.Features.Layout.Services;
 using FlexComDotnet.Core.Features.Checksum.ViewModels;
 using FlexComDotnet.Core.Features.AutoReply.ViewModels;
+using FlexComDotnet.Core.Features.Network.ViewModels;
 using FlexComDotnet.Features.Serial.Views;
+using FlexComDotnet.Features.Network.Views;
 using FlexComDotnet.Features.Checksum.Views;
 using FlexComDotnet.Features.AutoReply.Views;
 using static FlexComDotnet.Features.Layout.Controls.ActivityBar;
@@ -21,7 +23,7 @@ public partial class MainWindow : Window
 {
     private readonly IPanelManager _panelManager;
     private readonly IConfigurationService _configService;
-    private readonly SerialConfigView _serialConfigView;
+    private readonly ConnectionConfigView _connectionConfigView;
     private readonly CommandListView _commandListView;
     private readonly AutoReplyView _autoReplyView;
     private readonly SerialCommunicationView _serialCommunicationView;
@@ -31,7 +33,7 @@ public partial class MainWindow : Window
     /// </summary>
     private static class PanelIds
     {
-        public const string SerialConfig = "serial-config";
+        public const string ConnectionConfig = "connection-config";
         public const string CommandList = "command-list";
         public const string AutoReply = "auto-reply";
     }
@@ -52,13 +54,26 @@ public partial class MainWindow : Window
         var communicationViewModel = App.Services.GetRequiredService<SerialCommunicationViewModel>();
         _serialCommunicationView.DataContext = communicationViewModel;
         
+        // 订阅 ViewModel 属性变更以更新状态栏
+        communicationViewModel.PropertyChanged += (sender, e) =>
+        {
+            if (e.PropertyName == nameof(communicationViewModel.RxBytes))
+            {
+                RxBytesText.Text = FormatByteCount(communicationViewModel.RxBytes);
+            }
+            else if (e.PropertyName == nameof(communicationViewModel.TxBytes))
+            {
+                TxBytesText.Text = FormatByteCount(communicationViewModel.TxBytes);
+            }
+        };
+        
         // 设置中央内容
         MultiZoneLayout.CenterContentElement = _serialCommunicationView;
         
         // 创建视图实例
-        _serialConfigView = new SerialConfigView
+        _connectionConfigView = new ConnectionConfigView
         {
-            DataContext = App.Services.GetRequiredService<SerialConfigViewModel>()
+            DataContext = App.Services.GetRequiredService<ConnectionConfigViewModel>()
         };
 
         _commandListView = new CommandListView();
@@ -107,18 +122,18 @@ public partial class MainWindow : Window
         MultiZoneLayout.SetPanelManager(_panelManager);
 
         // 检查是否已有保存的面板状态
-        var savedSerialConfig = _panelManager.GetPanel(PanelIds.SerialConfig);
+        var savedConnectionConfig = _panelManager.GetPanel(PanelIds.ConnectionConfig);
         var savedCommandList = _panelManager.GetPanel(PanelIds.CommandList);
         var savedAutoReply = _panelManager.GetPanel(PanelIds.AutoReply);
 
-        // 添加串口配置面板（固定在左侧，不可移动）
+        // 添加连接配置面板（固定在左侧，不可移动）
         MultiZoneLayout.AddPanel(
-            PanelIds.SerialConfig,
-            "串口配置",
-            _serialConfigView,
-            savedSerialConfig?.Zone ?? PanelZone.Left,
-            isMovable: false,  // 串口配置面板固定不可移动
-            order: savedSerialConfig?.Order ?? 0
+            PanelIds.ConnectionConfig,
+            "连接配置",
+            _connectionConfigView,
+            savedConnectionConfig?.Zone ?? PanelZone.Left,
+            isMovable: false,  // 连接配置面板固定不可移动
+            order: savedConnectionConfig?.Order ?? 0
         );
 
         // 添加指令列表面板（可移动，使用保存的状态）
@@ -230,5 +245,30 @@ public partial class MainWindow : Window
         
         // 保存布局状态
         SaveLayoutState();
+    }
+
+    /// <summary>
+    /// 重置统计计数器
+    /// </summary>
+    private void ResetCounters_Click(object sender, RoutedEventArgs e)
+    {
+        if (_serialCommunicationView.DataContext is SerialCommunicationViewModel viewModel)
+        {
+            viewModel.ResetCountersCommand.Execute(null);
+        }
+    }
+
+    /// <summary>
+    /// 格式化字节数显示
+    /// </summary>
+    private static string FormatByteCount(long bytes)
+    {
+        if (bytes < 1024)
+            return bytes.ToString();
+        if (bytes < 1024 * 1024)
+            return $"{bytes / 1024.0:F1}K";
+        if (bytes < 1024 * 1024 * 1024)
+            return $"{bytes / (1024.0 * 1024):F1}M";
+        return $"{bytes / (1024.0 * 1024 * 1024):F2}G";
     }
 }

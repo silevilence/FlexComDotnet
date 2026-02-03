@@ -1,5 +1,6 @@
 using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.Layout.Models;
+using FlexComDotnet.Core.Features.Network.Models;
 
 namespace FlexComDotnet.Core.Features.Serial.Models;
 
@@ -29,9 +30,40 @@ public class AppConfig
     public AutoReplyConfig AutoReplyConfig { get; set; } = new();
 
     /// <summary>
+    /// 连接配置 (包含所有连接类型的配置)
+    /// </summary>
+    public ConnectionConfig ConnectionConfig { get; set; } = new();
+
+    /// <summary>
     /// 配置版本号，用于未来兼容性升级
     /// </summary>
     public int Version { get; set; } = 1;
+}
+
+/// <summary>
+/// 连接配置模型，包含所有连接类型的配置
+/// </summary>
+public class ConnectionConfig
+{
+    /// <summary>
+    /// 选中的连接类型
+    /// </summary>
+    public ConnectionType SelectedConnectionType { get; set; } = ConnectionType.Serial;
+
+    /// <summary>
+    /// TCP 客户端配置
+    /// </summary>
+    public TcpClientConfig TcpClientConfig { get; set; } = new();
+
+    /// <summary>
+    /// TCP 服务器配置
+    /// </summary>
+    public TcpServerConfig TcpServerConfig { get; set; } = new();
+
+    /// <summary>
+    /// UDP 配置
+    /// </summary>
+    public UdpConfig UdpConfig { get; set; } = new();
 }
 
 /// <summary>

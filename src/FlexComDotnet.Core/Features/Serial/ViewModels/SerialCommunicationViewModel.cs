@@ -24,6 +24,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     private readonly List<DataRecord> _dataRecords = [];
     private readonly List<DataRecord> _pausedRecords = [];
     private readonly System.Timers.Timer _sendTimer;
+    private readonly SynchronizationContext? _syncContext;
     private bool _disposed;
 
     #region 日志保存属性
@@ -243,6 +244,9 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         _configurationService = configurationService;
         _logSaveService = logSaveService;
 
+        // 捕获 UI 线程的同步上下文，用于跨线程更新 UI
+        _syncContext = SynchronizationContext.Current;
+
         // 初始化定时器
         _sendTimer = new System.Timers.Timer(TimerInterval);
         _sendTimer.Elapsed += OnTimerElapsed;
@@ -453,6 +457,22 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     private void OnTimerElapsed(object? sender, ElapsedEventArgs e)
     {
+        // 使用同步上下文将发送操作调度到 UI 线程
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => ExecuteTimerSend(), null);
+        }
+        else
+        {
+            ExecuteTimerSend();
+        }
+    }
+
+    /// <summary>
+    /// 执行定时发送（必须在 UI 线程执行）
+    /// </summary>
+    private void ExecuteTimerSend()
+    {
         if (CanSend())
         {
             Send();
@@ -563,6 +583,23 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// 数据接收处理
     /// </summary>
     private void OnDataReceived(object? sender, byte[] data)
+    {
+        // 使用同步上下文将 UI 更新调度到 UI 线程
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => ProcessReceivedData(data), null);
+        }
+        else
+        {
+            // 如果没有同步上下文（如单元测试），直接执行
+            ProcessReceivedData(data);
+        }
+    }
+
+    /// <summary>
+    /// 处理接收到的数据（必须在 UI 线程执行）
+    /// </summary>
+    private void ProcessReceivedData(byte[] data)
     {
         // 更新接收字节计数
         RxBytes += data.Length;

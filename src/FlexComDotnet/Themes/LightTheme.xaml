@@ -71,6 +71,12 @@
     <SolidColorBrush x:Key="HoverBrush" Color="{StaticResource HoverColor}"/>
     <SolidColorBrush x:Key="PressedBrush" Color="{StaticResource PressedColor}"/>
     <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource SelectedColor}"/>
+
+    <!-- 状态栏颜色 -->
+    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="{StaticResource SidebarColor}"/>
+    <SolidColorBrush x:Key="StatusBarBorderBrush" Color="{StaticResource BorderColor}"/>
+    <SolidColorBrush x:Key="StatusBarForegroundBrush" Color="{StaticResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="StatusBarAccentBrush" Color="{StaticResource PrimaryColor}"/>
     
     <!-- 渐变背景 -->
     <LinearGradientBrush x:Key="HeaderGradientBrush" StartPoint="0,0" EndPoint="1,0">
@@ -140,26 +146,8 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CaretBrush" Value="{StaticResource PrimaryBrush}"/>
         <Setter Property="SelectionBrush" Value="{StaticResource PrimaryBrush}"/>
-        <Setter Property="Padding" Value="8,6"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="TextBox">
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="4">
-                        <ScrollViewer x:Name="PART_ContentHost" 
-                                      Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Top"/>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsFocused" Value="True">
-                            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
     
     <!-- 默认 ComboBox 样式 -->

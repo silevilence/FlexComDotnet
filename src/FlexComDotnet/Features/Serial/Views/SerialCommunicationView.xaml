@@ -93,69 +93,13 @@
     
     <Grid Margin="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*" MinHeight="150"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto" MinHeight="160"/>
         </Grid.RowDefinitions>
         
-        <!-- 状态栏: Rx/Tx 计数器 -->
-        <Border Grid.Row="0" 
-                Background="{DynamicResource SurfaceBrush}" 
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Padding="12,8"
-                Margin="0,0,0,8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Path Data="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"
-                          Fill="{DynamicResource InfoBrush}"
-                          Width="14" Height="14"
-                          Stretch="Uniform"
-                          VerticalAlignment="Center"/>
-                    <TextBlock Text="RX:" Style="{StaticResource StatusLabelStyle}" Margin="4,0,0,0"/>
-                    <TextBlock Text="{Binding RxBytes}" 
-                               Style="{StaticResource StatusLabelStyle}"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource InfoBrush}"
-                               Margin="4,0,0,0"/>
-                    <TextBlock Text="字节" Style="{StaticResource StatusLabelStyle}" Margin="2,0,0,0"/>
-                </StackPanel>
-                
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="24,0,0,0">
-                    <Path Data="M5,4V6H19V4M5,14H9V20H15V14H19L12,7L5,14Z"
-                          Fill="{DynamicResource SuccessBrush}"
-                          Width="14" Height="14"
-                          Stretch="Uniform"
-                          VerticalAlignment="Center"/>
-                    <TextBlock Text="TX:" Style="{StaticResource StatusLabelStyle}" Margin="4,0,0,0"/>
-                    <TextBlock Text="{Binding TxBytes}" 
-                               Style="{StaticResource StatusLabelStyle}"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource SuccessBrush}"
-                               Margin="4,0,0,0"/>
-                    <TextBlock Text="字节" Style="{StaticResource StatusLabelStyle}" Margin="2,0,0,0"/>
-                </StackPanel>
-
-                <Button Grid.Column="3"
-                        Content="重置计数"
-                        Command="{Binding ResetCountersCommand}"
-                        Style="{StaticResource ActionButtonStyle}"
-                        Padding="12,4"
-                        FontSize="11"/>
-            </Grid>
-        </Border>
-        
         <!-- 接收区 -->
-        <Border Grid.Row="1" 
+        <Border Grid.Row="0" 
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" 
                 BorderThickness="1" 
@@ -264,14 +208,14 @@
         </Border>
         
         <!-- 分隔条 -->
-        <GridSplitter Grid.Row="2" 
+        <GridSplitter Grid.Row="1" 
                       Height="6" 
                       HorizontalAlignment="Stretch"
                       Background="Transparent"
                       Cursor="SizeNS"/>
         
         <!-- 发送区 -->
-        <Border Grid.Row="3" 
+        <Border Grid.Row="2" 
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" 
                 BorderThickness="1" 
