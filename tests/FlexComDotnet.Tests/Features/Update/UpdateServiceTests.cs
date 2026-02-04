@@ -144,6 +144,8 @@ public class UpdateServiceTests
 
         var downloadPath = Path.Combine(Path.GetTempPath(), "FlexComDotnet_1.0.0.zip");
 
+        _versionServiceMock.Setup(x => x.GetInstallationType())
+            .Returns(InstallationType.Portable);
         _downloadServiceMock.Setup(x => x.GetDownloadDirectory())
             .Returns(Path.GetTempPath());
         _downloadServiceMock.Setup(x => x.DownloadFileAsync(
@@ -175,6 +177,9 @@ public class UpdateServiceTests
             Assets = []
         };
 
+        _versionServiceMock.Setup(x => x.GetInstallationType())
+            .Returns(InstallationType.Portable);
+
         // Act
         var result = await _sut.DownloadUpdateAsync(releaseInfo);
 
@@ -199,6 +204,8 @@ public class UpdateServiceTests
             ]
         };
 
+        _versionServiceMock.Setup(x => x.GetInstallationType())
+            .Returns(InstallationType.Portable);
         _downloadServiceMock.Setup(x => x.GetDownloadDirectory())
             .Returns(Path.GetTempPath());
         _downloadServiceMock.Setup(x => x.DownloadFileAsync(
@@ -216,7 +223,7 @@ public class UpdateServiceTests
     }
 
     [Fact]
-    public async Task DownloadUpdateAsync_ShouldPreferZipOverMsix()
+    public async Task DownloadUpdateAsync_WhenPortable_ShouldPreferZipOverMsix()
     {
         // Arrange
         var releaseInfo = new ReleaseInfo
@@ -237,6 +244,91 @@ public class UpdateServiceTests
             ]
         };
 
+        _versionServiceMock.Setup(x => x.GetInstallationType())
+            .Returns(InstallationType.Portable);
+        _downloadServiceMock.Setup(x => x.GetDownloadDirectory())
+            .Returns(Path.GetTempPath());
+        _downloadServiceMock.Setup(x => x.DownloadFileAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<Action<DownloadProgress>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        await _sut.DownloadUpdateAsync(releaseInfo);
+
+        // Assert
+        _downloadServiceMock.Verify(x => x.DownloadFileAsync(
+            "https://example.com/app.zip",
+            It.IsAny<string>(),
+            It.IsAny<Action<DownloadProgress>?>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DownloadUpdateAsync_WhenMsix_ShouldPreferMsixOverZip()
+    {
+        // Arrange
+        var releaseInfo = new ReleaseInfo
+        {
+            TagName = "v1.0.0",
+            Assets =
+            [
+                new ReleaseAsset
+                {
+                    Name = "FlexComDotnet_1.0.0.zip",
+                    DownloadUrl = "https://example.com/app.zip"
+                },
+                new ReleaseAsset
+                {
+                    Name = "FlexComDotnet_1.0.0.msix",
+                    DownloadUrl = "https://example.com/app.msix"
+                }
+            ]
+        };
+
+        _versionServiceMock.Setup(x => x.GetInstallationType())
+            .Returns(InstallationType.Msix);
+        _downloadServiceMock.Setup(x => x.GetDownloadDirectory())
+            .Returns(Path.GetTempPath());
+        _downloadServiceMock.Setup(x => x.DownloadFileAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<Action<DownloadProgress>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        await _sut.DownloadUpdateAsync(releaseInfo);
+
+        // Assert
+        _downloadServiceMock.Verify(x => x.DownloadFileAsync(
+            "https://example.com/app.msix",
+            It.IsAny<string>(),
+            It.IsAny<Action<DownloadProgress>?>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DownloadUpdateAsync_WhenMsixAndOnlyZipAvailable_ShouldFallbackToZip()
+    {
+        // Arrange
+        var releaseInfo = new ReleaseInfo
+        {
+            TagName = "v1.0.0",
+            Assets =
+            [
+                new ReleaseAsset
+                {
+                    Name = "FlexComDotnet_1.0.0.zip",
+                    DownloadUrl = "https://example.com/app.zip"
+                }
+            ]
+        };
+
+        _versionServiceMock.Setup(x => x.GetInstallationType())
+            .Returns(InstallationType.Msix);
         _downloadServiceMock.Setup(x => x.GetDownloadDirectory())
             .Returns(Path.GetTempPath());
         _downloadServiceMock.Setup(x => x.DownloadFileAsync(

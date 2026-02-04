@@ -31,18 +31,23 @@ public partial class UpdateViewModel : ObservableObject
     /// 是否有可用更新
     /// </summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DownloadUpdateCommand))]
     private bool _hasUpdate;
 
     /// <summary>
     /// 是否正在检查更新
     /// </summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckForUpdateCommand))]
     private bool _isChecking;
 
     /// <summary>
     /// 是否正在下载
     /// </summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckForUpdateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DownloadUpdateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelDownloadCommand))]
     private bool _isDownloading;
 
     /// <summary>
@@ -85,7 +90,14 @@ public partial class UpdateViewModel : ObservableObject
     /// 已下载的文件路径
     /// </summary>
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(InstallUpdateCommand))]
     private string? _downloadedFilePath;
+
+    /// <summary>
+    /// 下载完成后是否自动安装
+    /// </summary>
+    [ObservableProperty]
+    private bool _autoInstallAfterDownload = true;
 
     #endregion
 
@@ -93,6 +105,11 @@ public partial class UpdateViewModel : ObservableObject
     /// 当前 Release 信息
     /// </summary>
     private ReleaseInfo? _currentRelease;
+
+    /// <summary>
+    /// 有可用更新事件（用于通知 UI 显示更新提示）
+    /// </summary>
+    public event EventHandler? UpdateAvailable;
 
     public UpdateViewModel(IUpdateService updateService)
     {
@@ -104,6 +121,51 @@ public partial class UpdateViewModel : ObservableObject
 
         // 初始化当前版本
         CurrentVersion = _updateService.CurrentVersion.ToString();
+        
+        // 初始化安装类型
+        InstallationType = _updateService.InstallationType;
+        InstallationTypeText = InstallationType switch
+        {
+            Models.InstallationType.Msix => "MSIX 安装版",
+            Models.InstallationType.Portable => "ZIP 便携版",
+            _ => "未知"
+        };
+    }
+
+    /// <summary>
+    /// 当前安装类型
+    /// </summary>
+    public InstallationType InstallationType { get; }
+
+    /// <summary>
+    /// 安装类型显示文本
+    /// </summary>
+    public string InstallationTypeText { get; }
+
+    /// <summary>
+    /// 后台静默检查更新（不更新 UI 状态消息）
+    /// </summary>
+    public async Task CheckForUpdateSilentlyAsync()
+    {
+        try
+        {
+            var result = await _updateService.CheckForUpdateAsync();
+
+            if (result.IsSuccess && result.HasUpdate && result.ReleaseInfo is not null)
+            {
+                _currentRelease = result.ReleaseInfo;
+                LatestVersion = result.LatestVersion!.ToString();
+                ReleaseNotes = result.ReleaseInfo.Body;
+                HasUpdate = true;
+                
+                // 触发更新可用事件
+                UpdateAvailable?.Invoke(this, EventArgs.Empty);
+            }
+        }
+        catch
+        {
+            // 静默检查，忽略错误
+        }
     }
 
     #region Commands
@@ -130,14 +192,15 @@ public partial class UpdateViewModel : ObservableObject
 
         if (result.HasUpdate && result.ReleaseInfo is not null)
         {
-            HasUpdate = true;
+            _currentRelease = result.ReleaseInfo;
             LatestVersion = result.LatestVersion!.ToString();
             ReleaseNotes = result.ReleaseInfo.Body;
-            _currentRelease = result.ReleaseInfo;
             StatusMessage = $"发现新版本: {LatestVersion}";
+            HasUpdate = true;  // 最后设置，触发命令 CanExecute 重新评估
         }
         else
         {
+            _currentRelease = null;
             StatusMessage = "当前已是最新版本";
         }
     }
@@ -173,7 +236,17 @@ public partial class UpdateViewModel : ObservableObject
             if (filePath is not null)
             {
                 DownloadedFilePath = filePath;
-                StatusMessage = "下载完成，点击安装按钮开始安装";
+                
+                // 如果启用了自动安装，则自动执行安装
+                if (AutoInstallAfterDownload)
+                {
+                    StatusMessage = "下载完成，正在启动安装...";
+                    InstallUpdate();
+                }
+                else
+                {
+                    StatusMessage = "下载完成，点击安装按钮开始安装";
+                }
             }
             else
             {

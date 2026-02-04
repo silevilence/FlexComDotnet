@@ -53,12 +53,12 @@ FlexComDotnet/
 │           │   ├── Services/     # 串口/配置/存储服务 (ISerialPortService, IConfigurationService, ICommandStorageService)
 │           │   └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
 │           └── Update/
-│               ├── Models/       # 版本信息模型 (VersionInfo, ReleaseInfo, UpdateCheckResult, DownloadProgress)
+               ├── Models/       # 版本信息模型 (VersionInfo, ReleaseInfo, UpdateCheckResult, DownloadProgress, InstallationType)
 │               ├── Services/     # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService, IDownloadService)
 │               └── ViewModels/   # 更新 ViewModel (UpdateViewModel)
 │
 └── tests/
-    └── FlexComDotnet.Tests/      # 单元测试 (585 个用例)
+    └── FlexComDotnet.Tests/      # 单元测试 (591 个用例)
         └── Features/
             ├── AutoReply/        # 自动回复测试
             ├── Checksum/         # 校验计算器测试

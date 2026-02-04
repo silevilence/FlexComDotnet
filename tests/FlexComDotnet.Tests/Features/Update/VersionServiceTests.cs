@@ -87,4 +87,44 @@ public class VersionServiceTests
     }
 
     #endregion
+
+    #region GetInstallationType Tests
+
+    [Fact]
+    public void GetInstallationType_ShouldReturnValidType()
+    {
+        // Act
+        var installationType = _sut.GetInstallationType();
+
+        // Assert
+        installationType.Should().BeOneOf(
+            InstallationType.Msix,
+            InstallationType.Portable,
+            InstallationType.Unknown);
+    }
+
+    [Fact]
+    public void GetInstallationType_ShouldBeCached()
+    {
+        // Act - 调用两次
+        var firstCall = _sut.GetInstallationType();
+        var secondCall = _sut.GetInstallationType();
+
+        // Assert - 应该返回相同的值
+        firstCall.Should().Be(secondCall);
+    }
+
+    [Fact]
+    public void GetInstallationType_InTestEnvironment_ShouldReturnPortable()
+    {
+        // 在测试环境中运行，不在 WindowsApps 目录，应该返回 Portable
+        // Act
+        var installationType = _sut.GetInstallationType();
+
+        // Assert
+        // 测试环境通常是便携模式（不在 WindowsApps 目录）
+        installationType.Should().Be(InstallationType.Portable);
+    }
+
+    #endregion
 }

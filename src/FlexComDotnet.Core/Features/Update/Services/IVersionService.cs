@@ -27,4 +27,10 @@ public interface IVersionService
     /// <param name="remoteVersion">远程版本</param>
     /// <returns>如果远程版本更新则返回 true</returns>
     bool IsUpdateAvailable(VersionInfo remoteVersion);
+
+    /// <summary>
+    /// 获取当前安装类型 (MSIX 或 Portable)
+    /// </summary>
+    /// <returns>安装类型</returns>
+    InstallationType GetInstallationType();
 }

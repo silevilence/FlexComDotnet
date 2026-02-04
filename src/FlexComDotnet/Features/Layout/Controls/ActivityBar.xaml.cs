@@ -246,4 +246,18 @@ public partial class ActivityBar : UserControl
     {
         UpdateClicked?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// 显示或隐藏更新可用状态
+    /// </summary>
+    /// <param name="hasUpdate">是否有更新</param>
+    public void ShowUpdateBadge(bool hasUpdate)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            NoUpdateIcon.Visibility = hasUpdate ? Visibility.Collapsed : Visibility.Visible;
+            HasUpdateIcon.Visibility = hasUpdate ? Visibility.Visible : Visibility.Collapsed;
+            UpdateButton.ToolTip = hasUpdate ? "有新版本可用，点击查看" : "检查更新";
+        });
+    }
 }

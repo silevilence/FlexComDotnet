@@ -98,8 +98,57 @@ public partial class MainWindow : Window
         // 设置所有者窗口（用于浮动窗口）
         MultiZoneLayout.SetOwnerWindow(this);
         
-        // 窗口加载完成后恢复浮动面板
-        Loaded += (_, _) => MultiZoneLayout.RestoreFloatingPanels();
+        // 窗口加载完成后恢复浮动面板并检查更新
+        Loaded += async (_, _) =>
+        {
+            MultiZoneLayout.RestoreFloatingPanels();
+            
+            // 后台检查更新
+            await CheckForUpdateInBackgroundAsync();
+        };
+    }
+
+    /// <summary>
+    /// 后台静默检查更新
+    /// </summary>
+    private async Task CheckForUpdateInBackgroundAsync()
+    {
+        try
+        {
+            var updateViewModel = App.Services.GetRequiredService<UpdateViewModel>();
+            
+            // 先订阅更新可用事件
+            updateViewModel.UpdateAvailable += OnUpdateAvailable;
+            
+            // 如果之前已经检查过有更新，直接显示徽章
+            if (updateViewModel.HasUpdate)
+            {
+                ActivityBar.ShowUpdateBadge(true);
+                return;
+            }
+            
+            // 静默检查更新
+            await updateViewModel.CheckForUpdateSilentlyAsync();
+            
+            // 检查完成后再次检查状态，防止事件未触发的情况
+            if (updateViewModel.HasUpdate)
+            {
+                ActivityBar.ShowUpdateBadge(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            // 调试输出错误
+            System.Diagnostics.Debug.WriteLine($"后台检查更新失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 更新可用事件处理
+    /// </summary>
+    private void OnUpdateAvailable(object? sender, EventArgs e)
+    {
+        Dispatcher.Invoke(() => ActivityBar.ShowUpdateBadge(true));
     }
 
     private void LoadLayoutState()
@@ -242,6 +291,9 @@ public partial class MainWindow : Window
     /// </summary>
     private void OpenUpdateWindow()
     {
+        // 隐藏更新徽章
+        ActivityBar.ShowUpdateBadge(false);
+        
         var viewModel = App.Services.GetRequiredService<UpdateViewModel>();
         var window = new UpdateWindow(viewModel)
         {

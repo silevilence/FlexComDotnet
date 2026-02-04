@@ -134,6 +134,9 @@ public class UpdateViewModelTests
 
         // First, check for update
         await _sut.CheckForUpdateCommand.ExecuteAsync(null);
+        
+        // 禁用自动安装，便于测试下载完成状态
+        _sut.AutoInstallAfterDownload = false;
 
         // Act
         await _sut.DownloadUpdateCommand.ExecuteAsync(null);
@@ -141,6 +144,43 @@ public class UpdateViewModelTests
         // Assert
         _sut.DownloadedFilePath.Should().Be(@"C:\temp\app.zip");
         _sut.StatusMessage.Should().Contain("下载完成");
+    }
+
+    [Fact]
+    public async Task DownloadUpdateAsync_WhenAutoInstallEnabled_ShouldCallInstall()
+    {
+        // Arrange
+        var releaseInfo = new ReleaseInfo
+        {
+            TagName = "v2.0.0",
+            Assets =
+            [
+                new ReleaseAsset { Name = "app.zip", DownloadUrl = "https://example.com/app.zip" }
+            ]
+        };
+
+        _updateServiceMock.Setup(x => x.CheckForUpdateAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UpdateCheckResult.Available(VersionInfo.Parse("1.0.0"), releaseInfo));
+
+        _updateServiceMock.Setup(x => x.DownloadUpdateAsync(
+                It.IsAny<ReleaseInfo>(),
+                It.IsAny<Action<DownloadProgress>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(@"C:\temp\app.zip");
+
+        // First, check for update
+        await _sut.CheckForUpdateCommand.ExecuteAsync(null);
+        
+        // 启用自动安装
+        _sut.AutoInstallAfterDownload = true;
+
+        // Act
+        await _sut.DownloadUpdateCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.DownloadedFilePath.Should().Be(@"C:\temp\app.zip");
+        // 自动安装会调用 LaunchInstallerAndExit
+        _updateServiceMock.Verify(x => x.LaunchInstallerAndExit(@"C:\temp\app.zip"), Times.Once);
     }
 
     [Fact]

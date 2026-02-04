@@ -4,14 +4,14 @@
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![WPF](https://img.shields.io/badge/WPF-Windows-0078D4?logo=windows)
-![Tests](https://img.shields.io/badge/Tests-585%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-591%20Passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## 📋 项目状态
 
-**🚧 开发中 - Phase 7 (P2 高级功能扩展)**
+**🚀 开发中 - Phase 8 (P2 高级功能扩展)**
 
-当前版本已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能，下一步开发数据可视化与协议解析引擎。
+当前版本已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能（支持 MSIX/ZIP 自动识别安装），下一步开发数据可视化与协议解析引擎。
 
 ## ✨ 功能列表
 
@@ -31,7 +31,7 @@
 - [x] **CI/CD 自动发布** - GitHub Actions 自动构建、打包 (.zip/.msix)、发布 Release
 - [x] **智能自动回复系统** - 匹配回复 (Hex/Ascii 特征码触发)、顺序回复 (循环帧列表)、策略模式架构、配置自动保存
 - [x] **网络扩展** - 统一连接接口 (IConnection)、TCP Client/Server 模式、UDP 单播/广播收发、配置持久化
-- [x] **自动更新** - GitHub API 版本检测、语义版本号比对、下载进度显示、安装包唤起
+- [x] **自动更新** - GitHub API 版本检测、语义版本号比对、下载进度显示、MSIX/ZIP 安装类型自动识别、应用内弹窗更新、启动时后台检查
 
 ### 🔜 计划中
 - [ ] 数据可视化与实时示波器
@@ -105,12 +105,12 @@ FlexComDotnet/
 │           │   ├── Services/       # 串口/配置/存储服务
 │           │   └── ViewModels/     # MVVM ViewModel
 │           └── Update/             # 自动更新功能
-│               ├── Models/         # 版本/发布信息 (VersionInfo, ReleaseInfo, UpdateCheckResult)
-│               ├── Services/       # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService)
+               ├── Models/         # 版本/发布信息 (VersionInfo, ReleaseInfo, InstallationType)
+               ├── Services/       # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService, IDownloadService)
 │               └── ViewModels/     # 更新 ViewModel
 │
 └── tests/
-    └── FlexComDotnet.Tests/        # 单元测试 (585 个用例)
+    └── FlexComDotnet.Tests/        # 单元测试 (591 个用例)
         └── Features/
             ├── AutoReply/          # 自动回复测试
             ├── Checksum/           # 校验计算器测试

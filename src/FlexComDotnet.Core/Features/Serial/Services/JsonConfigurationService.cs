@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlexComDotnet.Core.Features.Serial.Models;
@@ -13,7 +15,8 @@ public class JsonConfigurationService : IConfigurationService
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() }
+        Converters = { new JsonStringEnumConverter() },
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping // 保留中文字符，不进行转义
     };
 
     /// <summary>
@@ -71,7 +74,7 @@ public class JsonConfigurationService : IConfigurationService
             }
 
             var json = JsonSerializer.Serialize(config, JsonOptions);
-            File.WriteAllText(ConfigFilePath, json);
+            File.WriteAllText(ConfigFilePath, json, Encoding.UTF8);
             
             return true;
         }

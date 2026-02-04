@@ -39,6 +39,11 @@ public interface IUpdateService
     VersionInfo CurrentVersion { get; }
 
     /// <summary>
+    /// 获取当前安装类型
+    /// </summary>
+    InstallationType InstallationType { get; }
+
+    /// <summary>
     /// 更新检查进行中事件
     /// </summary>
     event EventHandler<bool>? CheckingForUpdate;
