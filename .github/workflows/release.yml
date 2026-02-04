@@ -145,15 +145,48 @@ jobs:
           </Package>
           "@
           
-          # 创建 Assets 目录和占位图标
+          # 创建 Assets 目录
           $assetsPath = "./publish/msix-content/Assets"
           New-Item -ItemType Directory -Force -Path $assetsPath | Out-Null
           
-          # 创建简单的占位 PNG (1x1 透明像素)
-          $pngBytes = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+          # 从应用图标生成所需的 PNG 文件
+          $iconPath = "src/FlexComDotnet/app_icon.ico"
           
-          @("StoreLogo.png", "Square150x150Logo.png", "Square44x44Logo.png", "Wide310x150Logo.png") | ForEach-Object {
-            [IO.File]::WriteAllBytes("$assetsPath/$_", $pngBytes)
+          if (Test-Path $iconPath) {
+            Write-Host "Converting app_icon.ico to PNG assets..."
+            
+            # 使用 .NET 加载并转换图标
+            Add-Type -AssemblyName System.Drawing
+            $icon = [System.Drawing.Icon]::new($iconPath)
+            
+            # 为不同尺寸创建 PNG 文件
+            $sizes = @{
+              "StoreLogo.png" = 50
+              "Square44x44Logo.png" = 44
+              "Square150x150Logo.png" = 150
+              "Wide310x150Logo.png" = 310
+            }
+            
+            foreach ($file in $sizes.Keys) {
+              $size = $sizes[$file]
+              $bitmap = [System.Drawing.Bitmap]::new($size, $size)
+              $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+              $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+              $graphics.DrawImage($icon.ToBitmap(), 0, 0, $size, $size)
+              $bitmap.Save("$assetsPath/$file", [System.Drawing.Imaging.ImageFormat]::Png)
+              $graphics.Dispose()
+              $bitmap.Dispose()
+            }
+            
+            $icon.Dispose()
+            Write-Host "PNG assets created successfully"
+          } else {
+            Write-Warning "app_icon.ico not found, using placeholder images"
+            # 创建简单的占位 PNG (1x1 透明像素)
+            $pngBytes = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+            @("StoreLogo.png", "Square150x150Logo.png", "Square44x44Logo.png", "Wide310x150Logo.png") | ForEach-Object {
+              [IO.File]::WriteAllBytes("$assetsPath/$_", $pngBytes)
+            }
           }
           
           $manifestContent | Out-File -FilePath "./publish/msix-content/AppxManifest.xml" -Encoding utf8
@@ -168,6 +201,62 @@ jobs:
           } else {
             Write-Warning "makeappx.exe not found, skipping MSIX creation"
           }
+
+      - name: Sign MSIX package
+        shell: pwsh
+        env:
+          SIGNING_CERT: ${{ secrets.SIGNING_CERT }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $msixPath = "./publish/FlexComDotnet_$version.msix"
+          
+          # 检查证书是否配置
+          if ([string]::IsNullOrEmpty($env:SIGNING_CERT)) {
+            Write-Warning "SIGNING_CERT not configured, skipping MSIX signing"
+            exit 0
+          }
+          
+          # 解码证书并保存到临时文件
+          $certBase64 = $env:SIGNING_CERT
+          $certBytes = [Convert]::FromBase64String($certBase64)
+          $certPath = "./temp_cert.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+          
+          Write-Host "Certificate saved to temporary file"
+          
+          # 查找 signtool
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" -Recurse | 
+                      Sort-Object -Property FullName -Descending | 
+                      Select-Object -First 1
+          
+          if ($signtool) {
+            Write-Host "Signing MSIX with signtool: $($signtool.FullName)"
+            
+            # 签名 MSIX 包
+            & $signtool.FullName sign `
+              /fd SHA256 `
+              /a `
+              /f $certPath `
+              /p $env:SIGNING_CERT_PASSWORD `
+              /tr http://timestamp.digicert.com `
+              /td SHA256 `
+              $msixPath
+            
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "MSIX package signed successfully"
+            } else {
+              Write-Error "Failed to sign MSIX package"
+              exit 1
+            }
+          } else {
+            Write-Error "signtool.exe not found in Windows SDK"
+            exit 1
+          }
+          
+          # 清理临时证书文件
+          Remove-Item $certPath -Force
+          Write-Host "Temporary certificate file removed"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
