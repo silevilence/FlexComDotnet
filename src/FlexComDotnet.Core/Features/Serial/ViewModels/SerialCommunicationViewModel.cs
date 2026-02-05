@@ -74,7 +74,6 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// </summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ToggleTimerCommand))]
     private string _sendText = string.Empty;
 
     /// <summary>
@@ -113,7 +112,6 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// </summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ToggleTimerCommand))]
     private bool _isConnected;
 
     #endregion
@@ -210,12 +208,43 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     #region 定时发送属性
 
+    private bool _isTimerEnabled;
+
     /// <summary>
     /// 是否启用定时发送
     /// </summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ToggleTimerCommand))]
-    private bool _isTimerEnabled;
+    public bool IsTimerEnabled
+    {
+        get => _isTimerEnabled;
+        set
+        {
+            if (_isTimerEnabled == value)
+            {
+                return;
+            }
+
+            // 启用定时发送
+            if (value)
+            {
+                if (CanSend())
+                {
+                    _sendTimer.Start();
+                    SetProperty(ref _isTimerEnabled, true);
+                }
+                else
+                {
+                    // 无法发送时，强制设为 false（触发 UI 更新）
+                    SetProperty(ref _isTimerEnabled, false);
+                }
+            }
+            else
+            {
+                // 停止定时发送
+                _sendTimer.Stop();
+                SetProperty(ref _isTimerEnabled, false);
+            }
+        }
+    }
 
     private int _timerInterval = 1000;
     
@@ -431,29 +460,6 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     {
         IsPaused = !IsPaused;
     }
-
-    /// <summary>
-    /// 切换定时发送命令
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanToggleTimer))]
-    private void ToggleTimer()
-    {
-        if (IsTimerEnabled)
-        {
-            _sendTimer.Stop();
-            IsTimerEnabled = false;
-        }
-        else
-        {
-            if (CanSend())
-            {
-                _sendTimer.Start();
-                IsTimerEnabled = true;
-            }
-        }
-    }
-
-    private bool CanToggleTimer() => IsConnected && !string.IsNullOrEmpty(SendText) || IsTimerEnabled;
 
     private void OnTimerElapsed(object? sender, ElapsedEventArgs e)
     {

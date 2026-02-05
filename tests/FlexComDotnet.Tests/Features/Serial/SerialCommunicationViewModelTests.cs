@@ -689,21 +689,21 @@ public class SerialCommunicationViewModelTests
     }
 
     [Fact]
-    public void ToggleTimerCommand_WhenNotConnected_ShouldNotEnableTimer()
+    public void IsTimerEnabled_WhenNotConnected_ShouldNotEnableTimer()
     {
         // Arrange
         _mockSerialPortService.Setup(s => s.IsConnected).Returns(false);
         _viewModel.SendText = "Hello";
 
         // Act
-        _viewModel.ToggleTimerCommand.Execute(null);
+        _viewModel.IsTimerEnabled = true;
 
         // Assert
         _viewModel.IsTimerEnabled.Should().BeFalse();
     }
 
     [Fact]
-    public void ToggleTimerCommand_WhenConnectedWithText_ShouldToggleTimer()
+    public void IsTimerEnabled_WhenConnectedWithText_ShouldEnableTimer()
     {
         // Arrange
         _mockSerialPortService.Setup(s => s.IsConnected).Returns(true);
@@ -711,7 +711,7 @@ public class SerialCommunicationViewModelTests
         _viewModel.SendText = "Hello";
 
         // Act
-        _viewModel.ToggleTimerCommand.Execute(null);
+        _viewModel.IsTimerEnabled = true;
 
         // Assert
         _viewModel.IsTimerEnabled.Should().BeTrue();
