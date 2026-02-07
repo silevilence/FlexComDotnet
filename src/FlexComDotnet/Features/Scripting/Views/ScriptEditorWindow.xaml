@@ -1,0 +1,214 @@
+<Window x:Class="FlexComDotnet.Features.Scripting.Views.ScriptEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:FlexComDotnet.Converters"
+        xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+        mc:Ignorable="d"
+        Title="{Binding SelectedScript.Name, StringFormat='脚本编辑器 - {0}', FallbackValue='脚本编辑器'}"
+        Height="700"
+        Width="900"
+        MinHeight="500"
+        MinWidth="600"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BackgroundBrush}">
+    
+    <Window.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <converters:LogLevelToColorConverter x:Key="LogLevelToColorConverter"/>
+        <converters:LogLevelToLabelConverter x:Key="LogLevelToLabelConverter"/>
+
+        <!-- 工具栏按钮样式 -->
+        <Style x:Key="ToolButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="pu:ButtonHelper.CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.5"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 操作按钮样式 -->
+        <Style x:Key="ActionButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="MinWidth" Value="60"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="pu:ButtonHelper.CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- 运行按钮样式 -->
+        <Style x:Key="RunButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- 停止按钮样式 -->
+        <Style x:Key="StopButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- 代码编辑器文本框样式 -->
+        <Style x:Key="CodeEditorStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, Courier New"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource PrimaryBrush}"/>
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="AcceptsTab" Value="True"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="pu:TextBoxHelper.CornerRadius" Value="4"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 工具栏 -->
+            <RowDefinition Height="Auto"/>
+            <!-- 编辑器 -->
+            <RowDefinition Height="*"/>
+            <!-- 分隔条 -->
+            <RowDefinition Height="Auto"/>
+            <!-- 调试控制台 -->
+            <RowDefinition Height="250"/>
+        </Grid.RowDefinitions>
+
+        <!-- ========================= 工具栏 ========================= -->
+        <Border Grid.Row="0" Padding="10,8"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                Background="{DynamicResource SurfaceBrush}">
+            <DockPanel>
+                <!-- 右侧操作按钮 -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="▶ 运行" Style="{StaticResource RunButtonStyle}"
+                            Command="{Binding RunScriptCommand}"
+                            Visibility="{Binding IsRunning, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                            ToolTip="运行当前脚本 (Ctrl+F5)"/>
+                    <Button Content="■ 停止" Style="{StaticResource StopButtonStyle}"
+                            Command="{Binding StopScriptCommand}"
+                            Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibilityConverter}}"
+                            ToolTip="停止脚本"/>
+                    <Button Content="💾 保存" Style="{StaticResource ActionButtonStyle}"
+                            Command="{Binding SaveScriptCommand}"
+                            IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
+                            ToolTip="保存脚本 (Ctrl+S)" Margin="8,2,2,2"/>
+                </StackPanel>
+
+                <!-- 左侧状态信息 -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="📜" FontSize="16" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="{Binding SelectedScript.Name, FallbackValue='未选择脚本'}"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Text="{Binding StatusText}" FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ========================= 代码编辑器 ========================= -->
+        <TextBox Grid.Row="1"
+                 Style="{StaticResource CodeEditorStyle}"
+                 Text="{Binding EditorContent, UpdateSourceTrigger=PropertyChanged}"
+                 IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
+                 SpellCheck.IsEnabled="False"
+                 BorderThickness="0"
+                 Margin="0">
+            <TextBox.InputBindings>
+                <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveScriptCommand}"/>
+                <KeyBinding Key="F5" Modifiers="Ctrl" Command="{Binding RunScriptCommand}"/>
+            </TextBox.InputBindings>
+        </TextBox>
+
+        <!-- ========================= 分隔条 ========================= -->
+        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch"
+                      Background="{DynamicResource BorderBrush}" Cursor="SizeNS"/>
+
+        <!-- ========================= 调试控制台 ========================= -->
+        <Grid Grid.Row="3">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 控制台标题栏 -->
+            <Border Grid.Row="0" Padding="10,6"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,1">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="🗑"
+                            Style="{StaticResource ToolButtonStyle}"
+                            Command="{Binding ClearLogsCommand}"
+                            ToolTip="清空日志" Width="26" Height="26"/>
+                    <TextBlock Text="📋 调试控制台" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+
+            <!-- 日志列表 -->
+            <ListBox Grid.Row="1" x:Name="LogListBox"
+                     ItemsSource="{Binding LogEntries}"
+                     Background="{DynamicResource BackgroundBrush}"
+                     BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     FontFamily="Cascadia Code, Consolas, Courier New"
+                     FontSize="12">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="10,3"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Focusable" Value="False"/>
+                        <Setter Property="IsHitTestVisible" Value="False"/>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Timestamp, StringFormat='HH:mm:ss.fff'}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelToLabelConverter}}"
+                                       Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
+                                       FontWeight="SemiBold"
+                                       MinWidth="35" Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding Message}"
+                                       Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
+                                       TextWrapping="NoWrap"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+    </Grid>
+</Window>

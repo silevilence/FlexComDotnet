@@ -51,9 +51,10 @@ public class JsonConfigurationService : IConfigurationService
             
             return config ?? new AppConfig();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // 配置文件损坏或解析失败，返回默认配置
+            // 配置文件损坏或解析失败，记录错误并返回默认配置
+            System.Diagnostics.Debug.WriteLine($"[配置] 加载配置文件失败: {ex.Message}");
             return new AppConfig();
         }
     }
@@ -85,11 +86,19 @@ public class JsonConfigurationService : IConfigurationService
     }
 
     /// <summary>
-    /// 获取默认配置文件路径
+    /// 获取默认配置文件路径（用户 AppData/Local 目录）
     /// </summary>
     private static string GetDefaultConfigPath()
     {
-        var appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-        return Path.Combine(appDirectory, "config.json");
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var appDataDir = Path.Combine(localAppData, "FlexComDotnet");
+        
+        // 确保目录存在
+        if (!Directory.Exists(appDataDir))
+        {
+            Directory.CreateDirectory(appDataDir);
+        }
+        
+        return Path.Combine(appDataDir, "config.json");
     }
 }

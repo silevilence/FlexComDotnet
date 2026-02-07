@@ -10,6 +10,8 @@ using FlexComDotnet.Core.Features.Network.Services;
 using FlexComDotnet.Core.Features.Network.ViewModels;
 using FlexComDotnet.Core.Features.Update.Services;
 using FlexComDotnet.Core.Features.Update.ViewModels;
+using FlexComDotnet.Core.Features.Scripting.Services;
+using FlexComDotnet.Core.Features.Scripting.ViewModels;
 
 namespace FlexComDotnet.Services;
 
@@ -58,6 +60,21 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDownloadService, DownloadService>();
         services.AddSingleton<IUpdateService, UpdateService>();
 
+        // 脚本服务 (单例)
+        services.AddSingleton<IScriptApiBridge, ScriptApiBridge>();
+        services.AddSingleton<IScriptEngine>(sp =>
+        {
+            var engine = new ScriptEngine();
+            var bridge = sp.GetRequiredService<IScriptApiBridge>();
+            engine.RegisterApiBridge(bridge);
+            return engine;
+        });
+        services.AddSingleton<IScriptManager>(sp =>
+        {
+            var scriptsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scripts");
+            return new ScriptManager(scriptsDir);
+        });
+
         // ViewModels (瞬态)
         services.AddTransient<SerialConfigViewModel>();
         services.AddTransient<SerialCommunicationViewModel>();
@@ -66,6 +83,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<AutoReplyViewModel>();
         services.AddTransient<ConnectionConfigViewModel>();
         services.AddTransient<UpdateViewModel>();
+        services.AddTransient<ScriptingViewModel>();
 
         return services;
     }

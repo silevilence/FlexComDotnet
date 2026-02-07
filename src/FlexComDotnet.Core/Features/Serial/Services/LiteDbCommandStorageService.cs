@@ -22,10 +22,10 @@ public class LiteDbCommandStorageService : ICommandStorageService
     /// <summary>
     /// 创建 LiteDB 指令存储服务
     /// </summary>
-    /// <param name="databasePath">数据库文件路径，默认为应用目录下的 commands.db</param>
+    /// <param name="databasePath">数据库文件路径，默认为用户数据目录下的 commands.db</param>
     public LiteDbCommandStorageService(string? databasePath = null)
     {
-        DatabasePath = databasePath ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "commands.db");
+        DatabasePath = databasePath ?? Path.Combine(GetDefaultDataDirectory(), "commands.db");
         _database = new LiteDatabase(DatabasePath);
         _collection = _database.GetCollection<CommandItem>(CollectionName);
 
@@ -133,5 +133,22 @@ public class LiteDbCommandStorageService : ICommandStorageService
             }
             _disposed = true;
         }
+    }
+
+    /// <summary>
+    /// 获取默认数据目录（用户 AppData/Local 目录下的 FlexComDotnet 子目录）
+    /// </summary>
+    private static string GetDefaultDataDirectory()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var appDataDir = Path.Combine(localAppData, "FlexComDotnet");
+        
+        // 确保目录存在
+        if (!Directory.Exists(appDataDir))
+        {
+            Directory.CreateDirectory(appDataDir);
+        }
+        
+        return appDataDir;
     }
 }

@@ -14,6 +14,8 @@ using FlexComDotnet.Features.Network.Views;
 using FlexComDotnet.Features.Checksum.Views;
 using FlexComDotnet.Features.AutoReply.Views;
 using FlexComDotnet.Features.Update.Views;
+using FlexComDotnet.Features.Scripting.Views;
+using FlexComDotnet.Core.Features.Scripting.ViewModels;
 using static FlexComDotnet.Features.Layout.Controls.ActivityBar;
 
 namespace FlexComDotnet;
@@ -28,6 +30,7 @@ public partial class MainWindow : Window
     private readonly ConnectionConfigView _connectionConfigView;
     private readonly CommandListView _commandListView;
     private readonly AutoReplyView _autoReplyView;
+    private readonly ScriptingView _scriptingView;
     private readonly SerialCommunicationView _serialCommunicationView;
 
     /// <summary>
@@ -38,6 +41,7 @@ public partial class MainWindow : Window
         public const string ConnectionConfig = "connection-config";
         public const string CommandList = "command-list";
         public const string AutoReply = "auto-reply";
+        public const string Scripting = "scripting";
     }
 
     public MainWindow()
@@ -91,6 +95,9 @@ public partial class MainWindow : Window
 
         // 创建自动回复视图
         _autoReplyView = new AutoReplyView(App.Services.GetRequiredService<AutoReplyViewModel>());
+
+        // 创建脚本视图
+        _scriptingView = new ScriptingView(App.Services.GetRequiredService<ScriptingViewModel>());
 
         // 初始化布局
         InitializeLayout();
@@ -176,6 +183,7 @@ public partial class MainWindow : Window
         var savedConnectionConfig = _panelManager.GetPanel(PanelIds.ConnectionConfig);
         var savedCommandList = _panelManager.GetPanel(PanelIds.CommandList);
         var savedAutoReply = _panelManager.GetPanel(PanelIds.AutoReply);
+        var savedScripting = _panelManager.GetPanel(PanelIds.Scripting);
 
         // 添加连接配置面板（固定在左侧，不可移动）
         MultiZoneLayout.AddPanel(
@@ -205,6 +213,16 @@ public partial class MainWindow : Window
             savedAutoReply?.Zone ?? PanelZone.Right,
             isMovable: true,
             order: savedAutoReply?.Order ?? 1
+        );
+
+        // 添加脚本面板（可移动，默认在右侧）
+        MultiZoneLayout.AddPanel(
+            PanelIds.Scripting,
+            "脚本",
+            _scriptingView,
+            savedScripting?.Zone ?? PanelZone.Right,
+            isMovable: true,
+            order: savedScripting?.Order ?? 2
         );
 
         // 同步 ActivityBar 状态
