@@ -98,6 +98,8 @@
             <RowDefinition Height="Auto"/>
             <!-- 脚本列表 -->
             <RowDefinition Height="*"/>
+            <!-- Hook 配置 -->
+            <RowDefinition Height="Auto"/>
             <!-- 操作工具栏 -->
             <RowDefinition Height="Auto"/>
             <!-- 代码预览 -->
@@ -171,8 +173,115 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <!-- ========================= 操作工具栏 ========================= -->
+        <!-- ========================= Hook 配置 ========================= -->
         <Border Grid.Row="2" Padding="6"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                Visibility="{Binding IsHookSupported, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="🔗 Hook 配置" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           Margin="0,0,0,6"/>
+
+                <!-- 接收预处理 Hook -->
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0" 
+                              IsChecked="{Binding RxHookEnabled}"
+                              VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding Scripts}"
+                              SelectedValue="{Binding RxHookScriptId}"
+                              SelectedValuePath="Id"
+                              FontSize="11" Padding="4,2"
+                              Background="{DynamicResource CardBrush}"
+                              Foreground="{DynamicResource TextPrimaryBrush}"
+                              BorderBrush="{DynamicResource BorderBrush}"
+                              IsEnabled="{Binding RxHookEnabled}"
+                              pu:ComboBoxHelper.CornerRadius="4">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Grid.Column="2" Text="Rx预处理" FontSize="10"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" Margin="6,0,0,0"
+                               ToolTip="接收数据预处理：修改/解密接收到的数据"/>
+                </Grid>
+
+                <!-- 发送后处理 Hook -->
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0"
+                              IsChecked="{Binding TxHookEnabled}"
+                              VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding Scripts}"
+                              SelectedValue="{Binding TxHookScriptId}"
+                              SelectedValuePath="Id"
+                              FontSize="11" Padding="4,2"
+                              Background="{DynamicResource CardBrush}"
+                              Foreground="{DynamicResource TextPrimaryBrush}"
+                              BorderBrush="{DynamicResource BorderBrush}"
+                              IsEnabled="{Binding TxHookEnabled}"
+                              pu:ComboBoxHelper.CornerRadius="4">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Grid.Column="2" Text="Tx后处理" FontSize="10"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" Margin="6,0,0,0"
+                               ToolTip="发送数据后处理：加封包/校验发送的数据"/>
+                </Grid>
+
+                <!-- 应答 Hook -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0"
+                              IsChecked="{Binding ReplyHookEnabled}"
+                              VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding Scripts}"
+                              SelectedValue="{Binding ReplyHookScriptId}"
+                              SelectedValuePath="Id"
+                              FontSize="11" Padding="4,2"
+                              Background="{DynamicResource CardBrush}"
+                              Foreground="{DynamicResource TextPrimaryBrush}"
+                              BorderBrush="{DynamicResource BorderBrush}"
+                              IsEnabled="{Binding ReplyHookEnabled}"
+                              pu:ComboBoxHelper.CornerRadius="4">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Grid.Column="2" Text="脚本应答" FontSize="10"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" Margin="6,0,0,0"
+                               ToolTip="脚本应答：使用脚本处理自动回复逻辑"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- ========================= 操作工具栏 ========================= -->
+        <Border Grid.Row="3" Padding="6"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <StackPanel>
                 <!-- 状态 -->
@@ -202,7 +311,7 @@
         </Border>
 
         <!-- ========================= 代码预览 (只读) ========================= -->
-        <Border Grid.Row="3" MaxHeight="150"
+        <Border Grid.Row="4" MaxHeight="150"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.RowDefinitions>
@@ -233,7 +342,7 @@
         </Border>
 
         <!-- ========================= 日志预览 ========================= -->
-        <Border Grid.Row="4" MaxHeight="150"
+        <Border Grid.Row="5" MaxHeight="150"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.RowDefinitions>

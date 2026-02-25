@@ -51,9 +51,6 @@ public static class ServiceCollectionExtensions
         // 校验和服务 (单例)
         services.AddSingleton<IChecksumService, ChecksumService>();
 
-        // 自动回复服务 (单例)
-        services.AddSingleton<IAutoReplyService, AutoReplyService>();
-
         // 更新服务 (单例)
         services.AddSingleton<IVersionService, VersionService>();
         services.AddSingleton<IGitHubReleaseService, GitHubReleaseService>();
@@ -74,16 +71,46 @@ public static class ServiceCollectionExtensions
             var scriptsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scripts");
             return new ScriptManager(scriptsDir);
         });
+        services.AddSingleton<IScriptHookService>(sp =>
+        {
+            var scriptManager = sp.GetRequiredService<IScriptManager>();
+            var apiBridge = sp.GetRequiredService<IScriptApiBridge>();
+            var scriptEngine = sp.GetRequiredService<IScriptEngine>();
+            var serialPortService = sp.GetRequiredService<ISerialPortService>();
+            return new ScriptHookService(scriptManager, apiBridge, scriptEngine, serialPortService);
+        });
+
+        // 自动回复服务 (单例) - 需要在脚本服务之后注册
+        services.AddSingleton<IAutoReplyService>(sp =>
+        {
+            var serialPortService = sp.GetRequiredService<ISerialPortService>();
+            var scriptHookService = sp.GetRequiredService<IScriptHookService>();
+            return new AutoReplyService(serialPortService, scriptHookService);
+        });
 
         // ViewModels (瞬态)
         services.AddTransient<SerialConfigViewModel>();
-        services.AddTransient<SerialCommunicationViewModel>();
+        services.AddTransient<SerialCommunicationViewModel>(sp =>
+        {
+            var serialPortService = sp.GetRequiredService<ISerialPortService>();
+            var configService = sp.GetRequiredService<IConfigurationService>();
+            var logSaveService = sp.GetRequiredService<ILogSaveService>();
+            var scriptHookService = sp.GetRequiredService<IScriptHookService>();
+            return new SerialCommunicationViewModel(serialPortService, configService, logSaveService, scriptHookService);
+        });
         services.AddTransient<CommandListViewModel>();
         services.AddTransient<ChecksumCalculatorViewModel>();
         services.AddTransient<AutoReplyViewModel>();
         services.AddTransient<ConnectionConfigViewModel>();
         services.AddTransient<UpdateViewModel>();
-        services.AddTransient<ScriptingViewModel>();
+        services.AddTransient<ScriptingViewModel>(sp =>
+        {
+            var engine = sp.GetRequiredService<IScriptEngine>();
+            var manager = sp.GetRequiredService<IScriptManager>();
+            var bridge = sp.GetRequiredService<IScriptApiBridge>();
+            var hookService = sp.GetRequiredService<IScriptHookService>();
+            return new ScriptingViewModel(engine, manager, bridge, hookService);
+        });
 
         return services;
     }

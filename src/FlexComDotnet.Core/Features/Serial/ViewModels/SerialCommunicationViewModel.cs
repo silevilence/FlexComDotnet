@@ -2,6 +2,7 @@ using System.Text;
 using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Serial.Helpers;
 using FlexComDotnet.Core.Features.Serial.Models;
 using FlexComDotnet.Core.Features.Serial.Services;
@@ -9,9 +10,24 @@ using FlexComDotnet.Core.Features.Serial.Services;
 namespace FlexComDotnet.Core.Features.Serial.ViewModels;
 
 /// <summary>
+/// 数据记录类型
+/// </summary>
+public enum DataRecordType
+{
+    Normal,           // 普通数据
+    HookProcessed,    // 被 Hook 处理过的数据
+    ScriptAutoReply   // 脚本自动应答
+}
+
+/// <summary>
 /// 数据记录，用于存储原始数据以支持显示模式切换
 /// </summary>
-public record DataRecord(byte[] Data, bool IsTx, DateTime Timestamp);
+public record DataRecord(
+    byte[] Data, 
+    bool IsTx, 
+    DateTime Timestamp, 
+    DataRecordType RecordType = DataRecordType.Normal,
+    byte[]? OriginalData = null);
 
 /// <summary>
 /// 串口收发通信 ViewModel
@@ -21,6 +37,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     private readonly ISerialPortService _serialPortService;
     private readonly IConfigurationService _configurationService;
     private readonly ILogSaveService _logSaveService;
+    private readonly IScriptHookService? _scriptHookService;
     private readonly List<DataRecord> _dataRecords = [];
     private readonly List<DataRecord> _pausedRecords = [];
     private readonly System.Timers.Timer _sendTimer;
@@ -267,11 +284,12 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     #endregion
 
-    public SerialCommunicationViewModel(ISerialPortService serialPortService, IConfigurationService configurationService, ILogSaveService logSaveService)
+    public SerialCommunicationViewModel(ISerialPortService serialPortService, IConfigurationService configurationService, ILogSaveService logSaveService, IScriptHookService? scriptHookService = null)
     {
         _serialPortService = serialPortService;
         _configurationService = configurationService;
         _logSaveService = logSaveService;
+        _scriptHookService = scriptHookService;
 
         // 捕获 UI 线程的同步上下文，用于跨线程更新 UI
         _syncContext = SynchronizationContext.Current;
@@ -284,6 +302,13 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         // 订阅数据接收事件
         _serialPortService.DataReceived += OnDataReceived;
         _serialPortService.ConnectionStateChanged += OnConnectionStateChanged;
+        _serialPortService.HookProcessed += OnHookProcessed;
+
+        // 订阅脚本自动应答事件
+        if (_scriptHookService != null)
+        {
+            _scriptHookService.AutoReplySent += OnAutoReplySent;
+        }
 
         // 初始化连接状态
         IsConnected = _serialPortService.IsConnected;
@@ -496,14 +521,16 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// </summary>
     /// <param name="data">数据</param>
     /// <param name="isTx">是否为发送数据</param>
-    private void AddDataRecord(byte[] data, bool isTx)
+    /// <param name="recordType">记录类型</param>
+    /// <param name="originalData">原始数据（Hook处理前）</param>
+    private void AddDataRecord(byte[] data, bool isTx, DataRecordType recordType = DataRecordType.Normal, byte[]? originalData = null)
     {
         if (data == null || data.Length == 0)
         {
             return;
         }
 
-        var record = new DataRecord(data, isTx, DateTime.Now);
+        var record = new DataRecord(data, isTx, DateTime.Now, recordType, originalData);
 
         if (IsPaused)
         {
@@ -519,11 +546,47 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     }
 
     /// <summary>
+    /// 添加脚本自动应答记录（公开方法，供外部调用）
+    /// </summary>
+    public void AddScriptAutoReplyRecord(byte[] data)
+    {
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => AddDataRecord(data, isTx: true, DataRecordType.ScriptAutoReply), null);
+        }
+        else
+        {
+            AddDataRecord(data, isTx: true, DataRecordType.ScriptAutoReply);
+        }
+    }
+
+    /// <summary>
+    /// 添加 Hook 处理后的记录（公开方法，供外部调用）
+    /// </summary>
+    public void AddHookProcessedRecord(byte[] processedData, byte[] originalData, bool isTx)
+    {
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => AddDataRecord(processedData, isTx, DataRecordType.HookProcessed, originalData), null);
+        }
+        else
+        {
+            AddDataRecord(processedData, isTx, DataRecordType.HookProcessed, originalData);
+        }
+    }
+
+    /// <summary>
     /// 格式化单条数据记录
     /// </summary>
     private string FormatRecord(DataRecord record)
     {
         var prefix = record.IsTx ? "[TX] " : "[RX] ";
+
+        // 脚本自动应答特殊标记
+        if (record.RecordType == DataRecordType.ScriptAutoReply)
+        {
+            prefix = "[🤖] ";
+        }
 
         // 添加时间戳
         if (ShowTimestamp)
@@ -533,14 +596,34 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
             prefix = $"[{timestamp}] {prefix}";
         }
 
+        string dataStr;
         if (IsHexDisplayMode)
         {
-            return prefix + HexHelper.BytesToHexString(record.Data);
+            dataStr = HexHelper.BytesToHexString(record.Data);
         }
         else
         {
-            return prefix + HexHelper.BytesToAsciiString(record.Data, '.');
+            dataStr = HexHelper.BytesToAsciiString(record.Data, '.');
         }
+
+        // 如果数据被 Hook 处理过，显示原始数据和处理后数据
+        if (record.RecordType == DataRecordType.HookProcessed && record.OriginalData != null)
+        {
+            string originalStr;
+            if (IsHexDisplayMode)
+            {
+                originalStr = HexHelper.BytesToHexString(record.OriginalData);
+            }
+            else
+            {
+                originalStr = HexHelper.BytesToAsciiString(record.OriginalData, '.');
+            }
+
+            // 使用 emoji 标识: 📥 原始 → 📤 处理后
+            return prefix + $"📥 {originalStr} → 📤 {dataStr}";
+        }
+
+        return prefix + dataStr;
     }
 
     /// <summary>
@@ -582,6 +665,36 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
             _dataRecords.AddRange(_pausedRecords);
             _pausedRecords.Clear();
             RefreshDisplay();
+        }
+    }
+
+    /// <summary>
+    /// Hook 处理完成事件处理
+    /// </summary>
+    private void OnHookProcessed(object? sender, HookProcessedEventArgs e)
+    {
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => AddDataRecord(e.ProcessedData, e.IsTx, DataRecordType.HookProcessed, e.OriginalData), null);
+        }
+        else
+        {
+            AddDataRecord(e.ProcessedData, e.IsTx, DataRecordType.HookProcessed, e.OriginalData);
+        }
+    }
+
+    /// <summary>
+    /// 脚本自动应答事件处理
+    /// </summary>
+    private void OnAutoReplySent(object? sender, ScriptAutoReplyEventArgs e)
+    {
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => AddDataRecord(e.ReplyData, isTx: true, DataRecordType.ScriptAutoReply), null);
+        }
+        else
+        {
+            AddDataRecord(e.ReplyData, isTx: true, DataRecordType.ScriptAutoReply);
         }
     }
 
@@ -706,6 +819,12 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
                 _serialPortService.DataReceived -= OnDataReceived;
                 _serialPortService.ConnectionStateChanged -= OnConnectionStateChanged;
+                _serialPortService.HookProcessed -= OnHookProcessed;
+
+                if (_scriptHookService != null)
+                {
+                    _scriptHookService.AutoReplySent -= OnAutoReplySent;
+                }
             }
 
             _disposed = true;

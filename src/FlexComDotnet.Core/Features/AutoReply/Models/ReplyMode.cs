@@ -13,5 +13,10 @@ public enum ReplyMode
     /// <summary>
     /// 顺序回复模式 - 按预设顺序依次回复
     /// </summary>
-    Sequential = 1
+    Sequential = 1,
+
+    /// <summary>
+    /// 脚本回复模式 - 使用 Lua 脚本处理复杂应答逻辑
+    /// </summary>
+    Script = 2
 }

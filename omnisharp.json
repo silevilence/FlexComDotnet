@@ -1,0 +1,13 @@
+{
+  "RoslynExtensionsOptions": {
+    "EnableAnalyzersSupport": false,
+    "EnableDecompilationSupport": true
+  },
+  "FormattingOptions": {
+    "EnableEditorConfigSupport": true
+  },
+  "MsBuild": {
+    "LoadProjectsOnDemand": false,
+    "UseBundledOnly": false
+  }
+}

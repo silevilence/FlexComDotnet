@@ -14,6 +14,7 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     private readonly IScriptEngine _engine;
     private readonly IScriptManager _manager;
     private readonly IScriptApiBridge _bridge;
+    private readonly IScriptHookService? _hookService;
     private bool _disposed;
 
     #region Observable Properties
@@ -71,16 +72,63 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     /// </summary>
     public event EventHandler? OpenEditorRequested;
 
+    #region Hook 相关属性
+
+    /// <summary>
+    /// 是否支持 Hook 功能
+    /// </summary>
+    public bool IsHookSupported => _hookService != null;
+
+    /// <summary>
+    /// 接收预处理 Hook 启用状态
+    /// </summary>
+    [ObservableProperty]
+    private bool _rxHookEnabled;
+
+    /// <summary>
+    /// 接收预处理 Hook 脚本 ID
+    /// </summary>
+    [ObservableProperty]
+    private string? _rxHookScriptId;
+
+    /// <summary>
+    /// 发送后处理 Hook 启用状态
+    /// </summary>
+    [ObservableProperty]
+    private bool _txHookEnabled;
+
+    /// <summary>
+    /// 发送后处理 Hook 脚本 ID
+    /// </summary>
+    [ObservableProperty]
+    private string? _txHookScriptId;
+
+    /// <summary>
+    /// 应答 Hook 启用状态
+    /// </summary>
+    [ObservableProperty]
+    private bool _replyHookEnabled;
+
+    /// <summary>
+    /// 应答 Hook 脚本 ID
+    /// </summary>
+    [ObservableProperty]
+    private string? _replyHookScriptId;
+
+    #endregion
+
     #endregion
 
     public ScriptingViewModel(
         IScriptEngine engine,
         IScriptManager manager,
-        IScriptApiBridge bridge)
+        IScriptApiBridge bridge,
+        IScriptHookService? hookService = null)
     {
         _engine = engine;
         _manager = manager;
         _bridge = bridge;
+        _hookService = hookService;
 
         // 订阅引擎事件
         _engine.StateChanged += OnEngineStateChanged;
@@ -89,6 +137,13 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
 
         // 订阅管理器事件
         _manager.ScriptsChanged += OnScriptsChanged;
+
+        // 订阅 Hook 服务日志
+        if (_hookService != null)
+        {
+            _hookService.LogOutput += OnHookLogOutput;
+            LoadHookSettings();
+        }
 
         // 加载脚本列表
         RefreshScriptList();
@@ -271,6 +326,48 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
         RefreshScriptList();
     }
 
+    private void OnHookLogOutput(object? sender, ScriptLogEntry entry)
+    {
+        RunOnUiThread(() =>
+        {
+            LogEntries.Add(entry);
+        });
+    }
+
+    #endregion
+
+    #region Hook 属性变更处理
+
+    partial void OnRxHookEnabledChanged(bool value)
+    {
+        _hookService?.SetHookEnabled(HookType.RxPreProcessor, value);
+    }
+
+    partial void OnRxHookScriptIdChanged(string? value)
+    {
+        _hookService?.SetHookScript(HookType.RxPreProcessor, value);
+    }
+
+    partial void OnTxHookEnabledChanged(bool value)
+    {
+        _hookService?.SetHookEnabled(HookType.TxPostProcessor, value);
+    }
+
+    partial void OnTxHookScriptIdChanged(string? value)
+    {
+        _hookService?.SetHookScript(HookType.TxPostProcessor, value);
+    }
+
+    partial void OnReplyHookEnabledChanged(bool value)
+    {
+        _hookService?.SetHookEnabled(HookType.Reply, value);
+    }
+
+    partial void OnReplyHookScriptIdChanged(string? value)
+    {
+        _hookService?.SetHookScript(HookType.Reply, value);
+    }
+
     #endregion
 
     #region 私有方法
@@ -283,6 +380,19 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
         {
             Scripts.Add(script);
         }
+    }
+
+    private void LoadHookSettings()
+    {
+        if (_hookService == null) return;
+
+        var settings = _hookService.Settings;
+        RxHookEnabled = settings.RxPreProcessor.IsEnabled;
+        RxHookScriptId = settings.RxPreProcessor.ScriptId;
+        TxHookEnabled = settings.TxPostProcessor.IsEnabled;
+        TxHookScriptId = settings.TxPostProcessor.ScriptId;
+        ReplyHookEnabled = settings.Reply.IsEnabled;
+        ReplyHookScriptId = settings.Reply.ScriptId;
     }
 
     #endregion
@@ -298,6 +408,11 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
         _engine.LogOutput -= OnEngineLogOutput;
         _engine.ErrorOccurred -= OnEngineErrorOccurred;
         _manager.ScriptsChanged -= OnScriptsChanged;
+
+        if (_hookService != null)
+        {
+            _hookService.LogOutput -= OnHookLogOutput;
+        }
 
         GC.SuppressFinalize(this);
     }

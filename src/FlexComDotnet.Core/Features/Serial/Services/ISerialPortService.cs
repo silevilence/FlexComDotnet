@@ -3,6 +3,23 @@ using FlexComDotnet.Core.Features.Serial.Models;
 namespace FlexComDotnet.Core.Features.Serial.Services;
 
 /// <summary>
+/// Hook 处理事件参数
+/// </summary>
+public class HookProcessedEventArgs : EventArgs
+{
+    public byte[] OriginalData { get; }
+    public byte[] ProcessedData { get; }
+    public bool IsTx { get; }
+
+    public HookProcessedEventArgs(byte[] originalData, byte[] processedData, bool isTx)
+    {
+        OriginalData = originalData;
+        ProcessedData = processedData;
+        IsTx = isTx;
+    }
+}
+
+/// <summary>
 /// 串口服务接口
 /// </summary>
 public interface ISerialPortService
@@ -31,6 +48,21 @@ public interface ISerialPortService
     /// 错误事件
     /// </summary>
     event EventHandler<string>? ErrorOccurred;
+
+    /// <summary>
+    /// Hook 处理完成事件（数据被修改时触发）
+    /// </summary>
+    event EventHandler<HookProcessedEventArgs>? HookProcessed;
+
+    /// <summary>
+    /// 接收数据预处理器 (Rx Hook)
+    /// </summary>
+    Func<byte[], byte[]>? RxPreProcessor { get; set; }
+
+    /// <summary>
+    /// 发送数据后处理器 (Tx Hook)
+    /// </summary>
+    Func<byte[], byte[]>? TxPostProcessor { get; set; }
 
     /// <summary>
     /// 获取可用串口列表

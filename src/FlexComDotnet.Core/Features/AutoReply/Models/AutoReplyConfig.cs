@@ -29,4 +29,9 @@ public class AutoReplyConfig
     /// 顺序回复配置
     /// </summary>
     public SequentialReplyConfig SequentialConfig { get; set; } = new();
+
+    /// <summary>
+    /// 脚本回复配置
+    /// </summary>
+    public ScriptReplyConfig ScriptConfig { get; set; } = new();
 }

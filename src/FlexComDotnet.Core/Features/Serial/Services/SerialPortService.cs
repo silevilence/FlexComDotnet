@@ -29,6 +29,15 @@ public class SerialPortService : ISerialPortService, IDisposable
     public event EventHandler<string>? ErrorOccurred;
 
     /// <inheritdoc/>
+    public event EventHandler<HookProcessedEventArgs>? HookProcessed;
+
+    /// <inheritdoc/>
+    public Func<byte[], byte[]>? RxPreProcessor { get; set; }
+
+    /// <inheritdoc/>
+    public Func<byte[], byte[]>? TxPostProcessor { get; set; }
+
+    /// <inheritdoc/>
     public IReadOnlyList<SerialPortInfo> GetAvailablePorts()
     {
         var portInfos = new List<SerialPortInfo>();
@@ -131,7 +140,21 @@ public class SerialPortService : ISerialPortService, IDisposable
 
         try
         {
-            _serialPort.Write(data, 0, data.Length);
+            var dataToSend = data;
+
+            // 应用 Tx 后处理器
+            if (TxPostProcessor != null)
+            {
+                dataToSend = TxPostProcessor(data);
+                
+                // 如果数据被修改，触发事件
+                if (!data.SequenceEqual(dataToSend))
+                {
+                    HookProcessed?.Invoke(this, new HookProcessedEventArgs(data, dataToSend, isTx: true));
+                }
+            }
+
+            _serialPort.Write(dataToSend, 0, dataToSend.Length);
             return true;
         }
         catch (Exception ex)
@@ -179,6 +202,20 @@ public class SerialPortService : ISerialPortService, IDisposable
             {
                 var buffer = new byte[bytesToRead];
                 _serialPort.Read(buffer, 0, bytesToRead);
+                var originalBuffer = buffer;
+
+                // 应用 Rx 预处理器
+                if (RxPreProcessor != null)
+                {
+                    buffer = RxPreProcessor(originalBuffer);
+                    
+                    // 如果数据被修改，触发事件
+                    if (!originalBuffer.SequenceEqual(buffer))
+                    {
+                        HookProcessed?.Invoke(this, new HookProcessedEventArgs(originalBuffer, buffer, isTx: false));
+                    }
+                }
+
                 DataReceived?.Invoke(this, buffer);
             }
         }
