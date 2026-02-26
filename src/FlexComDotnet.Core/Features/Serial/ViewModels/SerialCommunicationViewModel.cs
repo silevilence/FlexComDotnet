@@ -42,6 +42,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     private readonly List<DataRecord> _pausedRecords = [];
     private readonly System.Timers.Timer _sendTimer;
     private readonly SynchronizationContext? _syncContext;
+    private readonly HashSet<byte[]> _pendingAutoReplyData = new(ReferenceEqualityComparer.Instance);
     private bool _disposed;
 
     #region 日志保存属性
@@ -434,8 +435,11 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
             // 更新发送字节计数
             TxBytes += data.Length;
             
-            // 将发送的数据显示到接收区
-            AddDataRecord(data, isTx: true);
+            // 将发送的数据显示到接收区（如果有 TxPostProcessor，由 HookProcessed 事件处理）
+            if (_serialPortService.TxPostProcessor == null)
+            {
+                AddDataRecord(data, isTx: true);
+            }
             SendStatus = $"发送成功: {data.Length} 字节";
         }
         else
@@ -585,7 +589,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         // 脚本自动应答特殊标记
         if (record.RecordType == DataRecordType.ScriptAutoReply)
         {
-            prefix = "[🤖] ";
+            prefix = "[🤖]";
         }
 
         // 添加时间戳
@@ -606,8 +610,10 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
             dataStr = HexHelper.BytesToAsciiString(record.Data, '.');
         }
 
-        // 如果数据被 Hook 处理过，显示原始数据和处理后数据
-        if (record.RecordType == DataRecordType.HookProcessed && record.OriginalData != null)
+        // 如果数据被 Hook 处理过或是脚本自动应答，且数据有变化，显示原始数据和处理后数据
+        if ((record.RecordType == DataRecordType.HookProcessed || record.RecordType == DataRecordType.ScriptAutoReply) 
+            && record.OriginalData != null 
+            && !record.Data.SequenceEqual(record.OriginalData))
         {
             string originalStr;
             if (IsHexDisplayMode)
@@ -673,6 +679,12 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// </summary>
     private void OnHookProcessed(object? sender, HookProcessedEventArgs e)
     {
+        // 如果是自动应答触发的 Tx Hook，跳过（由 OnAutoReplySent 统一处理）
+        if (e.IsTx && _pendingAutoReplyData.Remove(e.OriginalData))
+        {
+            return;
+        }
+        
         if (_syncContext != null)
         {
             _syncContext.Post(_ => AddDataRecord(e.ProcessedData, e.IsTx, DataRecordType.HookProcessed, e.OriginalData), null);
@@ -688,13 +700,17 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// </summary>
     private void OnAutoReplySent(object? sender, ScriptAutoReplyEventArgs e)
     {
+        // 标记此数据为自动应答，让 OnHookProcessed 跳过
+        _pendingAutoReplyData.Add(e.ReplyData);
+        
+        // 使用处理后的数据作为实际发送数据，原始回复数据作为 OriginalData
         if (_syncContext != null)
         {
-            _syncContext.Post(_ => AddDataRecord(e.ReplyData, isTx: true, DataRecordType.ScriptAutoReply), null);
+            _syncContext.Post(_ => AddDataRecord(e.ProcessedReplyData, isTx: true, DataRecordType.ScriptAutoReply, e.ReplyData), null);
         }
         else
         {
-            AddDataRecord(e.ReplyData, isTx: true, DataRecordType.ScriptAutoReply);
+            AddDataRecord(e.ProcessedReplyData, isTx: true, DataRecordType.ScriptAutoReply, e.ReplyData);
         }
     }
 
@@ -777,7 +793,10 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         if (success)
         {
             TxBytes += data.Length;
-            AddDataRecord(data, isTx: true);
+            if (_serialPortService.TxPostProcessor == null)
+            {
+                AddDataRecord(data, isTx: true);
+            }
         }
 
         return success;

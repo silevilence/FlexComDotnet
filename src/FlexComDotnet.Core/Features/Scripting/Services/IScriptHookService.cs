@@ -7,11 +7,20 @@ namespace FlexComDotnet.Core.Features.Scripting.Services;
 /// </summary>
 public class ScriptAutoReplyEventArgs : EventArgs
 {
+    /// <summary>
+    /// 脚本决定回复的原始数据
+    /// </summary>
     public byte[] ReplyData { get; }
+    
+    /// <summary>
+    /// 经过 Tx Hook 处理后实际发送的数据
+    /// </summary>
+    public byte[] ProcessedReplyData { get; }
 
-    public ScriptAutoReplyEventArgs(byte[] replyData)
+    public ScriptAutoReplyEventArgs(byte[] replyData, byte[] processedReplyData)
     {
         ReplyData = replyData;
+        ProcessedReplyData = processedReplyData;
     }
 }
 

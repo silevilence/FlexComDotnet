@@ -395,11 +395,18 @@ public class ScriptHookService : IScriptHookService, IDisposable
             var result = await ExecuteReplyHookAsync(data);
             if (result.Success && result.ShouldReply && result.ReplyData != null && result.ReplyData.Length > 0)
             {
+                // 获取 Tx Hook 处理后的数据
+                var processedData = result.ReplyData;
+                if (_serialPortService.TxPostProcessor != null)
+                {
+                    processedData = _serialPortService.TxPostProcessor(result.ReplyData);
+                }
+                
+                // 先触发事件让 ViewModel 标记，再发送（避免 HookProcessed 事件先于标记）
+                AutoReplySent?.Invoke(this, new ScriptAutoReplyEventArgs(result.ReplyData, processedData));
+                
                 _serialPortService.Send(result.ReplyData);
                 EmitLog($"脚本应答: {HexHelper.BytesToHexString(result.ReplyData)}", ScriptLogLevel.Info);
-                
-                // 触发自动应答事件
-                AutoReplySent?.Invoke(this, new ScriptAutoReplyEventArgs(result.ReplyData));
             }
         });
     }

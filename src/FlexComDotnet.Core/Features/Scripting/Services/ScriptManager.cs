@@ -207,7 +207,7 @@ public class ScriptManager : IScriptManager
         return """
             -- FlexComDotnet Lua 脚本
             -- 可用 API:
-            --   FCom.send(hexString)      发送十六进制数据 (如 "FF 01 02")
+            --   FCom.send(hexString)       发送十六进制数据 (如 "FF 01 02")
             --   FCom.sendText(text)        发送文本数据
             --   FCom.log(message)          输出日志
             --   FCom.logDebug(message)     输出调试日志
@@ -217,18 +217,59 @@ public class ScriptManager : IScriptManager
             --   FCom.crc16(hexString)      计算 CRC16-Modbus
             --   FCom.crc32(hexString)      计算 CRC32
             --   FCom.checksum(hexString)   计算 Checksum (Sum8)
-            --   FCom.getTimestamp()         获取时间戳 (ms)
+            --   FCom.getTimestamp()        获取时间戳 (ms)
             --   FCom.hexToBytes(hexString) Hex 转字节数组
             --   FCom.bytesToHex(bytes)     字节数组转 Hex
 
+            -- ============================================================
+            -- 普通脚本示例 (手动执行)
+            -- ============================================================
             FCom.log("脚本开始执行")
 
-            -- 在此编写你的脚本逻辑
             -- 示例: 发送数据并等待
             -- FCom.send("01 03 00 00 00 01")
             -- FCom.delay(100)
 
             FCom.log("脚本执行完成")
+
+            -- ============================================================
+            -- Hook 脚本示例
+            -- Hook 脚本必须定义特定函数，参数为十六进制字符串，返回处理后的十六进制字符串
+            -- ============================================================
+
+            --[[ Rx Hook 示例: 接收数据预处理
+            -- 函数名必须为 onReceive，参数 data 为接收到的十六进制字符串
+            -- 返回处理后的十六进制字符串
+            function onReceive(data)
+                -- 示例: 去掉帧头 AA 55
+                if string.sub(data, 1, 5) == "AA 55" then
+                    return string.sub(data, 7)
+                end
+                return data
+            end
+            ]]
+
+            --[[ Tx Hook 示例: 发送数据后处理
+            -- 函数名必须为 onSend，参数 data 为待发送的十六进制字符串
+            -- 返回处理后的十六进制字符串
+            function onSend(data)
+                -- 示例: 自动追加 CRC16 校验
+                local crc = FCom.crc16(data)
+                return data .. " " .. crc
+            end
+            ]]
+
+            --[[ Reply Hook 示例: 自动应答
+            -- 函数名必须为 onReceive，参数 data 为接收到的十六进制字符串
+            -- 返回要回复的十六进制字符串，返回空字符串或 nil 表示不回复
+            function onReceive(data)
+                -- 示例: 收到 "01 03" 开头的数据时自动回复 "OK"
+                if string.sub(data, 1, 5) == "01 03" then
+                    return "4F 4B"  -- "OK" 的十六进制
+                end
+                return ""  -- 不回复
+            end
+            ]]
             """;
     }
 
