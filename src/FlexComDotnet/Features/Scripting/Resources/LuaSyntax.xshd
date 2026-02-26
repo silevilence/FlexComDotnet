@@ -1,0 +1,150 @@
+<?xml version="1.0"?>
+<SyntaxDefinition name="Lua" extensions=".lua" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Comment" foreground="#6A9955" fontStyle="italic"/>
+  <Color name="String" foreground="#CE9178"/>
+  <Color name="Keyword" foreground="#569CD6" fontWeight="bold"/>
+  <Color name="ControlKeyword" foreground="#C586C0" fontWeight="bold"/>
+  <Color name="Number" foreground="#B5CEA8"/>
+  <Color name="Operator" foreground="#D4D4D4"/>
+  <Color name="Function" foreground="#DCDCAA"/>
+  <Color name="GlobalFunction" foreground="#4EC9B0"/>
+  <Color name="Boolean" foreground="#569CD6"/>
+  <Color name="Nil" foreground="#569CD6"/>
+  <Color name="FCom" foreground="#4FC1FF" fontWeight="bold"/>
+  
+  <RuleSet ignoreCase="false">
+    <!-- 多行注释 -->
+    <Span color="Comment" multiline="true">
+      <Begin>--\[\[</Begin>
+      <End>\]\]</End>
+    </Span>
+    
+    <!-- 单行注释 -->
+    <Span color="Comment">
+      <Begin>--</Begin>
+    </Span>
+    
+    <!-- 多行字符串 -->
+    <Span color="String" multiline="true">
+      <Begin>\[\[</Begin>
+      <End>\]\]</End>
+    </Span>
+    
+    <!-- 双引号字符串 -->
+    <Span color="String">
+      <Begin>"</Begin>
+      <End>"</End>
+      <RuleSet>
+        <Span begin="\\" end="."/>
+      </RuleSet>
+    </Span>
+    
+    <!-- 单引号字符串 -->
+    <Span color="String">
+      <Begin>'</Begin>
+      <End>'</End>
+      <RuleSet>
+        <Span begin="\\" end="."/>
+      </RuleSet>
+    </Span>
+    
+    <!-- FCom API 对象 -->
+    <Keywords color="FCom">
+      <Word>FCom</Word>
+    </Keywords>
+    
+    <!-- 控制流关键字 -->
+    <Keywords color="ControlKeyword">
+      <Word>if</Word>
+      <Word>then</Word>
+      <Word>else</Word>
+      <Word>elseif</Word>
+      <Word>end</Word>
+      <Word>for</Word>
+      <Word>while</Word>
+      <Word>do</Word>
+      <Word>repeat</Word>
+      <Word>until</Word>
+      <Word>break</Word>
+      <Word>return</Word>
+      <Word>goto</Word>
+      <Word>in</Word>
+    </Keywords>
+    
+    <!-- 其他关键字 -->
+    <Keywords color="Keyword">
+      <Word>and</Word>
+      <Word>or</Word>
+      <Word>not</Word>
+      <Word>local</Word>
+      <Word>function</Word>
+    </Keywords>
+    
+    <!-- 布尔值 -->
+    <Keywords color="Boolean">
+      <Word>true</Word>
+      <Word>false</Word>
+    </Keywords>
+    
+    <!-- nil -->
+    <Keywords color="Nil">
+      <Word>nil</Word>
+    </Keywords>
+    
+    <!-- 全局函数 -->
+    <Keywords color="GlobalFunction">
+      <Word>print</Word>
+      <Word>type</Word>
+      <Word>tostring</Word>
+      <Word>tonumber</Word>
+      <Word>pairs</Word>
+      <Word>ipairs</Word>
+      <Word>next</Word>
+      <Word>select</Word>
+      <Word>unpack</Word>
+      <Word>pcall</Word>
+      <Word>xpcall</Word>
+      <Word>error</Word>
+      <Word>assert</Word>
+      <Word>rawget</Word>
+      <Word>rawset</Word>
+      <Word>rawequal</Word>
+      <Word>setmetatable</Word>
+      <Word>getmetatable</Word>
+      <Word>collectgarbage</Word>
+      <Word>load</Word>
+      <Word>loadstring</Word>
+      <Word>dofile</Word>
+      <Word>require</Word>
+    </Keywords>
+    
+    <!-- 标准库函数前缀 -->
+    <Keywords color="Function">
+      <Word>string</Word>
+      <Word>table</Word>
+      <Word>math</Word>
+      <Word>io</Word>
+      <Word>os</Word>
+      <Word>coroutine</Word>
+      <Word>debug</Word>
+      <Word>package</Word>
+      <Word>utf8</Word>
+    </Keywords>
+    
+    <!-- 数字 -->
+    <Rule color="Number">
+      \b0[xX][0-9a-fA-F]+\b
+    </Rule>
+    <Rule color="Number">
+      \b[0-9]+\.?[0-9]*([eE][+-]?[0-9]+)?\b
+    </Rule>
+    <Rule color="Number">
+      \b\.[0-9]+([eE][+-]?[0-9]+)?\b
+    </Rule>
+    
+    <!-- 运算符 -->
+    <Rule color="Operator">
+      [+\-*/%^#=&lt;&gt;~\[\]{}().,:;]
+    </Rule>
+  </RuleSet>
+</SyntaxDefinition>

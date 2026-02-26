@@ -6,6 +6,7 @@
              xmlns:local="clr-namespace:FlexComDotnet.Features.Scripting.Views"
              xmlns:converters="clr-namespace:FlexComDotnet.Converters"
              xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+             xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="300"
              Background="{DynamicResource SurfaceBrush}">
@@ -147,11 +148,21 @@
 
         <!-- ========================= 脚本列表 ========================= -->
         <ListBox Grid.Row="1"
+                 x:Name="ScriptListBox"
                  ItemsSource="{Binding Scripts}"
                  SelectedItem="{Binding SelectedScript}"
                  ItemContainerStyle="{StaticResource ScriptListItemStyle}"
                  Background="Transparent" BorderThickness="0"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="▶ 运行" Click="RunScript_Click" InputGestureText="F5"/>
+                    <MenuItem Header="📝 编辑" Click="EditScript_Click" InputGestureText="Enter"/>
+                    <Separator/>
+                    <MenuItem Header="✏️ 重命名" Click="RenameScript_Click" InputGestureText="F2"/>
+                    <MenuItem Header="🗑 删除" Click="DeleteScript_Click" InputGestureText="Del"/>
+                </ContextMenu>
+            </ListBox.ContextMenu>
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid>
@@ -280,37 +291,15 @@
             </StackPanel>
         </Border>
 
-        <!-- ========================= 操作工具栏 ========================= -->
+        <!-- ========================= 状态栏 ========================= -->
         <Border Grid.Row="3" Padding="6"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-            <StackPanel>
-                <!-- 状态 -->
-                <TextBlock Text="{Binding StatusText}" FontSize="11"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           Margin="4,0,0,6"/>
-                
-                <!-- 按钮组 -->
-                <WrapPanel>
-                    <Button Content="▶ 运行" Style="{StaticResource RunButtonStyle}"
-                            Command="{Binding RunScriptCommand}"
-                            Visibility="{Binding IsRunning, Converter={StaticResource InverseBoolToVisibilityConverter}}"
-                            ToolTip="运行当前脚本"/>
-                    <Button Content="■ 停止" Style="{StaticResource StopButtonStyle}"
-                            Command="{Binding StopScriptCommand}"
-                            Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibilityConverter}}"
-                            ToolTip="停止脚本"/>
-                    <Button Content="📝 编辑器" Style="{StaticResource OpenEditorButtonStyle}"
-                            Command="{Binding OpenEditorCommand}"
-                            ToolTip="打开脚本编辑器窗口"/>
-                    <Button Content="🗑" Style="{StaticResource ToolButtonStyle}"
-                            Command="{Binding DeleteScriptCommand}"
-                            IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
-                            ToolTip="删除脚本"/>
-                </WrapPanel>
-            </StackPanel>
+            <TextBlock Text="{Binding StatusText}" FontSize="11"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Margin="4,0,0,0"/>
         </Border>
 
-        <!-- ========================= 代码预览 (只读) ========================= -->
+        <!-- ========================= 代码预览 (只读, 带语法高亮) ========================= -->
         <Border Grid.Row="4" MaxHeight="150"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <Grid>
@@ -324,20 +313,18 @@
                     <TextBlock Text="📄 代码预览" FontSize="10" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                 </Border>
-                <TextBox Grid.Row="1"
-                         Text="{Binding EditorContent, Mode=OneWay}"
-                         IsReadOnly="True"
-                         FontFamily="Cascadia Code, Consolas, Courier New"
-                         FontSize="11"
-                         Background="{DynamicResource CardBrush}"
-                         Foreground="{DynamicResource TextPrimaryBrush}"
-                         BorderThickness="0"
-                         TextWrapping="NoWrap"
-                         VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Auto"
-                         Padding="8,4"
-                         MaxHeight="120"
-                         Cursor="Arrow"/>
+                <avalonedit:TextEditor Grid.Row="1"
+                                       x:Name="CodePreviewEditor"
+                                       IsReadOnly="True"
+                                       FontFamily="Cascadia Code, Consolas, Courier New"
+                                       FontSize="11"
+                                       ShowLineNumbers="False"
+                                       WordWrap="False"
+                                       BorderThickness="0"
+                                       Padding="8,4"
+                                       MaxHeight="120"
+                                       VerticalScrollBarVisibility="Auto"
+                                       HorizontalScrollBarVisibility="Auto"/>
             </Grid>
         </Border>
 
@@ -374,14 +361,19 @@
                          ScrollViewer.VerticalScrollBarVisibility="Auto"
                          FontFamily="Cascadia Code, Consolas, Courier New"
                          FontSize="10"
-                         MaxHeight="120">
+                         MaxHeight="120"
+                         SelectionMode="Extended">
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="复制" Click="CopyLogMenuItem_Click" InputGestureText="Ctrl+C"/>
+                            <MenuItem Header="全选" Click="SelectAllLogMenuItem_Click" InputGestureText="Ctrl+A"/>
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="Padding" Value="6,1"/>
                             <Setter Property="BorderThickness" Value="0"/>
                             <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Focusable" Value="False"/>
-                            <Setter Property="IsHitTestVisible" Value="False"/>
                         </Style>
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>

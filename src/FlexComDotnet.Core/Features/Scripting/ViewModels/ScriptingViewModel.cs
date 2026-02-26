@@ -262,6 +262,22 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
         OpenEditorRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// 重命名当前选中的脚本
+    /// </summary>
+    public void RenameScript(string newName)
+    {
+        if (SelectedScript == null || string.IsNullOrWhiteSpace(newName)) return;
+
+        if (_manager.UpdateScriptInfo(SelectedScript.Id, newName))
+        {
+            RefreshScriptList();
+            // 重新选中该脚本
+            SelectedScript = Scripts.FirstOrDefault(s => s.Name == newName);
+            StatusText = "已重命名";
+        }
+    }
+
     #endregion
 
     #region 事件处理

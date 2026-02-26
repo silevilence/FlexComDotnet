@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:converters="clr-namespace:FlexComDotnet.Converters"
         xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+        xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         mc:Ignorable="d"
         Title="{Binding SelectedScript.Name, StringFormat='脚本编辑器 - {0}', FallbackValue='脚本编辑器'}"
         Height="700"
@@ -68,23 +69,6 @@
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
-
-        <!-- 代码编辑器文本框样式 -->
-        <Style x:Key="CodeEditorStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, Courier New"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-            <Setter Property="CaretBrush" Value="{DynamicResource PrimaryBrush}"/>
-            <Setter Property="AcceptsReturn" Value="True"/>
-            <Setter Property="AcceptsTab" Value="True"/>
-            <Setter Property="TextWrapping" Value="NoWrap"/>
-            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
-            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
-            <Setter Property="Padding" Value="10"/>
-            <Setter Property="pu:TextBoxHelper.CornerRadius" Value="4"/>
-        </Style>
     </Window.Resources>
 
     <Grid>
@@ -106,6 +90,9 @@
             <DockPanel>
                 <!-- 右侧操作按钮 -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="📖 API" Style="{StaticResource ActionButtonStyle}"
+                            Click="OnOpenApiReference_Click"
+                            ToolTip="打开 API 参考文档"/>
                     <Button Content="▶ 运行" Style="{StaticResource RunButtonStyle}"
                             Command="{Binding RunScriptCommand}"
                             Visibility="{Binding IsRunning, Converter={StaticResource InverseBoolToVisibilityConverter}}"
@@ -134,19 +121,21 @@
             </DockPanel>
         </Border>
 
-        <!-- ========================= 代码编辑器 ========================= -->
-        <TextBox Grid.Row="1"
-                 Style="{StaticResource CodeEditorStyle}"
-                 Text="{Binding EditorContent, UpdateSourceTrigger=PropertyChanged}"
-                 IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
-                 SpellCheck.IsEnabled="False"
-                 BorderThickness="0"
-                 Margin="0">
-            <TextBox.InputBindings>
+        <!-- ========================= 代码编辑器 (AvalonEdit) ========================= -->
+        <avalonedit:TextEditor Grid.Row="1"
+                               x:Name="CodeEditor"
+                               FontFamily="Cascadia Code, Consolas, Courier New"
+                               FontSize="14"
+                               ShowLineNumbers="True"
+                               WordWrap="False"
+                               IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBoolConverter}}"
+                               BorderThickness="0"
+                               Padding="10">
+            <avalonedit:TextEditor.InputBindings>
                 <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveScriptCommand}"/>
                 <KeyBinding Key="F5" Modifiers="Ctrl" Command="{Binding RunScriptCommand}"/>
-            </TextBox.InputBindings>
-        </TextBox>
+            </avalonedit:TextEditor.InputBindings>
+        </avalonedit:TextEditor>
 
         <!-- ========================= 分隔条 ========================= -->
         <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch"

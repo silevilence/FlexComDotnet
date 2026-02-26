@@ -1,0 +1,221 @@
+<Window x:Class="FlexComDotnet.Features.Scripting.Views.ApiReferenceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+        mc:Ignorable="d"
+        Title="FCom API 参考文档"
+        Height="600"
+        Width="500"
+        MinHeight="400"
+        MinWidth="400"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BackgroundBrush}">
+
+    <Window.Resources>
+        <Style x:Key="CategoryHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+            <Setter Property="Margin" Value="0,16,0,8"/>
+        </Style>
+        
+        <Style x:Key="ApiName" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, Courier New"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Margin" Value="0,6,0,2"/>
+        </Style>
+        
+        <Style x:Key="ApiDesc" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="12,0,0,4"/>
+        </Style>
+        
+        <Style x:Key="ApiParam" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, Courier New"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Margin" Value="12,0,0,0"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" Padding="16,12"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock Text="📚 FCom API 参考" FontSize="16" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="Lua 脚本可用的全局 API 列表" FontSize="12"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- API 列表 -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16">
+            <StackPanel>
+                
+                <!-- 数据发送 -->
+                <TextBlock Text="📤 数据发送" Style="{StaticResource CategoryHeader}"/>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.send(hexData)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">发送十六进制数据，返回 boolean 表示是否成功</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">hexData: string - 如 "FF 01 02 03"</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.sendBytes(data)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">发送原始字节数组</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">data: byte[] - 字节数组</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.sendText(text)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">发送文本字符串 (UTF-8 编码)</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">text: string - 文本内容</TextBlock>
+
+                <!-- 日志输出 -->
+                <TextBlock Text="📋 日志输出" Style="{StaticResource CategoryHeader}"/>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.log(message)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">输出普通日志 (Info 级别)</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">message: string</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.logDebug(message)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">输出调试日志 (Debug 级别，灰色)</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.logWarning(message)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">输出警告日志 (Warning 级别，黄色)</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.logError(message)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">输出错误日志 (Error 级别，红色)</TextBlock>
+
+                <!-- 延时控制 -->
+                <TextBlock Text="⏱️ 延时控制" Style="{StaticResource CategoryHeader}"/>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.delay(ms)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">阻塞延时，支持脚本停止时中断</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">ms: number - 毫秒数</TextBlock>
+
+                <!-- 校验计算 -->
+                <TextBlock Text="🔢 校验计算" Style="{StaticResource CategoryHeader}"/>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.crc16(hexData)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">计算 CRC16-Modbus，返回十六进制字符串</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">hexData: string - 如 "01 03 00 00"</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.crc32(hexData)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">计算 CRC32，返回十六进制字符串</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.checksum(hexData)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">计算 Sum8 校验和，返回十六进制字符串</TextBlock>
+
+                <!-- 工具方法 -->
+                <TextBlock Text="🔧 工具方法" Style="{StaticResource CategoryHeader}"/>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.getTimestamp()</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">获取当前 Unix 时间戳 (毫秒)</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">返回: number</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.hexToBytes(hexString)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">将十六进制字符串转换为字节数组</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">hexString: string → byte[]</TextBlock>
+                
+                <TextBlock Style="{StaticResource ApiName}">FCom.bytesToHex(data)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">将字节数组转换为十六进制字符串</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">data: byte[] → string</TextBlock>
+
+                <!-- Hook 系统 -->
+                <TextBlock Text="🔗 Hook 系统" Style="{StaticResource CategoryHeader}"/>
+                
+                <TextBlock Style="{StaticResource ApiDesc}" Margin="0,0,0,8">
+                    Hook 允许脚本介入数据收发流程。在脚本管理面板中配置 Hook 后，对应脚本会在特定时机被调用。脚本必须定义指定名称的函数，参数和返回值均为十六进制字符串。
+                </TextBlock>
+
+                <TextBlock Style="{StaticResource ApiName}">Rx 预处理 Hook</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">接收数据前调用，可修改/解密数据</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">必须定义: function onReceive(hexData)</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">参数: hexData (string) - 原始接收数据的十六进制字符串</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">返回: string - 处理后的十六进制字符串 (返回 nil 则使用原数据)</TextBlock>
+
+                <TextBlock Style="{StaticResource ApiName}">Tx 后处理 Hook</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">发送数据前调用，可加封包/校验</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">必须定义: function onSend(hexData)</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">参数: hexData (string) - 原始发送数据的十六进制字符串</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">返回: string - 处理后的十六进制字符串</TextBlock>
+
+                <TextBlock Style="{StaticResource ApiName}">Reply Hook (脚本应答)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">收到数据时调用，实现自定义应答逻辑</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">必须定义: function onReceive(hexData)</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">参数: hexData (string) - 接收到的数据的十六进制字符串</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">返回: string - 要回复的十六进制字符串 (返回 nil 则不回复)</TextBlock>
+
+                <!-- 示例代码 -->
+                <TextBlock Text="💡 示例代码" Style="{StaticResource CategoryHeader}"/>
+                
+                <TextBlock Style="{StaticResource ApiDesc}" Margin="0,0,0,4">基础发送示例：</TextBlock>
+                <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="12" Margin="0,4,0,0">
+                    <TextBlock FontFamily="Cascadia Code, Consolas, Courier New" FontSize="12"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap">
+<Run Foreground="#6A9955">-- 发送 Modbus 读取命令</Run><LineBreak/>
+<Run Foreground="#569CD6">local</Run> cmd = <Run Foreground="#CE9178">"01 03 00 00 00 0A"</Run><LineBreak/>
+<Run Foreground="#569CD6">local</Run> crc = <Run Foreground="#4FC1FF">FCom</Run>.crc16(cmd)<LineBreak/>
+<Run Foreground="#4FC1FF">FCom</Run>.send(cmd .. <Run Foreground="#CE9178">" "</Run> .. crc)<LineBreak/>
+<Run Foreground="#4FC1FF">FCom</Run>.log(<Run Foreground="#CE9178">"已发送: "</Run> .. cmd)<LineBreak/>
+<LineBreak/>
+<Run Foreground="#6A9955">-- 循环发送</Run><LineBreak/>
+<Run Foreground="#C586C0">for</Run> i = <Run Foreground="#B5CEA8">1</Run>, <Run Foreground="#B5CEA8">5</Run> <Run Foreground="#C586C0">do</Run><LineBreak/>
+    <Run Foreground="#4FC1FF">FCom</Run>.send(<Run Foreground="#CE9178">"AA BB CC"</Run>)<LineBreak/>
+    <Run Foreground="#4FC1FF">FCom</Run>.delay(<Run Foreground="#B5CEA8">1000</Run>)<LineBreak/>
+<Run Foreground="#C586C0">end</Run>
+                    </TextBlock>
+                </Border>
+
+                <TextBlock Style="{StaticResource ApiDesc}" Margin="0,12,0,4">Rx/Tx Hook 示例 (添加帧头帧尾)：</TextBlock>
+                <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="12" Margin="0,4,0,0">
+                    <TextBlock FontFamily="Cascadia Code, Consolas, Courier New" FontSize="12"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap">
+<Run Foreground="#6A9955">-- Tx Hook: 添加帧头帧尾</Run><LineBreak/>
+<Run Foreground="#569CD6">function</Run> <Run Foreground="#DCDCAA">onSend</Run>(hexData)<LineBreak/>
+    <Run Foreground="#569CD6">local</Run> header = <Run Foreground="#CE9178">"AA 55"</Run><LineBreak/>
+    <Run Foreground="#569CD6">local</Run> footer = <Run Foreground="#CE9178">"0D 0A"</Run><LineBreak/>
+    <Run Foreground="#C586C0">return</Run> header .. <Run Foreground="#CE9178">" "</Run> .. hexData .. <Run Foreground="#CE9178">" "</Run> .. footer<LineBreak/>
+<Run Foreground="#C586C0">end</Run><LineBreak/>
+<LineBreak/>
+<Run Foreground="#6A9955">-- Rx Hook: 去除帧头帧尾</Run><LineBreak/>
+<Run Foreground="#569CD6">function</Run> <Run Foreground="#DCDCAA">onReceive</Run>(hexData)<LineBreak/>
+    <Run Foreground="#6A9955">-- 去掉前4字符(AA 55)和后5字符(0D 0A)</Run><LineBreak/>
+    <Run Foreground="#C586C0">if</Run> #hexData &lt; <Run Foreground="#B5CEA8">12</Run> <Run Foreground="#C586C0">then</Run> <Run Foreground="#C586C0">return</Run> hexData <Run Foreground="#C586C0">end</Run><LineBreak/>
+    <Run Foreground="#C586C0">return</Run> string.sub(hexData, <Run Foreground="#B5CEA8">7</Run>, -<Run Foreground="#B5CEA8">6</Run>)<LineBreak/>
+<Run Foreground="#C586C0">end</Run>
+                    </TextBlock>
+                </Border>
+
+                <TextBlock Style="{StaticResource ApiDesc}" Margin="0,12,0,4">Reply Hook 示例 (条件应答)：</TextBlock>
+                <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="12" Margin="0,4,0,0">
+                    <TextBlock FontFamily="Cascadia Code, Consolas, Courier New" FontSize="12"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap">
+<Run Foreground="#6A9955">-- 根据接收内容决定回复</Run><LineBreak/>
+<Run Foreground="#569CD6">function</Run> <Run Foreground="#DCDCAA">onReceive</Run>(hexData)<LineBreak/>
+    <Run Foreground="#4FC1FF">FCom</Run>.log(<Run Foreground="#CE9178">"收到: "</Run> .. hexData)<LineBreak/>
+    <LineBreak/>
+    <Run Foreground="#6A9955">-- 检查是否为 Modbus 读取命令 (功能码 03)</Run><LineBreak/>
+    <Run Foreground="#C586C0">if</Run> string.sub(hexData, <Run Foreground="#B5CEA8">4</Run>, <Run Foreground="#B5CEA8">5</Run>) == <Run Foreground="#CE9178">"03"</Run> <Run Foreground="#C586C0">then</Run><LineBreak/>
+        <Run Foreground="#C586C0">return</Run> <Run Foreground="#CE9178">"01 03 02 00 64"</Run><LineBreak/>
+    <Run Foreground="#C586C0">end</Run><LineBreak/>
+    <Run Foreground="#C586C0">return</Run> <Run Foreground="#569CD6">nil</Run>  <Run Foreground="#6A9955">-- 不回复</Run><LineBreak/>
+<Run Foreground="#C586C0">end</Run>
+                    </TextBlock>
+                </Border>
+
+                <TextBlock Height="20"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
