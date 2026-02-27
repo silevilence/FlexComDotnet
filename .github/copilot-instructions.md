@@ -17,12 +17,13 @@ FlexComDotnet/
 │   └── copilot-instructions.md   # Copilot 开发指南
 ├── src/
 │   ├── FlexComDotnet/            # WPF UI 层
-│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, NetworkConverters, InverseBoolConverter, EnumToIntConverter 等)
+│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, NetworkConverters, ScriptConverters)
 │   │   ├── Features/
 │   │   │   ├── AutoReply/Views/  # 自动回复视图 (AutoReplyView)
 │   │   │   ├── Checksum/Views/   # 校验计算器视图 (ChecksumCalculatorWindow)
 │   │   │   ├── Layout/Controls/  # 布局控件 (ActivityBar, CollapsiblePanel, FloatingPanelWindow, MultiZoneLayout)
 │   │   │   ├── Network/Views/    # 网络连接视图 (ConnectionConfigView)
+│   │   │   ├── Scripting/Views/  # 脚本视图 (ScriptingView, ScriptEditorWindow, ApiReferenceWindow)
 │   │   │   ├── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
 │   │   │   └── Update/Views/     # 更新视图 (UpdateWindow)
 │   │   ├── Services/             # UI 层服务 (ThemeService, ServiceCollectionExtensions)
@@ -34,7 +35,7 @@ FlexComDotnet/
 │       └── Features/
 │           ├── AutoReply/
 │           │   ├── Models/       # 配置模型 (ReplyMode, MatchType, MatchRule, SequentialFrame, AutoReplyConfig)
-│           │   ├── Services/     # 回复服务与处理器 (IAutoReplyService, IReplyHandler, MatchReplyHandler, SequentialReplyHandler)
+│           │   ├── Services/     # 回复服务与处理器 (IAutoReplyService, IReplyHandler, Handlers/)
 │           │   └── ViewModels/   # 自动回复 ViewModel (AutoReplyViewModel)
 │           ├── Checksum/
 │           │   ├── Models/       # 算法枚举 (ChecksumAlgorithmType)
@@ -44,26 +45,31 @@ FlexComDotnet/
 │           │   ├── Models/       # 布局状态模型 (LayoutState, PanelInfo, PanelZone)
 │           │   └── Services/     # 面板管理器 (IPanelManager)
 │           ├── Network/
-│           │   ├── Models/       # 连接模型 (ConnectionType, ConnectionState, TcpClientConfig, TcpServerConfig, UdpConfig)
+│           │   ├── Models/       # 连接模型 (ConnectionType, ConnectionState, NetworkConfig, ClientInfo)
 │           │   ├── Services/     # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
 │           │   └── ViewModels/   # 连接配置 ViewModel (ConnectionConfigViewModel)
+│           ├── Scripting/
+│           │   ├── Models/       # 脚本模型 (HookType, ScriptState, ScriptFileInfo, ScriptLogEntry)
+│           │   ├── Services/     # 脚本服务 (IScriptEngine, IScriptManager, IScriptHookService, IScriptApiBridge)
+│           │   └── ViewModels/   # 脚本 ViewModel (ScriptingViewModel)
 │           ├── Serial/
 │           │   ├── Helpers/      # 工具类 (HexHelper, ChecksumHelper)
-│           │   ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem, ConnectionConfig)
+│           │   ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem, SerialEnums)
 │           │   ├── Services/     # 串口/配置/存储服务 (ISerialPortService, IConfigurationService, ICommandStorageService)
 │           │   └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
 │           └── Update/
-               ├── Models/       # 版本信息模型 (VersionInfo, ReleaseInfo, UpdateCheckResult, DownloadProgress, InstallationType)
+│               ├── Models/       # 版本信息模型 (VersionInfo, ReleaseInfo, UpdateCheckResult, DownloadProgress, InstallationType)
 │               ├── Services/     # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService, IDownloadService)
 │               └── ViewModels/   # 更新 ViewModel (UpdateViewModel)
 │
 └── tests/
-    └── FlexComDotnet.Tests/      # 单元测试 (591 个用例)
+    └── FlexComDotnet.Tests/      # 单元测试
         └── Features/
             ├── AutoReply/        # 自动回复测试
             ├── Checksum/         # 校验计算器测试
             ├── Layout/           # 布局功能测试
             ├── Network/          # 网络功能测试
+            ├── Scripting/        # 脚本功能测试
             ├── Serial/           # 串口功能测试
             └── Update/           # 自动更新测试
 ```
@@ -88,6 +94,8 @@ FlexComDotnet/
 ### 测试
 - **运行所有测试**: `dotnet test`
 - **运行特定测试项目**: `dotnet test tests/FlexComDotnet.Tests/FlexComDotnet.Tests.csproj`
+- **运行特定测试类**: `dotnet test --filter "FullyQualifiedName~SerialPortServiceTests"`
+- **运行特定测试方法**: `dotnet test --filter "FullyQualifiedName~SerialPortServiceTests.NewService_ShouldNotBeConnected"`
 - **测试覆盖率**: `dotnet test --collect:"XPlat Code Coverage"`
 
 ### 依赖管理
@@ -145,6 +153,7 @@ FlexComDotnet/
 - **WMI 查询**: System.Management 10.0.2
 - **本地存储**: LiteDB 5.0.21 (文档数据库)
 - **脚本引擎**: NLua 1.7.8 (Lua 脚本支持)
+- **代码编辑器**: AvalonEdit 6.3.1.120 (语法高亮、代码补全)
 - **配置管理**: Microsoft.Extensions.Configuration.Json 10.0.2
 - **依赖注入**: Microsoft.Extensions.DependencyInjection 10.0.2
 - **MVVM 工具包**: CommunityToolkit.Mvvm 8.4.0
@@ -183,12 +192,14 @@ FlexComDotnet/
 - **接口**: `I{Name}` (如 `ISerialPortService`)
 - **ViewModel**: `{Feature}ViewModel` (如 `SerialConfigViewModel`)
 - **测试类**: `{ClassName}Tests` (如 `SerialPortServiceTests`)
+- **私有字段**: `_camelCase` (如 `_serialPortService`)
+- **静态字段**: `s_camelCase` (如 `s_instance`)
 
 ### 功能开发流程
 1. **需求分析**: 参考 ROADMAP.md 确定功能优先级
 2. **TDD 实施**: 先写测试，再实现功能
 3. **模块化设计**: 在 Features/ 目录下创建功能模块
-4. **依赖注入**: 通过 DI 容器注册服务
+4. **依赖注入**: 通过 DI 容器注册服务 (见 `ServiceCollectionExtensions.cs`)
 5. **UI 绑定**: 使用 MVVM 模式分离业务逻辑和界面
 6. **测试覆盖**: 确保所有公共 API 都有测试
 7. **文档更新**: 更新相关文档和示例
@@ -237,12 +248,15 @@ public interface IChecksumAlgorithm
 {
     ChecksumAlgorithmType Type { get; }
     string DisplayName { get; }
+    string Description { get; }
+    int ResultLength { get; }
     byte[] Calculate(byte[] data);
+    string CalculateAsHexString(byte[] data);
 }
 
-// 具体策略
-public class Crc16ModbusAlgorithm : IChecksumAlgorithm { ... }
-public class Md5Algorithm : IChecksumAlgorithm { ... }
+// 具体策略 (位于 Services/Algorithms/ 目录)
+public class Crc16ModbusAlgorithm : ChecksumAlgorithmBase { ... }
+public class Md5Algorithm : ChecksumAlgorithmBase { ... }
 
 // 服务封装
 public interface IChecksumService
@@ -258,13 +272,16 @@ public interface IChecksumService
 public interface IReplyHandler
 {
     ReplyMode Mode { get; }
-    ReplyResult? Handle(byte[] receivedData);
-    void Reset();
+    string DisplayName { get; }
+    string Description { get; }
+    ReplyResult Process(byte[] receivedData, AutoReplyConfig config);
+    void Reset(AutoReplyConfig config);
 }
 
-// 具体策略
+// 具体策略 (位于 Services/Handlers/ 目录)
 public class MatchReplyHandler : IReplyHandler { ... }      // 匹配回复
 public class SequentialReplyHandler : IReplyHandler { ... } // 顺序回复
+public class ScriptReplyHandler : IReplyHandler { ... }     // 脚本回复
 
 // 服务封装
 public interface IAutoReplyService
@@ -281,3 +298,137 @@ public interface IAutoReplyService
 2. 创建实现对应接口的策略类
 3. 在服务构造函数中注册新策略
 4. 无需修改 ViewModel 或 UI 层代码
+
+## 9. 测试规范
+
+### 测试文件组织
+- 测试文件位于 `tests/FlexComDotnet.Tests/Features/{Feature}/`
+- 测试类命名: `{ClassName}Tests.cs`
+- 测试方法命名: `{Method}_When{Condition}_Should{ExpectedBehavior}` 或 `{Method}_Should{ExpectedBehavior}`
+
+### 测试模式
+```csharp
+[Fact]
+public void MethodName_ShouldExpectedBehavior()
+{
+    // Arrange
+    var service = new SomeService();
+    
+    // Act
+    var result = service.DoSomething();
+    
+    // Assert
+    result.Should().BeTrue();
+}
+```
+
+### 常用断言 (FluentAssertions)
+```csharp
+result.Should().BeTrue();
+result.Should().BeFalse();
+result.Should().BeNull();
+result.Should().NotBeNull();
+result.Should().Be(expected);
+result.Should().BeEquivalentTo(expected);
+collection.Should().HaveCount(3);
+collection.Should().Contain(item);
+action.Should().Throw<ArgumentException>();
+action.Should().NotThrow();
+```
+
+### Mock 使用 (Moq)
+```csharp
+var mockService = new Mock<ISerialPortService>();
+mockService.Setup(s => s.IsConnected).Returns(true);
+mockService.Setup(s => s.Send(It.IsAny<byte[]>())).Returns(true);
+mockService.Verify(s => s.Send(It.IsAny<byte[]>()), Times.Once);
+```
+
+## 10. CHANGELOG 规范
+
+### 格式要求
+```markdown
+# v{Major}.{Minor}.{Patch}
+
+## ✨ 新功能
+- 功能描述（用户视角，非技术实现）
+
+## 🚀 优化
+- 优化描述
+
+## 🐛 Bug 修复
+- 修复描述
+```
+
+### 重要规则
+- 一级标题为版本号 (如 `# v1.2.0`)
+- 二级标题固定为 `✨ 新功能`、`🚀 优化`、`🐛 Bug 修复`
+- 内容必须以**用户视角**描述变更价值
+- CI 发布时会自动提取对应版本内容，未找到则构建失败
+
+## 11. 依赖注入配置
+
+### 服务注册位置
+所有服务在 `src/FlexComDotnet/Services/ServiceCollectionExtensions.cs` 中注册。
+
+### 生命周期规则
+- **Singleton**: 服务类 (如 `ISerialPortService`, `IConfigurationService`, `IScriptEngine`)
+- **Transient**: ViewModel 类 (如 `SerialConfigViewModel`, `AutoReplyViewModel`)
+
+### 注册示例
+```csharp
+// 单例服务
+services.AddSingleton<ISerialPortService, SerialPortService>();
+
+// 带工厂的单例
+services.AddSingleton<IScriptEngine>(sp =>
+{
+    var engine = new ScriptEngine();
+    var bridge = sp.GetRequiredService<IScriptApiBridge>();
+    engine.RegisterApiBridge(bridge);
+    return engine;
+});
+
+// 瞬态 ViewModel
+services.AddTransient<SerialConfigViewModel>();
+```
+
+## 12. 常见问题与注意事项
+
+### XAML 缩进
+- XAML 文件使用 2 空格缩进 (见 .editorconfig)
+- C# 文件使用 4 空格缩进
+
+### 跨线程 UI 更新
+WPF 要求 UI 更新必须在主线程执行：
+```csharp
+Application.Current.Dispatcher.Invoke(() =>
+{
+    // UI 更新代码
+});
+```
+
+### 可为空引用类型
+项目启用了 `<Nullable>enable</Nullable>`，注意：
+- 使用 `?` 标记可空类型
+- 使用 `!` 断言非空（谨慎使用）
+- 优先使用 null 检查或 null 合并运算符
+
+### CommunityToolkit.Mvvm 特性
+```csharp
+// 自动生成属性和通知
+[ObservableProperty]
+private string _name;
+
+// 关联命令可执行状态
+[ObservableProperty]
+[NotifyCanExecuteChangedFor(nameof(SaveCommand))]
+private bool _isValid;
+
+// 自动生成命令
+[RelayCommand]
+private void Save() { ... }
+
+[RelayCommand(CanExecute = nameof(CanSave))]
+private void Save() { ... }
+```

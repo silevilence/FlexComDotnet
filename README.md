@@ -4,14 +4,14 @@
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![WPF](https://img.shields.io/badge/WPF-Windows-0078D4?logo=windows)
-![Tests](https://img.shields.io/badge/Tests-591%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-Passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## 📋 项目状态
 
-**🚀 开发中 - Phase 8 (P2 高级功能扩展)**
+**🚀 开发中 - Phase 9 (P2 高级功能扩展)**
 
-当前版本已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能（支持 MSIX/ZIP 自动识别安装），下一步开发数据可视化与协议解析引擎。
+当前版本 v1.2.0 已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能、Lua 脚本系统（含语法高亮与智能补全），下一步开发数据可视化与协议解析引擎。
 
 ## ✨ 功能列表
 
@@ -29,14 +29,16 @@
 - [x] **主题系统** - 浅色/深色/跟随系统三种模式、科技风格 UI (Panuon.WPF.UI)、主题设置持久化
 - [x] **独立校验与摘要计算器** - 策略模式架构，支持 Sum8/16、CRC-8/16/32 多种变体、XOR、MD5、SHA-1/256；Hex 输入带 ASCII 预览，可导入/附加发送帧
 - [x] **CI/CD 自动发布** - GitHub Actions 自动构建、打包 (.zip/.msix)、发布 Release
-- [x] **智能自动回复系统** - 匹配回复 (Hex/Ascii 特征码触发)、顺序回复 (循环帧列表)、策略模式架构、配置自动保存
+- [x] **智能自动回复系统** - 匹配回复 (Hex/Ascii 特征码触发)、顺序回复 (循环帧列表)、脚本回复、策略模式架构、配置自动保存
 - [x] **网络扩展** - 统一连接接口 (IConnection)、TCP Client/Server 模式、UDP 单播/广播收发、配置持久化
 - [x] **自动更新** - GitHub API 版本检测、语义版本号比对、下载进度显示、MSIX/ZIP 安装类型自动识别、应用内弹窗更新、启动时后台检查
+- [x] **Lua 脚本系统** - 脚本引擎 (NLua)、脚本管理器、FCom API 桥接 (send/log/delay/crc16/crc32/checksum/getTimestamp)、调试控制台
+- [x] **脚本 Hook 机制** - 接收预处理 (Rx Hook)、发送后处理 (Tx Hook)、脚本自动应答 (Reply Hook)、手动任务触发 (Task Hook)
+- [x] **脚本编辑器增强** - Lua 语法高亮 (AvalonEdit)、智能代码补全、API 参考文档窗口
 
 ### 🔜 计划中
 - [ ] 数据可视化与实时示波器
 - [ ] 通用帧协议解析引擎
-- [ ] Lua 脚本系统
 
 ## 🚀 快速开始
 
@@ -75,9 +77,11 @@ FlexComDotnet/
 │   │   │   ├── AutoReply/Views/    # 自动回复视图
 │   │   │   ├── Checksum/Views/     # 校验计算器视图
 │   │   │   ├── Layout/Controls/    # 布局控件 (ActivityBar, CollapsiblePanel 等)
-│   │   │   ├── Network/Views/      # 网络连接视图 (ConnectionConfigView)
-│   │   │   └── Serial/Views/       # 串口视图 (Config/Communication/CommandList)
-│   │   ├── Services/               # UI 层服务 (主题服务)
+│   │   │   ├── Network/Views/      # 网络连接视图
+│   │   │   ├── Scripting/Views/    # 脚本视图 (编辑器、API参考)
+│   │   │   ├── Serial/Views/       # 串口视图 (Config/Communication/CommandList)
+│   │   │   └── Update/Views/       # 更新视图
+│   │   ├── Services/               # UI 层服务 (主题服务、DI 配置)
 │   │   ├── Themes/                 # 主题资源 (Light/Dark)
 │   │   ├── App.xaml                # 应用入口
 │   │   └── MainWindow.xaml         # 主窗口 (含状态栏)
@@ -86,11 +90,11 @@ FlexComDotnet/
 │       └── Features/
 │           ├── AutoReply/          # 自动回复功能
 │           │   ├── Models/         # 配置模型 (MatchRule, SequentialFrame, ReplyMode)
-│           │   ├── Services/       # 策略模式处理器 (IReplyHandler, MatchReplyHandler, SequentialReplyHandler)
+│           │   ├── Services/       # 策略模式处理器 (IReplyHandler, Handlers/)
 │           │   └── ViewModels/     # 自动回复 ViewModel
 │           ├── Checksum/           # 校验计算器功能
 │           │   ├── Models/         # 算法枚举
-│           │   ├── Services/       # 策略模式算法实现
+│           │   ├── Services/       # 策略模式算法实现 (Algorithms/)
 │           │   └── ViewModels/     # 计算器 ViewModel
 │           ├── Layout/             # 布局功能
 │           │   ├── Models/         # 布局状态模型
@@ -99,23 +103,28 @@ FlexComDotnet/
 │           │   ├── Models/         # 连接模型 (ConnectionType, ConnectionState, NetworkConfig)
 │           │   ├── Services/       # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
 │           │   └── ViewModels/     # 连接配置 ViewModel
+│           ├── Scripting/          # 脚本功能
+│           │   ├── Models/         # 脚本模型 (HookType, ScriptState, ScriptFileInfo)
+│           │   ├── Services/       # 脚本服务 (IScriptEngine, IScriptManager, IScriptHookService)
+│           │   └── ViewModels/     # 脚本 ViewModel
 │           ├── Serial/             # 串口功能
 │           │   ├── Helpers/        # 工具类 (Hex/Checksum)
 │           │   ├── Models/         # 数据模型 & 枚举
 │           │   ├── Services/       # 串口/配置/存储服务
 │           │   └── ViewModels/     # MVVM ViewModel
 │           └── Update/             # 自动更新功能
-               ├── Models/         # 版本/发布信息 (VersionInfo, ReleaseInfo, InstallationType)
-               ├── Services/       # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService, IDownloadService)
+│               ├── Models/         # 版本/发布信息 (VersionInfo, ReleaseInfo, InstallationType)
+│               ├── Services/       # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService)
 │               └── ViewModels/     # 更新 ViewModel
 │
 └── tests/
-    └── FlexComDotnet.Tests/        # 单元测试 (591 个用例)
+    └── FlexComDotnet.Tests/        # 单元测试
         └── Features/
             ├── AutoReply/          # 自动回复测试
             ├── Checksum/           # 校验计算器测试
             ├── Layout/             # 布局功能测试
             ├── Network/            # 网络功能测试
+            ├── Scripting/          # 脚本功能测试
             ├── Serial/             # 串口功能测试
             └── Update/             # 自动更新测试
 ```
@@ -125,6 +134,7 @@ FlexComDotnet/
 - **MVVM**: 使用 CommunityToolkit.Mvvm 实现视图与业务逻辑分离
 - **依赖注入**: 通过 Microsoft.Extensions.DependencyInjection 管理服务生命周期
 - **Feature-first**: 按功能模块组织代码，便于扩展和维护
+- **策略模式**: 校验算法、自动回复处理器均采用策略模式，支持零耦合扩展
 - **TDD**: 测试驱动开发，确保代码质量
 - **主题系统**: DynamicResource 绑定实现运行时主题切换
 
@@ -141,6 +151,7 @@ FlexComDotnet/
 | 配置 | Microsoft.Extensions.Configuration.Json | 10.0.2 |
 | 存储 | LiteDB | 5.0.21 |
 | 脚本 | NLua | 1.7.8 |
+| 代码编辑器 | AvalonEdit | 6.3.1.120 |
 | 测试 | xUnit 2.9.3 + FluentAssertions 8.8.0 + Moq 4.20.72 | - |
 
 ## 📖 开发指南
@@ -161,6 +172,9 @@ dotnet build
 
 # 测试
 dotnet test
+
+# 运行特定测试
+dotnet test --filter "FullyQualifiedName~SerialPortServiceTests"
 
 # 添加 NuGet 包
 dotnet add src/FlexComDotnet.Core/FlexComDotnet.Core.csproj package [PackageName]
