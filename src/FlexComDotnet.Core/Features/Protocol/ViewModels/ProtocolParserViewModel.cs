@@ -40,6 +40,12 @@ public partial class ProtocolParserViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    [ObservableProperty]
+    private ObservableCollection<FieldDefinition> _editingFields = [];
+
+    public bool HasLengthFieldConfig => EditingDefinition.LengthFieldConfig != null;
+    public bool HasChecksumConfig => EditingDefinition.ChecksumConfig != null;
+
     public IReadOnlyList<DataType> DataTypes { get; } = Enum.GetValues<DataType>();
     public IReadOnlyList<Endianness> EndianOptions { get; } = Enum.GetValues<Endianness>();
     public IReadOnlyList<ChecksumAlgorithmType> ChecksumAlgorithms { get; } = Enum.GetValues<ChecksumAlgorithmType>();
@@ -76,6 +82,7 @@ public partial class ProtocolParserViewModel : ObservableObject
             Description = "协议描述",
             MinFrameLength = 1
         };
+        SyncEditingFields();
         IsEditing = true;
         StatusMessage = "正在创建新协议定义...";
     }
@@ -87,8 +94,20 @@ public partial class ProtocolParserViewModel : ObservableObject
             return;
 
         EditingDefinition = CloneDefinition(SelectedDefinition);
+        SyncEditingFields();
         IsEditing = true;
         StatusMessage = $"正在编辑: {EditingDefinition.Name}";
+    }
+
+    private void SyncEditingFields()
+    {
+        EditingFields.Clear();
+        foreach (var field in EditingDefinition.Fields)
+        {
+            EditingFields.Add(field);
+        }
+        OnPropertyChanged(nameof(HasLengthFieldConfig));
+        OnPropertyChanged(nameof(HasChecksumConfig));
     }
 
     [RelayCommand]
@@ -100,6 +119,7 @@ public partial class ProtocolParserViewModel : ObservableObject
             return;
         }
 
+        EditingDefinition.Fields = EditingFields.ToList();
         EditingDefinition.ModifiedAt = DateTime.Now;
         _parserService.RegisterDefinition(EditingDefinition);
         LoadDefinitions();
@@ -135,15 +155,15 @@ public partial class ProtocolParserViewModel : ObservableObject
     {
         var newField = new FieldDefinition
         {
-            Name = $"Field{EditingDefinition.Fields.Count + 1}",
+            Name = $"Field{EditingFields.Count + 1}",
             DataType = DataType.UInt8,
-            StartIndex = EditingDefinition.Fields.Count > 0
-                ? EditingDefinition.Fields.Max(f => f.StartIndex + f.Length)
+            Length = 1,
+            StartIndex = EditingFields.Count > 0
+                ? EditingFields.Max(f => f.StartIndex + Math.Max(f.Length, 1))
                 : 0
         };
-        EditingDefinition.Fields.Add(newField);
+        EditingFields.Add(newField);
         SelectedField = newField;
-        OnPropertyChanged(nameof(EditingDefinition));
     }
 
     [RelayCommand]
@@ -152,9 +172,8 @@ public partial class ProtocolParserViewModel : ObservableObject
         if (SelectedField == null)
             return;
 
-        EditingDefinition.Fields.Remove(SelectedField);
+        EditingFields.Remove(SelectedField);
         SelectedField = null;
-        OnPropertyChanged(nameof(EditingDefinition));
     }
 
     [RelayCommand]
@@ -226,30 +245,32 @@ public partial class ProtocolParserViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void EnableChecksum()
+    private void ToggleLengthField()
     {
-        EditingDefinition.ChecksumConfig ??= new ChecksumConfig();
+        if (EditingDefinition.LengthFieldConfig == null)
+        {
+            EditingDefinition.LengthFieldConfig = new LengthFieldConfig();
+        }
+        else
+        {
+            EditingDefinition.LengthFieldConfig = null;
+        }
+        OnPropertyChanged(nameof(HasLengthFieldConfig));
         OnPropertyChanged(nameof(EditingDefinition));
     }
 
     [RelayCommand]
-    private void DisableChecksum()
+    private void ToggleChecksum()
     {
-        EditingDefinition.ChecksumConfig = null;
-        OnPropertyChanged(nameof(EditingDefinition));
-    }
-
-    [RelayCommand]
-    private void EnableLengthField()
-    {
-        EditingDefinition.LengthFieldConfig ??= new LengthFieldConfig();
-        OnPropertyChanged(nameof(EditingDefinition));
-    }
-
-    [RelayCommand]
-    private void DisableLengthField()
-    {
-        EditingDefinition.LengthFieldConfig = null;
+        if (EditingDefinition.ChecksumConfig == null)
+        {
+            EditingDefinition.ChecksumConfig = new ChecksumConfig();
+        }
+        else
+        {
+            EditingDefinition.ChecksumConfig = null;
+        }
+        OnPropertyChanged(nameof(HasChecksumConfig));
         OnPropertyChanged(nameof(EditingDefinition));
     }
 
@@ -330,7 +351,7 @@ public partial class ProtocolParserViewModel : ObservableObject
                 DataType = f.DataType,
                 Endianness = f.Endianness,
                 IsEnabled = f.IsEnabled,
-                BitFields = f.BitFields.Select(bf => new BitFieldDefinition
+                BitFields = new ObservableCollection<BitFieldDefinition>(f.BitFields.Select(bf => new BitFieldDefinition
                 {
                     Name = bf.Name,
                     Description = bf.Description,
@@ -338,7 +359,7 @@ public partial class ProtocolParserViewModel : ObservableObject
                     BitCount = bf.BitCount,
                     Mask = bf.Mask,
                     IsEnabled = bf.IsEnabled
-                }).ToList()
+                }))
             }).ToList()
         };
     }

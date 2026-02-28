@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace FlexComDotnet.Core.Features.Protocol.Models;
 
 /// <summary>
@@ -38,7 +40,7 @@ public class FieldDefinition
     /// <summary>
     /// 位域定义列表 (可选，用于在字节内提取位)
     /// </summary>
-    public List<BitFieldDefinition> BitFields { get; set; } = [];
+    public ObservableCollection<BitFieldDefinition> BitFields { get; set; } = [];
 
     /// <summary>
     /// 是否启用此字段

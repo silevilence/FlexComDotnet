@@ -1,4 +1,5 @@
-﻿using System.Windows;
+using System.Reflection;
+using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using FlexComDotnet.Services;
 using FlexComDotnet.Core.Features.Serial.Services;
@@ -20,6 +21,9 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // 修复菜单弹出方向问题 (某些系统设置会导致菜单从左边弹出)
+        FixMenuDropAlignment();
+
         // 配置依赖注入
         var services = new ServiceCollection();
         services.AddAppServices();
@@ -35,6 +39,18 @@ public partial class App : Application
         // 创建并显示主窗口
         var mainWindow = new MainWindow();
         mainWindow.Show();
+    }
+
+    /// <summary>
+    /// 修复 MenuDropAlignment 导致的菜单弹出方向问题
+    /// </summary>
+    private static void FixMenuDropAlignment()
+    {
+        var field = typeof(SystemParameters).GetField("_menuDropAlignment", BindingFlags.NonPublic | BindingFlags.Static);
+        if (field != null && SystemParameters.MenuDropAlignment)
+        {
+            field.SetValue(null, false);
+        }
     }
 
     private static void LoadProtocolDefinitions()

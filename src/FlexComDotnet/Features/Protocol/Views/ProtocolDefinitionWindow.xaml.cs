@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using FlexComDotnet.Core.Features.Protocol.ViewModels;
 
 namespace FlexComDotnet.Features.Protocol.Views;
@@ -12,5 +14,14 @@ public partial class ProtocolDefinitionWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+    }
+
+    private void ListBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is ListBox listBox && listBox.ContextMenu != null)
+        {
+            listBox.ContextMenu.Placement = PlacementMode.MousePoint;
+            listBox.ContextMenu.HorizontalOffset = 0;
+        }
     }
 }
