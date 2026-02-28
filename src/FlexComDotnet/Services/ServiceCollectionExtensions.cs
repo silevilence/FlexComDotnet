@@ -12,6 +12,8 @@ using FlexComDotnet.Core.Features.Update.Services;
 using FlexComDotnet.Core.Features.Update.ViewModels;
 using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
+using FlexComDotnet.Core.Features.Protocol.Services;
+using FlexComDotnet.Core.Features.Protocol.ViewModels;
 
 namespace FlexComDotnet.Services;
 
@@ -50,6 +52,9 @@ public static class ServiceCollectionExtensions
 
         // 校验和服务 (单例)
         services.AddSingleton<IChecksumService, ChecksumService>();
+
+        // 协议解析服务 (单例)
+        services.AddSingleton<IProtocolParserService, ProtocolParserService>();
 
         // 更新服务 (单例)
         services.AddSingleton<IVersionService, VersionService>();
@@ -111,6 +116,7 @@ public static class ServiceCollectionExtensions
             var hookService = sp.GetRequiredService<IScriptHookService>();
             return new ScriptingViewModel(engine, manager, bridge, hookService);
         });
+        services.AddTransient<ProtocolParserViewModel>();
 
         return services;
     }

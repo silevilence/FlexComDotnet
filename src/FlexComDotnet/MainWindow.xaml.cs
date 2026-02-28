@@ -16,6 +16,8 @@ using FlexComDotnet.Features.AutoReply.Views;
 using FlexComDotnet.Features.Update.Views;
 using FlexComDotnet.Features.Scripting.Views;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
+using FlexComDotnet.Core.Features.Protocol.ViewModels;
+using FlexComDotnet.Features.Protocol.Views;
 using static FlexComDotnet.Features.Layout.Controls.ActivityBar;
 
 namespace FlexComDotnet;
@@ -253,6 +255,12 @@ public partial class MainWindow : Window
             OpenChecksumCalculator();
         };
 
+        // 订阅协议解析器按钮点击事件
+        ActivityBar.ProtocolParserClicked += (sender, args) =>
+        {
+            OpenProtocolParser();
+        };
+
         // 订阅更新按钮点击事件
         ActivityBar.UpdateClicked += (sender, args) =>
         {
@@ -299,6 +307,20 @@ public partial class MainWindow : Window
                     ? hexString
                     : $"{communicationVm.SendText} {hexString}";
             }
+        };
+        
+        window.ShowDialog();
+    }
+
+    /// <summary>
+    /// 打开协议解析器窗口
+    /// </summary>
+    private void OpenProtocolParser()
+    {
+        var viewModel = App.Services.GetRequiredService<ProtocolParserViewModel>();
+        var window = new ProtocolDefinitionWindow(viewModel)
+        {
+            Owner = this
         };
         
         window.ShowDialog();

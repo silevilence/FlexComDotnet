@@ -16,6 +16,9 @@
         - 前置条件检查：连接状态、协议解析状态、通道匹配校验。
         - 数据导出：支持导出为 PNG 图片和 CSV 数据文件。
 
+## 🚧 开发中 (In Progress)
+> 当前正在进行的工作
+
 - [ ] 🟢 **[P2] 通用帧协议解析引擎 (Universal Frame Parser)**
     - [ ] **可扩展架构设计**:
         - 定义统一的 `IProtocolParser` 接口 (包含 `parse(字节数组 frame) -> ParsedFrame`)。
@@ -25,9 +28,6 @@
         - **字节提取**: 支持配置"第 M 到 N 字节"作为数据段，支持指定端序 (Little/Big Endian) 和数据类型 (Int/Float/Double)。
         - **位域解析 (Bit-field)**: 支持在一个字节内通过掩码 (Mask) 或位索引提取 Flag 标志位。
     - [ ] **帧结构定义 UI**: 提供图形化界面配置帧头、帧尾、校验位位置及数据段提取规则，配置可保存为 JSON。
-
-## 🚧 开发中 (In Progress)
-> 当前正在进行的工作
 
 ## ✅ 已完成 (Completed)
 > 已验收通过的功能

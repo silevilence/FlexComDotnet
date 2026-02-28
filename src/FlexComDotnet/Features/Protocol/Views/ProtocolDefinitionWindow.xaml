@@ -1,0 +1,298 @@
+<Window x:Class="FlexComDotnet.Features.Protocol.Views.ProtocolDefinitionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+        xmlns:converters="clr-namespace:FlexComDotnet.Converters"
+        mc:Ignorable="d"
+        Title="协议定义编辑器" 
+        Height="700" Width="1000"
+        MinHeight="500" MinWidth="800"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BackgroundBrush}">
+    
+    <Window.Resources>
+        <converters:NullToBoolConverter x:Key="NullToBoolConverter"/>
+        
+        <Style x:Key="SectionBorder" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Margin="16">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="280"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="320"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- 左侧: 协议列表 -->
+        <Border Style="{StaticResource SectionBorder}" Grid.Column="0" Margin="0,0,8,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Text="协议列表" Style="{StaticResource SectionTitle}"/>
+                
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button Content="新建" Command="{Binding NewDefinitionCommand}" 
+                            pu:ButtonHelper.CornerRadius="4" Margin="0,0,4,0" Padding="12,6"/>
+                    <Button Content="编辑" Command="{Binding EditDefinitionCommand}"
+                            pu:ButtonHelper.CornerRadius="4" Margin="0,0,4,0" Padding="12,6"/>
+                    <Button Content="删除" Command="{Binding DeleteDefinitionCommand}"
+                            pu:ButtonHelper.CornerRadius="4" Padding="12,6"
+                            Foreground="{DynamicResource ErrorBrush}"/>
+                </StackPanel>
+                
+                <ListBox Grid.Row="2" 
+                         ItemsSource="{Binding Definitions}"
+                         SelectedItem="{Binding SelectedDefinition}"
+                         Background="Transparent"
+                         BorderThickness="0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="4">
+                                <TextBlock Text="{Binding Name}" 
+                                           FontWeight="Medium"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding Description}" 
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+        
+        <!-- 中间: 编辑区域 -->
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="0,0,8,0">
+            <StackPanel IsEnabled="{Binding IsEditing}">
+                <!-- 基本信息 -->
+                <Border Style="{StaticResource SectionBorder}">
+                    <StackPanel>
+                        <TextBlock Text="基本信息" Style="{StaticResource SectionTitle}"/>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Text="名称" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Text="{Binding EditingDefinition.Name, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4" Margin="0,0,0,8"/>
+                            
+                            <TextBlock Grid.Row="1" Text="描述" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditingDefinition.Description, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4" Margin="0,0,0,8"/>
+                            
+                            <TextBlock Grid.Row="2" Text="帧头 (Hex)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EditingDefinition.Header, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4" 
+                                     pu:TextBoxHelper.Watermark="如: AA BB"
+                                     Margin="0,0,0,8"/>
+                            
+                            <TextBlock Grid.Row="3" Text="帧尾 (Hex)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding EditingDefinition.Trailer, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4"
+                                     pu:TextBoxHelper.Watermark="如: FF"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 长度配置 -->
+                <Border Style="{StaticResource SectionBorder}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="帧长度" Style="{StaticResource SectionTitle}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <CheckBox Content="启用长度字段" 
+                                          IsChecked="{Binding EditingDefinition.LengthFieldConfig, Converter={StaticResource NullToBoolConverter}}"
+                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Text="最小长度" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" Text="{Binding EditingDefinition.MinFrameLength, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4" Margin="0,0,8,0"/>
+                            
+                            <TextBlock Grid.Column="2" Text="最大长度" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="3" Text="{Binding EditingDefinition.MaxFrameLength, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4"
+                                     pu:TextBoxHelper.Watermark="0=不限"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                
+                <!-- 字段定义 -->
+                <Border Style="{StaticResource SectionBorder}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="200"/>
+                        </Grid.RowDefinitions>
+                        
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="数据字段" Style="{StaticResource SectionTitle}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="添加" Command="{Binding AddFieldCommand}"
+                                        pu:ButtonHelper.CornerRadius="4" Padding="8,4" Margin="0,0,4,0"/>
+                                <Button Content="删除" Command="{Binding RemoveFieldCommand}"
+                                        pu:ButtonHelper.CornerRadius="4" Padding="8,4"
+                                        Foreground="{DynamicResource ErrorBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                        
+                        <DataGrid Grid.Row="2" 
+                                  ItemsSource="{Binding EditingDefinition.Fields}"
+                                  SelectedItem="{Binding SelectedField}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  Background="Transparent"
+                                  BorderThickness="1"
+                                  BorderBrush="{DynamicResource BorderBrush}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="100"/>
+                                <DataGridTextColumn Header="起始" Binding="{Binding StartIndex}" Width="50"/>
+                                <DataGridTextColumn Header="长度" Binding="{Binding Length}" Width="50"/>
+                                <DataGridComboBoxColumn Header="类型" SelectedItemBinding="{Binding DataType}" Width="80"/>
+                                <DataGridComboBoxColumn Header="字节序" SelectedItemBinding="{Binding Endianness}" Width="100"/>
+                                <DataGridCheckBoxColumn Header="启用" Binding="{Binding IsEnabled}" Width="50"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+                
+                <!-- 操作按钮 -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                    <Button Content="取消" Command="{Binding CancelEditCommand}"
+                            pu:ButtonHelper.CornerRadius="4" Padding="16,8" Margin="0,0,8,0"/>
+                    <Button Content="保存" Command="{Binding SaveDefinitionCommand}"
+                            pu:ButtonHelper.CornerRadius="4" Padding="16,8"
+                            Background="{DynamicResource PrimaryBrush}"
+                            Foreground="White"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+        
+        <!-- 右侧: 测试区域 -->
+        <Border Style="{StaticResource SectionBorder}" Grid.Column="2">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Text="测试解析" Style="{StaticResource SectionTitle}"/>
+                
+                <StackPanel Grid.Row="1">
+                    <TextBlock Text="测试帧 (Hex)" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding TestFrameHex, UpdateSourceTrigger=PropertyChanged}"
+                             pu:TextBoxHelper.CornerRadius="4"
+                             pu:TextBoxHelper.Watermark="AA BB 01 02 03..."
+                             Height="60"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True"/>
+                </StackPanel>
+                
+                <Button Grid.Row="2" Content="解析" Command="{Binding TestParseCommand}"
+                        pu:ButtonHelper.CornerRadius="4" Padding="16,8" Margin="0,8"
+                        HorizontalAlignment="Stretch"/>
+                
+                <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" 
+                        CornerRadius="4" Padding="8" Margin="0,0,0,8">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ParseResult.Fields}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource BorderBrush}" 
+                                            BorderThickness="0,0,0,1" Padding="4" Margin="0,0,0,4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            
+                                            <TextBlock Text="{Binding Name}" 
+                                                       FontWeight="Medium"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplayValue}"
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       FontFamily="Consolas"/>
+                                            
+                                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                                                       Text="{Binding HexValue}"
+                                                       FontSize="11"
+                                                       FontFamily="Consolas"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+                
+                <TextBlock Grid.Row="4" Text="{Binding StatusMessage}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="11"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

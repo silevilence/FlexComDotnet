@@ -228,6 +228,16 @@ public partial class ActivityBar : UserControl
     }
 
     /// <summary>
+    /// 协议解析器按钮点击事件
+    /// </summary>
+    public event EventHandler? ProtocolParserClicked;
+
+    private void ProtocolParserButton_Click(object sender, RoutedEventArgs e)
+    {
+        ProtocolParserClicked?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
     /// 校验计算器按钮点击事件
     /// </summary>
     public event EventHandler? ChecksumCalculatorClicked;

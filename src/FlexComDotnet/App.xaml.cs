@@ -1,6 +1,8 @@
 ﻿using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using FlexComDotnet.Services;
+using FlexComDotnet.Core.Features.Serial.Services;
+using FlexComDotnet.Core.Features.Protocol.Services;
 
 namespace FlexComDotnet;
 
@@ -27,9 +29,24 @@ public partial class App : Application
         var themeService = Services.GetRequiredService<IThemeService>() as ThemeService;
         themeService?.Initialize();
 
+        // 加载协议定义
+        LoadProtocolDefinitions();
+
         // 创建并显示主窗口
         var mainWindow = new MainWindow();
         mainWindow.Show();
+    }
+
+    private static void LoadProtocolDefinitions()
+    {
+        var configService = Services.GetRequiredService<IConfigurationService>();
+        var parserService = Services.GetRequiredService<IProtocolParserService>();
+        
+        var config = configService.Load();
+        if (config.ProtocolDefinitions.Count > 0)
+        {
+            parserService.LoadDefinitions(config.ProtocolDefinitions);
+        }
     }
 }
 

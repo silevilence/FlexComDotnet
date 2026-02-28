@@ -1,6 +1,7 @@
 using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.Layout.Models;
 using FlexComDotnet.Core.Features.Network.Models;
+using FlexComDotnet.Core.Features.Protocol.Models;
 
 namespace FlexComDotnet.Core.Features.Serial.Models;
 
@@ -33,6 +34,11 @@ public class AppConfig
     /// 连接配置 (包含所有连接类型的配置)
     /// </summary>
     public ConnectionConfig ConnectionConfig { get; set; } = new();
+
+    /// <summary>
+    /// 协议定义列表
+    /// </summary>
+    public List<FrameDefinition> ProtocolDefinitions { get; set; } = [];
 
     /// <summary>
     /// 配置版本号，用于未来兼容性升级
