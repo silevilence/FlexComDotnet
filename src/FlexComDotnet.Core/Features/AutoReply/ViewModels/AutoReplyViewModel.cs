@@ -14,6 +14,7 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
 {
     private readonly IAutoReplyService _autoReplyService;
     private readonly IConfigurationService _configurationService;
+    private readonly SynchronizationContext? _syncContext;
     private bool _disposed;
 
     #region Observable Properties
@@ -82,6 +83,8 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(RemoveMatchRuleCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveMatchRuleUpCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveMatchRuleDownCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveMatchRuleCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelMatchRuleCommand))]
     private MatchRuleViewModel? _selectedMatchRule;
 
     /// <summary>
@@ -91,7 +94,19 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(RemoveSequentialFrameCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveSequentialFrameUpCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveSequentialFrameDownCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveSequentialFrameCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelSequentialFrameCommand))]
     private SequentialFrameViewModel? _selectedSequentialFrame;
+
+    /// <summary>
+    /// 匹配规则编辑前的备份（用于取消编辑）
+    /// </summary>
+    private MatchRule? _matchRuleBackup;
+
+    /// <summary>
+    /// 顺序帧编辑前的备份（用于取消编辑）
+    /// </summary>
+    private SequentialFrame? _sequentialFrameBackup;
 
     #endregion
 
@@ -173,6 +188,36 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     private bool CanModifyMatchRule() => SelectedMatchRule != null;
 
     /// <summary>
+    /// 保存匹配规则编辑
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifyMatchRule))]
+    private void SaveMatchRule()
+    {
+        _matchRuleBackup = null;
+        AutoSave();
+        SelectedMatchRule = null;
+    }
+
+    /// <summary>
+    /// 取消匹配规则编辑，恢复到编辑前状态
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifyMatchRule))]
+    private void CancelMatchRule()
+    {
+        if (SelectedMatchRule != null && _matchRuleBackup != null)
+        {
+            SelectedMatchRule.Name = _matchRuleBackup.Name;
+            SelectedMatchRule.TriggerPattern = _matchRuleBackup.TriggerPattern;
+            SelectedMatchRule.MatchType = _matchRuleBackup.MatchType;
+            SelectedMatchRule.ResponseContent = _matchRuleBackup.ResponseContent;
+            SelectedMatchRule.IsResponseHex = _matchRuleBackup.IsResponseHex;
+            SelectedMatchRule.Description = _matchRuleBackup.Description;
+            _matchRuleBackup = null;
+        }
+        SelectedMatchRule = null;
+    }
+
+    /// <summary>
     /// 上移匹配规则命令
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanMoveMatchRuleUp))]
@@ -243,6 +288,34 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     private bool CanModifySequentialFrame() => SelectedSequentialFrame != null;
 
     /// <summary>
+    /// 保存顺序帧编辑
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifySequentialFrame))]
+    private void SaveSequentialFrame()
+    {
+        _sequentialFrameBackup = null;
+        AutoSave();
+        SelectedSequentialFrame = null;
+    }
+
+    /// <summary>
+    /// 取消顺序帧编辑，恢复到编辑前状态
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifySequentialFrame))]
+    private void CancelSequentialFrame()
+    {
+        if (SelectedSequentialFrame != null && _sequentialFrameBackup != null)
+        {
+            SelectedSequentialFrame.Name = _sequentialFrameBackup.Name;
+            SelectedSequentialFrame.Content = _sequentialFrameBackup.Content;
+            SelectedSequentialFrame.IsHexMode = _sequentialFrameBackup.IsHexMode;
+            SelectedSequentialFrame.Description = _sequentialFrameBackup.Description;
+            _sequentialFrameBackup = null;
+        }
+        SelectedSequentialFrame = null;
+    }
+
+    /// <summary>
     /// 上移顺序帧命令
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanMoveSequentialFrameUp))]
@@ -293,6 +366,9 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     {
         _autoReplyService = autoReplyService;
         _configurationService = configurationService;
+
+        // 捕获 UI 线程的同步上下文，用于跨线程更新 UI
+        _syncContext = SynchronizationContext.Current;
 
         // 订阅事件
         _autoReplyService.ReplyTriggered += OnReplyTriggered;
@@ -375,12 +451,7 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// </summary>
     private void OnReplyTriggered(object? sender, ReplyEventArgs e)
     {
-        // 更新计数
-        ReceiveCount = _autoReplyService.ReceiveCount;
-        ReplyCount = _autoReplyService.ReplyCount;
-        CurrentFrameIndex = _autoReplyService.Config.SequentialConfig.CurrentIndex;
-
-        // 添加日志
+        // 预先构建日志条目（可在后台线程执行）
         var logEntry = new ReplyLogEntry
         {
             Timestamp = e.Timestamp,
@@ -389,7 +460,28 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
             ReplyDataHex = BitConverter.ToString(e.ReplyData).Replace("-", " ")
         };
 
-        // 确保在 UI 线程上操作
+        // 确保在 UI 线程上操作 ObservableCollection 和属性更新
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => UpdateUIOnReply(logEntry), null);
+        }
+        else
+        {
+            UpdateUIOnReply(logEntry);
+        }
+    }
+
+    /// <summary>
+    /// 在 UI 线程上更新计数和日志
+    /// </summary>
+    private void UpdateUIOnReply(ReplyLogEntry logEntry)
+    {
+        // 更新计数
+        ReceiveCount = _autoReplyService.ReceiveCount;
+        ReplyCount = _autoReplyService.ReplyCount;
+        CurrentFrameIndex = _autoReplyService.Config.SequentialConfig.CurrentIndex;
+
+        // 添加日志
         ReplyLogs.Insert(0, logEntry);
 
         // 限制日志数量
@@ -431,6 +523,22 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     partial void OnGlobalDelayMsChanged(int value) => AutoSave();
     partial void OnActiveModeChanged(ReplyMode value) => AutoSave();
     partial void OnEnableLoopChanged(bool value) => AutoSave();
+
+    /// <summary>
+    /// 选中匹配规则变更时备份数据
+    /// </summary>
+    partial void OnSelectedMatchRuleChanged(MatchRuleViewModel? value)
+    {
+        _matchRuleBackup = value?.ToModel();
+    }
+
+    /// <summary>
+    /// 选中顺序帧变更时备份数据
+    /// </summary>
+    partial void OnSelectedSequentialFrameChanged(SequentialFrameViewModel? value)
+    {
+        _sequentialFrameBackup = value?.ToModel();
+    }
 
     public void Dispose()
     {

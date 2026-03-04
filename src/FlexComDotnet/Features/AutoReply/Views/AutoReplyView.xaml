@@ -56,6 +56,45 @@
             <Setter Property="pu:TextBoxHelper.CornerRadius" Value="4"/>
         </Style>
 
+        <!-- 可展开文本框样式：焦点时放大（使用动画避免布局重入崩溃） -->
+        <Style x:Key="ExpandableTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource TechTextBoxStyle}">
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="MaxHeight" Value="24"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Style.Triggers>
+                <EventTrigger RoutedEvent="GotKeyboardFocus">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="MinHeight" To="60" Duration="0:0:0.15"/>
+                            <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="120" Duration="0:0:0.15"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="LostKeyboardFocus">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="MinHeight" To="24" Duration="0:0:0.15"/>
+                            <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="24" Duration="0:0:0.15"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 保存/取消按钮样式 -->
+        <Style x:Key="SaveButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="MinWidth" Value="60"/>
+            <Setter Property="Padding" Value="12,5"/>
+        </Style>
+        
+        <Style x:Key="CancelButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
+            <Setter Property="MinWidth" Value="60"/>
+            <Setter Property="Padding" Value="12,5"/>
+        </Style>
+
         <Style x:Key="TechComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -304,6 +343,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="70"/>
@@ -323,7 +363,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Style="{StaticResource TechTextBoxStyle}"
+                                <TextBox Grid.Column="0" Style="{StaticResource ExpandableTextBoxStyle}"
                                          Text="{Binding SelectedMatchRule.TriggerPattern, UpdateSourceTrigger=PropertyChanged}"
                                          pu:TextBoxHelper.Watermark="如: AA BB CC 或 HELLO"/>
                                 <ComboBox Grid.Column="1" Style="{StaticResource TechComboBoxStyle}"
@@ -343,7 +383,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Style="{StaticResource TechTextBoxStyle}"
+                                <TextBox Grid.Column="0" Style="{StaticResource ExpandableTextBoxStyle}"
                                          Text="{Binding SelectedMatchRule.ResponseContent, UpdateSourceTrigger=PropertyChanged}"
                                          pu:TextBoxHelper.Watermark="如: DD EE FF"/>
                                 <CheckBox Grid.Column="1" Content="Hex" Margin="8,0,0,0"
@@ -353,9 +393,18 @@
                             
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="描述:" 
                                        VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource TechTextBoxStyle}"
+                            <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource ExpandableTextBoxStyle}"
                                      Text="{Binding SelectedMatchRule.Description, UpdateSourceTrigger=PropertyChanged}"
                                      Margin="0,2"/>
+                            
+                            <!-- 保存/取消按钮 -->
+                            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" 
+                                        Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                                <Button Content="取消" Style="{StaticResource CancelButtonStyle}"
+                                        Command="{Binding CancelMatchRuleCommand}" Margin="0,0,8,0"/>
+                                <Button Content="💾 保存" Style="{StaticResource SaveButtonStyle}"
+                                        Command="{Binding SaveMatchRuleCommand}"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>
@@ -445,6 +494,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="70"/>
@@ -464,7 +514,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Style="{StaticResource TechTextBoxStyle}"
+                                <TextBox Grid.Column="0" Style="{StaticResource ExpandableTextBoxStyle}"
                                          Text="{Binding SelectedSequentialFrame.Content, UpdateSourceTrigger=PropertyChanged}"
                                          pu:TextBoxHelper.Watermark="如: 01 02 03 或 OK"/>
                                 <CheckBox Grid.Column="1" Content="Hex" Margin="8,0,0,0"
@@ -474,9 +524,18 @@
                             
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="描述:" 
                                        VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource TechTextBoxStyle}"
+                            <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource ExpandableTextBoxStyle}"
                                      Text="{Binding SelectedSequentialFrame.Description, UpdateSourceTrigger=PropertyChanged}"
                                      Margin="0,2"/>
+                            
+                            <!-- 保存/取消按钮 -->
+                            <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" 
+                                        Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                                <Button Content="取消" Style="{StaticResource CancelButtonStyle}"
+                                        Command="{Binding CancelSequentialFrameCommand}" Margin="0,0,8,0"/>
+                                <Button Content="💾 保存" Style="{StaticResource SaveButtonStyle}"
+                                        Command="{Binding SaveSequentialFrameCommand}"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>
@@ -487,7 +546,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*" MaxHeight="300"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     
                     <!-- 统计和控制 -->
@@ -524,8 +583,10 @@
                     <!-- 日志列表 -->
                     <ListBox Grid.Row="1" ItemsSource="{Binding ReplyLogs}"
                              Background="Transparent" BorderThickness="0"
+                             MaxHeight="300"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             FontFamily="Consolas" FontSize="11">
+                             FontFamily="pack://application:,,,/Fonts/#Maple Mono NF CN"
+                             FontSize="11">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Border Padding="8,4" BorderBrush="{DynamicResource BorderBrush}" 

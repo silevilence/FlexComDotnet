@@ -8,6 +8,11 @@ namespace FlexComDotnet.Core.Features.Protocol.Models;
 public class FrameDefinition
 {
     /// <summary>
+    /// 协议类型
+    /// </summary>
+    public ProtocolType ProtocolType { get; set; } = ProtocolType.Generic;
+
+    /// <summary>
     /// 协议名称
     /// </summary>
     public string Name { get; set; } = string.Empty;

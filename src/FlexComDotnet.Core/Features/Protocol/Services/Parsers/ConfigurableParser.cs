@@ -36,10 +36,11 @@ public class ConfigurableParser : IProtocolParser
             ProtocolName = Name
         };
 
-        if (!Validate(frame))
+        var validationError = ValidateWithReason(frame);
+        if (validationError != null)
         {
             result.IsValid = false;
-            result.ErrorMessage = "帧格式验证失败";
+            result.ErrorMessage = validationError;
             return result;
         }
 
@@ -65,43 +66,45 @@ public class ConfigurableParser : IProtocolParser
         return result;
     }
 
-    public bool Validate(byte[] frame)
+    public bool Validate(byte[] frame) => ValidateWithReason(frame) == null;
+
+    private string? ValidateWithReason(byte[] frame)
     {
         if (frame == null || frame.Length == 0)
-            return false;
+            return "帧数据为空";
 
         if (Definition.MinFrameLength > 0 && frame.Length < Definition.MinFrameLength)
-            return false;
+            return $"帧长度不足: 最小 {Definition.MinFrameLength} 字节, 实际 {frame.Length} 字节";
 
         if (Definition.MaxFrameLength > 0 && frame.Length > Definition.MaxFrameLength)
-            return false;
+            return $"帧长度超限: 最大 {Definition.MaxFrameLength} 字节, 实际 {frame.Length} 字节";
 
         if (_headerBytes.Length > 0)
         {
             if (frame.Length < _headerBytes.Length)
-                return false;
+                return $"帧长度不足以包含帧头: 需要 {_headerBytes.Length} 字节";
 
             for (int i = 0; i < _headerBytes.Length; i++)
             {
                 if (frame[i] != _headerBytes[i])
-                    return false;
+                    return $"帧头错误: 位置 {i} 期望 0x{_headerBytes[i]:X2}, 实际 0x{frame[i]:X2}";
             }
         }
 
         if (_trailerBytes.Length > 0)
         {
             if (frame.Length < _trailerBytes.Length)
-                return false;
+                return $"帧长度不足以包含帧尾: 需要 {_trailerBytes.Length} 字节";
 
             int trailerStart = frame.Length - _trailerBytes.Length;
             for (int i = 0; i < _trailerBytes.Length; i++)
             {
                 if (frame[trailerStart + i] != _trailerBytes[i])
-                    return false;
+                    return $"帧尾错误: 位置 {trailerStart + i} 期望 0x{_trailerBytes[i]:X2}, 实际 0x{frame[trailerStart + i]:X2}";
             }
         }
 
-        return true;
+        return null;
     }
 
     public bool TryExtractFrame(byte[] buffer, out byte[] frame, out int consumedBytes)

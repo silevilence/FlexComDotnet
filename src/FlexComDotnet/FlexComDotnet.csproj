@@ -28,4 +28,8 @@
     <EmbeddedResource Include="Features\Scripting\Resources\LuaSyntax.xshd" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Fonts\MapleMono-NF-CN-Regular.ttf" />
+  </ItemGroup>
+
 </Project>

@@ -101,7 +101,8 @@ public static class ServiceCollectionExtensions
             var configService = sp.GetRequiredService<IConfigurationService>();
             var logSaveService = sp.GetRequiredService<ILogSaveService>();
             var scriptHookService = sp.GetRequiredService<IScriptHookService>();
-            return new SerialCommunicationViewModel(serialPortService, configService, logSaveService, scriptHookService);
+            var autoReplyService = sp.GetRequiredService<IAutoReplyService>();
+            return new SerialCommunicationViewModel(serialPortService, configService, logSaveService, scriptHookService, autoReplyService);
         });
         services.AddTransient<CommandListViewModel>();
         services.AddTransient<ChecksumCalculatorViewModel>();

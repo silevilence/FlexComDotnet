@@ -1,6 +1,8 @@
 using FlexComDotnet.Core.Features.Checksum.Services;
 using FlexComDotnet.Core.Features.Protocol.Models;
+using FlexComDotnet.Core.Features.Protocol.Models.Dlt645;
 using FlexComDotnet.Core.Features.Protocol.Services;
+using FlexComDotnet.Core.Features.Protocol.Services.Parsers;
 using FluentAssertions;
 
 namespace FlexComDotnet.Tests.Features.Protocol;
@@ -307,5 +309,73 @@ public class ProtocolParserServiceTests
 
         parser!.Description.Should().Be("Second");
         service.GetAllParsers().Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void RegisterDefinition_Dlt645Protocol_UsesDlt645Parser()
+    {
+        // Arrange
+        var service = new ProtocolParserService(_checksumService);
+        var definition = new FrameDefinition
+        {
+            Name = "DL/T 645-2007",
+            ProtocolType = ProtocolType.Dlt645,
+            Description = "DL/T 645-2007 电表协议"
+        };
+
+        // Act
+        var parser = service.RegisterDefinition(definition);
+
+        // Assert
+        parser.Should().BeOfType<Dlt645Parser>();
+        parser.Name.Should().Be("DL/T 645-2007");
+    }
+
+    [Fact]
+    public void RegisterDefinition_GenericProtocol_UsesConfigurableParser()
+    {
+        // Arrange
+        var service = new ProtocolParserService(_checksumService);
+        var definition = new FrameDefinition
+        {
+            Name = "GenericProtocol",
+            ProtocolType = ProtocolType.Generic,
+            Description = "通用协议"
+        };
+
+        // Act
+        var parser = service.RegisterDefinition(definition);
+
+        // Assert
+        parser.Should().BeOfType<ConfigurableParser>();
+    }
+
+    [Fact]
+    public void Parse_Dlt645Protocol_ReturnsCorrectDataField()
+    {
+        // Arrange - 用户测试帧: 68 39 02 50 79 08 13 68 11 04 33 32 35 33 d1 16
+        var service = new ProtocolParserService(_checksumService);
+        var definition = new FrameDefinition
+        {
+            Name = "DL/T 645-2007",
+            ProtocolType = ProtocolType.Dlt645
+        };
+        service.RegisterDefinition(definition);
+
+        byte[] testFrame = [0x68, 0x39, 0x02, 0x50, 0x79, 0x08, 0x13, 0x68, 0x11, 0x04, 0x33, 0x32, 0x35, 0x33, 0xD1, 0x16];
+
+        // Act
+        var result = service.Parse("DL/T 645-2007", testFrame);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsValid.Should().BeTrue();
+        result.Should().BeOfType<Dlt645ParsedFrame>();
+
+        // 验证数据域字段内容正确（不是帧头0x68）
+        var dataField = result.Fields.FirstOrDefault(f => f.Name == "数据域");
+        dataField.Should().NotBeNull();
+        dataField!.RawBytes.Should().BeEquivalentTo(new byte[] { 0x33, 0x32, 0x35, 0x33 });
+        dataField.RawBytes[0].Should().NotBe(0x68, "数据域第一个字节应该是0x33，不是帧头0x68");
     }
 }

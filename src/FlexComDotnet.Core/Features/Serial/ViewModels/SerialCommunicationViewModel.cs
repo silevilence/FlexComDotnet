@@ -2,6 +2,7 @@ using System.Text;
 using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FlexComDotnet.Core.Features.AutoReply.Services;
 using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Serial.Helpers;
 using FlexComDotnet.Core.Features.Serial.Models;
@@ -16,7 +17,8 @@ public enum DataRecordType
 {
     Normal,           // 普通数据
     HookProcessed,    // 被 Hook 处理过的数据
-    ScriptAutoReply   // 脚本自动应答
+    ScriptAutoReply,  // 脚本自动应答
+    AutoReply         // 规则自动回复
 }
 
 /// <summary>
@@ -38,6 +40,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     private readonly IConfigurationService _configurationService;
     private readonly ILogSaveService _logSaveService;
     private readonly IScriptHookService? _scriptHookService;
+    private readonly IAutoReplyService? _autoReplyService;
     private readonly List<DataRecord> _dataRecords = [];
     private readonly List<DataRecord> _pausedRecords = [];
     private readonly System.Timers.Timer _sendTimer;
@@ -285,12 +288,13 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     #endregion
 
-    public SerialCommunicationViewModel(ISerialPortService serialPortService, IConfigurationService configurationService, ILogSaveService logSaveService, IScriptHookService? scriptHookService = null)
+    public SerialCommunicationViewModel(ISerialPortService serialPortService, IConfigurationService configurationService, ILogSaveService logSaveService, IScriptHookService? scriptHookService = null, IAutoReplyService? autoReplyService = null)
     {
         _serialPortService = serialPortService;
         _configurationService = configurationService;
         _logSaveService = logSaveService;
         _scriptHookService = scriptHookService;
+        _autoReplyService = autoReplyService;
 
         // 捕获 UI 线程的同步上下文，用于跨线程更新 UI
         _syncContext = SynchronizationContext.Current;
@@ -309,6 +313,12 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         if (_scriptHookService != null)
         {
             _scriptHookService.AutoReplySent += OnAutoReplySent;
+        }
+
+        // 订阅规则自动回复事件
+        if (_autoReplyService != null)
+        {
+            _autoReplyService.ReplyTriggered += OnAutoReplyTriggered;
         }
 
         // 初始化连接状态
@@ -586,10 +596,15 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     {
         var prefix = record.IsTx ? "[TX] " : "[RX] ";
 
-        // 脚本自动应答特殊标记
+        // 脚本自动应答特殊标记 (nf-fa-code \uF121)
         if (record.RecordType == DataRecordType.ScriptAutoReply)
         {
-            prefix = "[🤖]";
+            prefix = "[\uF121]";
+        }
+        // 规则自动回复特殊标记 (nf-fa-reply \uF112)
+        else if (record.RecordType == DataRecordType.AutoReply)
+        {
+            prefix = "[\uF112]";
         }
 
         // 添加时间戳
@@ -610,8 +625,8 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
             dataStr = HexHelper.BytesToAsciiString(record.Data, '.');
         }
 
-        // 如果数据被 Hook 处理过或是脚本自动应答，且数据有变化，显示原始数据和处理后数据
-        if ((record.RecordType == DataRecordType.HookProcessed || record.RecordType == DataRecordType.ScriptAutoReply) 
+        // 如果数据被 Hook 处理过或是脚本/规则自动应答，且数据有变化，显示原始数据和处理后数据
+        if ((record.RecordType == DataRecordType.HookProcessed || record.RecordType == DataRecordType.ScriptAutoReply || record.RecordType == DataRecordType.AutoReply) 
             && record.OriginalData != null 
             && !record.Data.SequenceEqual(record.OriginalData))
         {
@@ -625,8 +640,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
                 originalStr = HexHelper.BytesToAsciiString(record.OriginalData, '.');
             }
 
-            // 使用 emoji 标识: 📥 原始 → 📤 处理后
-            return prefix + $"📥 {originalStr} → 📤 {dataStr}";
+            return prefix + $"\uF019 {originalStr} \uF061 \uF093 {dataStr}";
         }
 
         return prefix + dataStr;
@@ -712,6 +726,49 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         {
             AddDataRecord(e.ProcessedReplyData, isTx: true, DataRecordType.ScriptAutoReply, e.ReplyData);
         }
+    }
+
+    /// <summary>
+    /// 规则自动回复事件处理
+    /// </summary>
+    private void OnAutoReplyTriggered(object? sender, ReplyEventArgs e)
+    {
+        // AutoReplyService 的调用顺序: Send() → HookProcessed → ReplyTriggered
+        // 因此 OnHookProcessed 可能已经添加了一条 HookProcessed 记录
+        // 需要找到它并替换为 AutoReply 类型
+        if (_syncContext != null)
+        {
+            _syncContext.Post(_ => ProcessAutoReplyRecord(e), null);
+        }
+        else
+        {
+            ProcessAutoReplyRecord(e);
+        }
+    }
+
+    /// <summary>
+    /// 处理规则自动回复记录（查找并替换 Hook 记录，或新增）
+    /// </summary>
+    private void ProcessAutoReplyRecord(ReplyEventArgs e)
+    {
+        // 查找最近的 HookProcessed TX 记录，其 OriginalData 匹配此回复数据
+        var records = IsPaused ? _pausedRecords : _dataRecords;
+        for (int i = records.Count - 1; i >= Math.Max(0, records.Count - 10); i--)
+        {
+            var record = records[i];
+            if (record.IsTx && record.RecordType == DataRecordType.HookProcessed
+                && record.OriginalData != null
+                && record.OriginalData.SequenceEqual(e.ReplyData))
+            {
+                // 将 HookProcessed 记录替换为 AutoReply 类型，保留处理后的数据和原始数据
+                records[i] = record with { RecordType = DataRecordType.AutoReply };
+                if (!IsPaused) RefreshDisplay();
+                return;
+            }
+        }
+
+        // 没有 Hook 处理过的记录，直接添加
+        AddDataRecord(e.ReplyData, isTx: true, DataRecordType.AutoReply);
     }
 
     /// <summary>
@@ -843,6 +900,11 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
                 if (_scriptHookService != null)
                 {
                     _scriptHookService.AutoReplySent -= OnAutoReplySent;
+                }
+
+                if (_autoReplyService != null)
+                {
+                    _autoReplyService.ReplyTriggered -= OnAutoReplyTriggered;
                 }
             }
 

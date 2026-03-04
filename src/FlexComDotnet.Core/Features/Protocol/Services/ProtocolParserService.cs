@@ -56,7 +56,11 @@ public class ProtocolParserService : IProtocolParserService
 
         lock (_lock)
         {
-            var parser = new ConfigurableParser(definition, _checksumService);
+            IProtocolParser parser = definition.ProtocolType switch
+            {
+                ProtocolType.Dlt645 => new Dlt645Parser(definition),
+                _ => new ConfigurableParser(definition, _checksumService)
+            };
             _parsers[definition.Name] = parser;
             _definitions[definition.Name] = definition;
 
@@ -75,7 +79,11 @@ public class ProtocolParserService : IProtocolParserService
             {
                 if (!string.IsNullOrWhiteSpace(definition.Name))
                 {
-                    var parser = new ConfigurableParser(definition, _checksumService);
+                    IProtocolParser parser = definition.ProtocolType switch
+                    {
+                        ProtocolType.Dlt645 => new Dlt645Parser(definition),
+                        _ => new ConfigurableParser(definition, _checksumService)
+                    };
                     _parsers[definition.Name] = parser;
                     _definitions[definition.Name] = definition;
                 }

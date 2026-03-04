@@ -17,6 +17,8 @@
     <Window.Resources>
         <converters:NullToBoolConverter x:Key="NullToBoolConverter"/>
         <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <converters:ProtocolTypeDisplayConverter x:Key="ProtocolTypeDisplayConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         
         <ObjectDataProvider x:Key="DataTypeValues" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
             <ObjectDataProvider.MethodParameters>
@@ -110,8 +112,12 @@
                          BorderThickness="0"
                          ContextMenuOpening="ListBox_ContextMenuOpening">
                     <ListBox.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="新建" Command="{Binding NewDefinitionCommand}"/>
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="新建">
+                                <MenuItem Header="通用协议" Command="{Binding NewDefinitionCommand}"/>
+                                <MenuItem Header="DL/T 645-2007" Command="{Binding NewDlt645DefinitionCommand}"/>
+                            </MenuItem>
+                            <Separator/>
                             <MenuItem Header="编辑" Command="{Binding EditDefinitionCommand}"/>
                             <Separator/>
                             <MenuItem Header="删除" Command="{Binding DeleteDefinitionCommand}" Foreground="{DynamicResource ErrorBrush}"/>
@@ -120,9 +126,15 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="4">
-                                <TextBlock Text="{Binding Name}" 
-                                           FontWeight="Medium"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Name}" 
+                                               FontWeight="Medium"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="{Binding ProtocolType, Converter={StaticResource ProtocolTypeDisplayConverter}, StringFormat=' [{0}]'}" 
+                                               FontSize="11"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               Margin="4,0,0,0"/>
+                                </StackPanel>
                                 <TextBlock Text="{Binding Description}" 
                                            FontSize="11"
                                            Foreground="{DynamicResource TextMutedBrush}"/>
@@ -161,22 +173,27 @@
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditingDefinition.Description, UpdateSourceTrigger=PropertyChanged}"
                                      pu:TextBoxHelper.CornerRadius="4" Margin="0,0,0,8"/>
                             
-                            <TextBlock Grid.Row="2" Text="帧头 (Hex)" Style="{StaticResource FieldLabel}"/>
+                            <TextBlock Grid.Row="2" Text="帧头 (Hex)" Style="{StaticResource FieldLabel}"
+                                       Visibility="{Binding IsGenericProtocol, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EditingDefinition.Header, UpdateSourceTrigger=PropertyChanged}"
                                      pu:TextBoxHelper.CornerRadius="4" 
                                      pu:TextBoxHelper.Watermark="如: AA BB"
-                                     Margin="0,0,0,8"/>
+                                     Margin="0,0,0,8"
+                                     Visibility="{Binding IsGenericProtocol, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             
-                            <TextBlock Grid.Row="3" Text="帧尾 (Hex)" Style="{StaticResource FieldLabel}"/>
+                            <TextBlock Grid.Row="3" Text="帧尾 (Hex)" Style="{StaticResource FieldLabel}"
+                                       Visibility="{Binding IsGenericProtocol, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding EditingDefinition.Trailer, UpdateSourceTrigger=PropertyChanged}"
                                      pu:TextBoxHelper.CornerRadius="4"
-                                     pu:TextBoxHelper.Watermark="如: FF"/>
+                                     pu:TextBoxHelper.Watermark="如: FF"
+                                     Visibility="{Binding IsGenericProtocol, Converter={StaticResource BoolToVisibilityConverter}}"/>
                         </Grid>
                     </StackPanel>
                 </Border>
                 
-                <!-- 长度配置 -->
-                <Border Style="{StaticResource SectionBorder}">
+                <!-- 长度配置 - 仅通用协议显示 -->
+                <Border Style="{StaticResource SectionBorder}"
+                        Visibility="{Binding IsGenericProtocol, Converter={StaticResource BoolToVisibilityConverter}}">
                     <StackPanel>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -212,6 +229,21 @@
                                      pu:TextBoxHelper.CornerRadius="4"
                                      pu:TextBoxHelper.Watermark="0=不限"/>
                         </Grid>
+                    </StackPanel>
+                </Border>
+                
+                <!-- DL/T 645 协议说明 - 仅645协议显示 -->
+                <Border Style="{StaticResource SectionBorder}"
+                        Visibility="{Binding IsDlt645Protocol, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="DL/T 645-2007 协议说明" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12">
+                            <Run Text="• 帧格式: 68 + 地址(6B) + 68 + 控制码 + 长度 + 数据域 + 校验 + 16"/><LineBreak/>
+                            <Run Text="• 地址: 小端序BCD码，自动解析为12位表号"/><LineBreak/>
+                            <Run Text="• 数据域: 自动执行 -33H 还原"/><LineBreak/>
+                            <Run Text="• 校验: 算术累加和"/><LineBreak/>
+                            <Run Text="• 数据标识: 自动查询内置字典获取物理量名称和单位"/>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
                 

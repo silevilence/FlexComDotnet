@@ -45,10 +45,13 @@ public partial class ProtocolParserViewModel : ObservableObject
 
     public bool HasLengthFieldConfig => EditingDefinition.LengthFieldConfig != null;
     public bool HasChecksumConfig => EditingDefinition.ChecksumConfig != null;
+    public bool IsGenericProtocol => EditingDefinition.ProtocolType == ProtocolType.Generic;
+    public bool IsDlt645Protocol => EditingDefinition.ProtocolType == ProtocolType.Dlt645;
 
     public IReadOnlyList<DataType> DataTypes { get; } = Enum.GetValues<DataType>();
     public IReadOnlyList<Endianness> EndianOptions { get; } = Enum.GetValues<Endianness>();
     public IReadOnlyList<ChecksumAlgorithmType> ChecksumAlgorithms { get; } = Enum.GetValues<ChecksumAlgorithmType>();
+    public IReadOnlyList<ProtocolType> ProtocolTypes { get; } = Enum.GetValues<ProtocolType>();
 
     public ProtocolParserViewModel(IProtocolParserService parserService, IConfigurationService configService)
     {
@@ -80,11 +83,34 @@ public partial class ProtocolParserViewModel : ObservableObject
         {
             Name = "新协议",
             Description = "协议描述",
+            ProtocolType = ProtocolType.Generic,
             MinFrameLength = 1
         };
         SyncEditingFields();
         IsEditing = true;
+        OnPropertyChanged(nameof(IsGenericProtocol));
+        OnPropertyChanged(nameof(IsDlt645Protocol));
         StatusMessage = "正在创建新协议定义...";
+    }
+
+    [RelayCommand]
+    private void NewDlt645Definition()
+    {
+        EditingDefinition = new FrameDefinition
+        {
+            Name = "DL/T 645-2007",
+            Description = "电表通信协议",
+            ProtocolType = ProtocolType.Dlt645,
+            Header = "68",
+            Trailer = "16",
+            MinFrameLength = 12,
+            MaxFrameLength = 256
+        };
+        SyncEditingFields();
+        IsEditing = true;
+        OnPropertyChanged(nameof(IsGenericProtocol));
+        OnPropertyChanged(nameof(IsDlt645Protocol));
+        StatusMessage = "正在创建 DL/T 645-2007 协议定义...";
     }
 
     [RelayCommand]
@@ -96,6 +122,8 @@ public partial class ProtocolParserViewModel : ObservableObject
         EditingDefinition = CloneDefinition(SelectedDefinition);
         SyncEditingFields();
         IsEditing = true;
+        OnPropertyChanged(nameof(IsGenericProtocol));
+        OnPropertyChanged(nameof(IsDlt645Protocol));
         StatusMessage = $"正在编辑: {EditingDefinition.Name}";
     }
 
@@ -314,6 +342,7 @@ public partial class ProtocolParserViewModel : ObservableObject
     {
         return new FrameDefinition
         {
+            ProtocolType = source.ProtocolType,
             Name = source.Name,
             Description = source.Description,
             Header = source.Header,
