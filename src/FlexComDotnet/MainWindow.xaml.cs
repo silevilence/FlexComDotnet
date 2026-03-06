@@ -301,11 +301,6 @@ public partial class MainWindow : Window
             OpenUpdateWindow();
         };
 
-        // 订阅数据可视化按钮点击事件
-        ActivityBar.DataVisualizationClicked += (sender, args) =>
-        {
-            MultiZoneLayout.TogglePanelVisibility(PanelIds.DataVisualization);
-        };
     }
 
     /// <summary>

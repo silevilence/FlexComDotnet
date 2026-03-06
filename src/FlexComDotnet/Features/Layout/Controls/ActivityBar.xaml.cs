@@ -160,16 +160,6 @@ public partial class ActivityBar : UserControl
     }
 
     /// <summary>
-    /// 数据可视化按钮点击事件
-    /// </summary>
-    public event EventHandler? DataVisualizationClicked;
-
-    private void DataVisualizationButton_Click(object sender, RoutedEventArgs e)
-    {
-        DataVisualizationClicked?.Invoke(this, EventArgs.Empty);
-    }
-
-    /// <summary>
     /// 校验计算器按钮点击事件
     /// </summary>
     public event EventHandler? ChecksumCalculatorClicked;
