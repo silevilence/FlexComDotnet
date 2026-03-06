@@ -80,14 +80,17 @@ public class Dlt645Parser : IProtocolParser
         result.ControlCode = new Dlt645ControlCode(frame[8]);
         result.DataLength = frame[9];
 
-        AddBasicFields(result, frame);
-
         if (result.DataLength > 0)
         {
             var dataField = new byte[result.DataLength];
             Array.Copy(frame, 10, dataField, 0, result.DataLength);
             result.DecodedDataField = DecodeDataField(dataField);
+        }
 
+        AddBasicFields(result, frame);
+
+        if (result.DataLength > 0)
+        {
             if (result.ControlCode.IsError)
             {
                 ParseErrorResponse(result);
