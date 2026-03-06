@@ -1,3 +1,4 @@
+using FlexComDotnet.Core.Features.Protocol.Models;
 using FlexComDotnet.Core.Features.Protocol.Models.Dlt645;
 using FlexComDotnet.Core.Features.Protocol.Services.Parsers;
 using FluentAssertions;

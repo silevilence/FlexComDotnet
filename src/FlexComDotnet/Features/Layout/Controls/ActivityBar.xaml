@@ -196,6 +196,17 @@
                       Stretch="Uniform"/>
             </Button>
             
+            <!-- 数据可视化按钮 -->
+            <Button x:Name="DataVisualizationButton"
+                    Style="{StaticResource TechActivityBarRegularButtonStyle}"
+                    ToolTip="数据可视化 (实时示波器)"
+                    Click="DataVisualizationButton_Click">
+                <Path Data="M3,13H5V11H7V13H9V7H11V13H13V5H15V13H17V9H19V13H21V15H3V13Z"
+                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      Width="20" Height="20"
+                      Stretch="Uniform"/>
+            </Button>
+            
             <!-- 校验计算器按钮 -->
             <Button x:Name="ChecksumCalculatorButton"
                     Style="{StaticResource TechActivityBarRegularButtonStyle}"

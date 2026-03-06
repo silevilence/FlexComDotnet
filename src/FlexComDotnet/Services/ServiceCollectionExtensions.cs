@@ -14,6 +14,8 @@ using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
 using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Protocol.ViewModels;
+using FlexComDotnet.Core.Features.Visualization.Services;
+using FlexComDotnet.Core.Features.Visualization.ViewModels;
 
 namespace FlexComDotnet.Services;
 
@@ -55,6 +57,9 @@ public static class ServiceCollectionExtensions
 
         // 协议解析服务 (单例)
         services.AddSingleton<IProtocolParserService, ProtocolParserService>();
+
+        // 数据可视化服务 (单例)
+        services.AddSingleton<IVisualizationService, VisualizationService>();
 
         // 更新服务 (单例)
         services.AddSingleton<IVersionService, VersionService>();
@@ -118,6 +123,7 @@ public static class ServiceCollectionExtensions
             return new ScriptingViewModel(engine, manager, bridge, hookService);
         });
         services.AddTransient<ProtocolParserViewModel>();
+        services.AddTransient<DataVisualizationViewModel>();
 
         return services;
     }

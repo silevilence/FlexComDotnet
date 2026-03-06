@@ -8,6 +8,7 @@ using FlexComDotnet.Core.Features.Layout.Services;
 using FlexComDotnet.Core.Features.Checksum.ViewModels;
 using FlexComDotnet.Core.Features.AutoReply.ViewModels;
 using FlexComDotnet.Core.Features.Network.ViewModels;
+using FlexComDotnet.Core.Features.Network.Services;
 using FlexComDotnet.Core.Features.Update.ViewModels;
 using FlexComDotnet.Features.Serial.Views;
 using FlexComDotnet.Features.Network.Views;
@@ -18,6 +19,10 @@ using FlexComDotnet.Features.Scripting.Views;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
 using FlexComDotnet.Core.Features.Protocol.ViewModels;
 using FlexComDotnet.Features.Protocol.Views;
+using FlexComDotnet.Core.Features.Protocol.Services;
+using FlexComDotnet.Core.Features.Visualization.ViewModels;
+using FlexComDotnet.Core.Features.Visualization.Services;
+using FlexComDotnet.Features.Visualization.Views;
 using static FlexComDotnet.Features.Layout.Controls.ActivityBar;
 
 namespace FlexComDotnet;
@@ -33,6 +38,7 @@ public partial class MainWindow : Window
     private readonly CommandListView _commandListView;
     private readonly AutoReplyView _autoReplyView;
     private readonly ScriptingView _scriptingView;
+    private readonly DataVisualizationView _dataVisualizationView;
     private readonly SerialCommunicationView _serialCommunicationView;
 
     /// <summary>
@@ -44,6 +50,7 @@ public partial class MainWindow : Window
         public const string CommandList = "command-list";
         public const string AutoReply = "auto-reply";
         public const string Scripting = "scripting";
+        public const string DataVisualization = "data-visualization";
     }
 
     public MainWindow()
@@ -100,6 +107,29 @@ public partial class MainWindow : Window
 
         // 创建脚本视图
         _scriptingView = new ScriptingView(App.Services.GetRequiredService<ScriptingViewModel>());
+
+        // 创建数据可视化视图
+        var visualizationViewModel = App.Services.GetRequiredService<DataVisualizationViewModel>();
+        _dataVisualizationView = new DataVisualizationView(visualizationViewModel);
+
+        // 连接所有数据源到可视化服务
+        var visualizationService = App.Services.GetRequiredService<IVisualizationService>();
+        var serialPortService = App.Services.GetRequiredService<ISerialPortService>();
+        var tcpClientService = App.Services.GetRequiredService<ITcpClientService>();
+        var tcpServerService = App.Services.GetRequiredService<ITcpServerService>();
+        var udpService = App.Services.GetRequiredService<IUdpService>();
+
+        // 串口数据 → 可视化
+        serialPortService.DataReceived += (_, data) => visualizationService.FeedRawData(data);
+
+        // TCP 客户端数据 → 可视化
+        tcpClientService.DataReceived += (_, args) => visualizationService.FeedRawData(args.Data);
+
+        // TCP 服务器数据 → 可视化
+        tcpServerService.DataReceived += (_, args) => visualizationService.FeedRawData(args.Data);
+
+        // UDP 数据 → 可视化
+        udpService.DataReceived += (_, args) => visualizationService.FeedRawData(args.Data);
 
         // 初始化布局
         InitializeLayout();
@@ -227,6 +257,17 @@ public partial class MainWindow : Window
             order: savedScripting?.Order ?? 2
         );
 
+        // 添加数据可视化面板（可移动，默认在底部）
+        var savedVisualization = _panelManager.GetPanel(PanelIds.DataVisualization);
+        MultiZoneLayout.AddPanel(
+            PanelIds.DataVisualization,
+            "数据可视化",
+            _dataVisualizationView,
+            savedVisualization?.Zone ?? PanelZone.Bottom,
+            isMovable: true,
+            order: savedVisualization?.Order ?? 0
+        );
+
         // 同步 ActivityBar 状态
         ActivityBar.IsLeftPanelChecked = !_panelManager.IsZoneCollapsed(PanelZone.Left);
         ActivityBar.IsRightPanelChecked = !_panelManager.IsZoneCollapsed(PanelZone.Right);
@@ -265,6 +306,12 @@ public partial class MainWindow : Window
         ActivityBar.UpdateClicked += (sender, args) =>
         {
             OpenUpdateWindow();
+        };
+
+        // 订阅数据可视化按钮点击事件
+        ActivityBar.DataVisualizationClicked += (sender, args) =>
+        {
+            MultiZoneLayout.TogglePanelVisibility(PanelIds.DataVisualization);
         };
     }
 

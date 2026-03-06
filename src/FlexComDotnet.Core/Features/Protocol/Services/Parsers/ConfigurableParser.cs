@@ -198,7 +198,19 @@ public class ConfigurableParser : IProtocolParser
             return -1;
         }
 
-        return Definition.MinFrameLength > 0 ? Definition.MinFrameLength : -1;
+        // 无长度字段且无帧尾时，使用 MinFrameLength 或字段定义所需的最大长度
+        int requiredByFields = 0;
+        if (Definition.Fields.Count > 0)
+        {
+            requiredByFields = Definition.Fields
+                .Where(f => f.IsEnabled)
+                .Select(f => f.StartIndex + (f.Length > 0 ? f.Length : FieldDefinition.GetDefaultLength(f.DataType)))
+                .DefaultIfEmpty(0)
+                .Max();
+        }
+
+        int minLen = Math.Max(Definition.MinFrameLength, requiredByFields);
+        return minLen > 0 ? minLen : -1;
     }
 
     private bool ValidateChecksum(byte[] frame)
