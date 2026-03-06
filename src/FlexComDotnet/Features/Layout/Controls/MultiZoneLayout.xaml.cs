@@ -1,19 +1,19 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media;
 using FlexComDotnet.Core.Features.Layout.Models;
 using FlexComDotnet.Core.Features.Layout.Services;
 
 namespace FlexComDotnet.Features.Layout.Controls;
 
 /// <summary>
-/// 多区域布局控件
+/// 多区域标签式布局控件
 /// </summary>
 public partial class MultiZoneLayout : UserControl
 {
-    private readonly Dictionary<string, CollapsiblePanel> _panelControls = [];
-    private readonly Dictionary<string, FloatingPanelWindow> _floatingWindows = [];
     private readonly Dictionary<string, UIElement> _panelContents = [];
+    private readonly Dictionary<string, FloatingPanelWindow> _floatingWindows = [];
     private IPanelManager? _panelManager;
     private Window? _ownerWindow;
     private bool _isFloatingInProgress;
@@ -48,6 +48,11 @@ public partial class MultiZoneLayout : UserControl
     /// </summary>
     public event EventHandler<(PanelZone Zone, double Size)>? ZoneSizeChanged;
 
+    /// <summary>
+    /// 面板可见性变更事件
+    /// </summary>
+    public event EventHandler<(string PanelId, bool IsVisible)>? PanelVisibilityChanged;
+
     #endregion
 
     public MultiZoneLayout()
@@ -76,17 +81,6 @@ public partial class MultiZoneLayout : UserControl
         _panelManager = panelManager;
         _panelManager.LayoutChanged += OnLayoutChanged;
 
-        // 初始化区域尺寸
-        var state = _panelManager.GetLayoutState();
-        SetLeftZoneWidth(state.LeftZoneWidth);
-        SetRightZoneWidth(state.RightZoneWidth);
-        SetBottomZoneHeight(state.BottomZoneHeight);
-
-        // 初始化区域折叠状态
-        SetZoneCollapsed(PanelZone.Left, state.IsLeftZoneCollapsed);
-        SetZoneCollapsed(PanelZone.Right, state.IsRightZoneCollapsed);
-        SetZoneCollapsed(PanelZone.Bottom, state.IsBottomZoneCollapsed);
-
         RefreshLayout();
     }
 
@@ -97,39 +91,6 @@ public partial class MultiZoneLayout : UserControl
     {
         // 保存内容引用
         _panelContents[panelId] = content;
-
-        // 创建可折叠面板
-        var collapsiblePanel = new CollapsiblePanel
-        {
-            PanelId = panelId,
-            Title = title,
-            PanelContent = content,
-            IsMovable = isMovable,
-            CurrentZone = zone
-        };
-
-        // 订阅事件
-        collapsiblePanel.ExpandedChanged += (sender, isExpanded) =>
-        {
-            _panelManager?.SetPanelExpanded(panelId, isExpanded);
-        };
-
-        collapsiblePanel.MoveRequested += (sender, targetZone) =>
-        {
-            MovePanel(panelId, targetZone);
-        };
-
-        collapsiblePanel.FloatRequested += (sender, screenPoint) =>
-        {
-            FloatPanel(panelId, screenPoint);
-        };
-
-        collapsiblePanel.HideRequested += (sender, _) =>
-        {
-            HidePanel(panelId);
-        };
-
-        _panelControls[panelId] = collapsiblePanel;
 
         // 注册到面板管理器
         _panelManager?.RegisterPanel(new PanelInfo
@@ -151,13 +112,7 @@ public partial class MultiZoneLayout : UserControl
     /// </summary>
     public void MovePanel(string panelId, PanelZone targetZone)
     {
-        if (_panelManager != null && _panelManager.MovePanel(panelId, targetZone))
-        {
-            if (_panelControls.TryGetValue(panelId, out var panel))
-            {
-                panel.CurrentZone = targetZone;
-            }
-        }
+        _panelManager?.MovePanel(panelId, targetZone);
     }
 
     /// <summary>
@@ -165,60 +120,6 @@ public partial class MultiZoneLayout : UserControl
     /// </summary>
     public void SetZoneCollapsed(PanelZone zone, bool isCollapsed)
     {
-        switch (zone)
-        {
-            case PanelZone.Left:
-                if (isCollapsed)
-                {
-                    LeftZoneBorder.Visibility = Visibility.Collapsed;
-                    LeftSplitter.Visibility = Visibility.Collapsed;
-                    LeftColumnDefinition.Width = new GridLength(0);
-                    LeftColumnDefinition.MinWidth = 0;
-                }
-                else
-                {
-                    LeftZoneBorder.Visibility = Visibility.Visible;
-                    LeftSplitter.Visibility = Visibility.Visible;
-                    LeftColumnDefinition.Width = new GridLength(_panelManager?.GetZoneSize(PanelZone.Left) ?? 280);
-                    LeftColumnDefinition.MinWidth = 200;
-                }
-                break;
-
-            case PanelZone.Right:
-                if (isCollapsed)
-                {
-                    RightZoneBorder.Visibility = Visibility.Collapsed;
-                    RightSplitter.Visibility = Visibility.Collapsed;
-                    RightColumnDefinition.Width = new GridLength(0);
-                    RightColumnDefinition.MinWidth = 0;
-                }
-                else
-                {
-                    RightZoneBorder.Visibility = Visibility.Visible;
-                    RightSplitter.Visibility = Visibility.Visible;
-                    RightColumnDefinition.Width = new GridLength(_panelManager?.GetZoneSize(PanelZone.Right) ?? 300);
-                    RightColumnDefinition.MinWidth = 200;
-                }
-                break;
-
-            case PanelZone.Bottom:
-                if (isCollapsed)
-                {
-                    BottomZoneBorder.Visibility = Visibility.Collapsed;
-                    BottomSplitter.Visibility = Visibility.Collapsed;
-                    BottomRowDefinition.Height = new GridLength(0);
-                    BottomRowDefinition.MinHeight = 0;
-                }
-                else
-                {
-                    BottomZoneBorder.Visibility = Visibility.Visible;
-                    BottomSplitter.Visibility = Visibility.Visible;
-                    BottomRowDefinition.Height = new GridLength(_panelManager?.GetZoneSize(PanelZone.Bottom) ?? 200);
-                    BottomRowDefinition.MinHeight = 100;
-                }
-                break;
-        }
-
         _panelManager?.SetZoneCollapsed(zone, isCollapsed);
     }
 
@@ -227,103 +128,313 @@ public partial class MultiZoneLayout : UserControl
     /// </summary>
     public bool IsZoneCollapsed(PanelZone zone)
     {
-        return zone switch
-        {
-            PanelZone.Left => LeftZoneBorder.Visibility != Visibility.Visible,
-            PanelZone.Right => RightZoneBorder.Visibility != Visibility.Visible,
-            PanelZone.Bottom => BottomZoneBorder.Visibility != Visibility.Visible,
-            _ => false
-        };
-    }
-
-    private void SetLeftZoneWidth(double width)
-    {
-        LeftColumnDefinition.Width = new GridLength(width);
-    }
-
-    private void SetRightZoneWidth(double width)
-    {
-        RightColumnDefinition.Width = new GridLength(width);
-    }
-
-    private void SetBottomZoneHeight(double height)
-    {
-        BottomRowDefinition.Height = new GridLength(height);
+        return _panelManager?.IsZoneCollapsed(zone) ?? false;
     }
 
     private void OnLayoutChanged(object? sender, EventArgs e)
     {
-        // 如果正在处理浮动操作，跳过刷新
         if (_isFloatingInProgress) return;
-        
-        // 在 UI 线程上执行
         Dispatcher.Invoke(RefreshLayout);
     }
 
+    /// <summary>
+    /// 刷新整个布局：重建标签栏和内容区域
+    /// </summary>
     private void RefreshLayout()
     {
         if (_panelManager == null) return;
 
-        // 清空所有区域
-        LeftZonePanel.Children.Clear();
-        RightZonePanel.Children.Clear();
-        BottomZonePanel.Children.Clear();
+        RefreshZone(PanelZone.Left);
+        RefreshZone(PanelZone.Right);
+        RefreshZone(PanelZone.Bottom);
+    }
 
-        // 按区域添加面板（排除浮动面板）
-        foreach (var zone in new[] { PanelZone.Left, PanelZone.Right, PanelZone.Bottom })
+    /// <summary>
+    /// 刷新指定区域的标签栏和内容
+    /// </summary>
+    private void RefreshZone(PanelZone zone)
+    {
+        if (_panelManager == null) return;
+
+        var panels = _panelManager.GetPanelsInZone(zone);
+        var visiblePanels = panels.Where(p => p.IsVisible && !p.IsFloating).ToList();
+        var activePanel = _panelManager.GetActivePanelInZone(zone);
+
+        var (tabBar, contentPresenter, zoneBorder, tabBarBorder, splitter) = GetZoneElements(zone);
+        if (tabBar == null) return;
+
+        // 重建标签栏
+        tabBar.Children.Clear();
+        foreach (var panelInfo in visiblePanels)
         {
-            var panels = _panelManager.GetPanelsInZone(zone);
-            var targetPanel = zone switch
+            var tabButton = CreateTabButton(panelInfo, zone, activePanel?.Id == panelInfo.Id);
+            tabBar.Children.Add(tabButton);
+        }
+
+        // 更新内容区域
+        if (contentPresenter != null)
+        {
+            contentPresenter.Content = null;
+
+            if (activePanel != null && _panelContents.TryGetValue(activePanel.Id, out var content))
             {
-                PanelZone.Left => LeftZonePanel,
-                PanelZone.Right => RightZonePanel,
-                PanelZone.Bottom => BottomZonePanel,
-                _ => null
-            };
-
-            if (targetPanel == null) continue;
-
-            foreach (var panelInfo in panels)
-            {
-                // 跳过浮动面板
-                if (panelInfo.IsFloating) continue;
-
-                if (_panelControls.TryGetValue(panelInfo.Id, out var control))
+                // 从浮动窗口移除内容（如果有）
+                if (_floatingWindows.TryGetValue(activePanel.Id, out var floatingWindow))
                 {
-                    // 更新面板状态
-                    control.IsExpanded = panelInfo.IsExpanded;
-                    control.CurrentZone = panelInfo.Zone;
-                    control.Visibility = panelInfo.IsVisible ? Visibility.Visible : Visibility.Collapsed;
-
-                    // 确保内容在 CollapsiblePanel 中
-                    if (_panelContents.TryGetValue(panelInfo.Id, out var content))
-                    {
-                        // 从浮动窗口移除内容（如果有）
-                        if (_floatingWindows.TryGetValue(panelInfo.Id, out var floatingWindow))
-                        {
-                            floatingWindow.PanelContent = null;
-                            floatingWindow.Hide();
-                        }
-                        
-                        // 确保内容不在其他容器中
-                        if (content is FrameworkElement fe && fe.Parent is ContentPresenter oldPresenter)
-                        {
-                            oldPresenter.Content = null;
-                        }
-                        
-                        control.PanelContent = content;
-                    }
-
-                    // 从旧父容器移除
-                    if (control.Parent is Panel oldParent)
-                    {
-                        oldParent.Children.Remove(control);
-                    }
-
-                    // 添加到新区域
-                    targetPanel.Children.Add(control);
+                    floatingWindow.PanelContent = null;
+                    floatingWindow.Hide();
                 }
+
+                // 确保内容不在其他容器中
+                if (content is FrameworkElement fe && fe.Parent is ContentPresenter oldPresenter && oldPresenter != contentPresenter)
+                {
+                    oldPresenter.Content = null;
+                }
+
+                contentPresenter.Content = content;
             }
+        }
+
+        UpdateZoneVisibility(zone, visiblePanels.Count, activePanel != null);
+    }
+
+    /// <summary>
+    /// 创建标签按钮
+    /// </summary>
+    private Button CreateTabButton(PanelInfo panelInfo, PanelZone zone, bool isActive)
+    {
+        var button = new Button
+        {
+            Tag = panelInfo.Id,
+            ToolTip = panelInfo.Title
+        };
+
+        if (zone == PanelZone.Bottom)
+        {
+            button.Style = (Style)FindResource("HorizontalTabButtonStyle");
+            button.Content = CreateHorizontalTabContent(panelInfo.Title, isActive);
+        }
+        else
+        {
+            button.Style = (Style)FindResource("VerticalTabButtonStyle");
+            button.Content = CreateVerticalTabContent(panelInfo.Title, isActive);
+        }
+
+        if (isActive)
+        {
+            button.Background = (Brush)FindResource("ActiveTabBrush");
+            button.Foreground = (Brush)FindResource("TextPrimaryBrush");
+        }
+
+        button.Click += (_, _) =>
+        {
+            _panelManager?.ActivatePanelInZone(panelInfo.Id);
+        };
+
+        button.ContextMenu = CreateTabContextMenu(panelInfo);
+
+        return button;
+    }
+
+    /// <summary>
+    /// 创建竖向标签内容（文字旋转90度）
+    /// </summary>
+    private static UIElement CreateVerticalTabContent(string title, bool isActive)
+    {
+        var grid = new Grid();
+
+        if (isActive)
+        {
+            var indicator = new Border
+            {
+                Width = 2,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(-4, 0, 0, 0)
+            };
+            indicator.SetResourceReference(Border.BackgroundProperty, "ActiveTabIndicatorBrush");
+            grid.Children.Add(indicator);
+        }
+
+        var textBlock = new TextBlock
+        {
+            Text = title,
+            FontSize = 12,
+            FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal,
+            RenderTransformOrigin = new Point(0.5, 0.5),
+            LayoutTransform = new RotateTransform(90),
+            Margin = new Thickness(4, 6, 4, 6)
+        };
+
+        grid.Children.Add(textBlock);
+        return grid;
+    }
+
+    /// <summary>
+    /// 创建横向标签内容
+    /// </summary>
+    private static UIElement CreateHorizontalTabContent(string title, bool isActive)
+    {
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(2) });
+
+        var textBlock = new TextBlock
+        {
+            Text = title,
+            FontSize = 12,
+            FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 2)
+        };
+        Grid.SetRow(textBlock, 0);
+        grid.Children.Add(textBlock);
+
+        if (isActive)
+        {
+            var indicator = new Border
+            {
+                Height = 2,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            indicator.SetResourceReference(Border.BackgroundProperty, "ActiveTabIndicatorBrush");
+            Grid.SetRow(indicator, 1);
+            grid.Children.Add(indicator);
+        }
+
+        return grid;
+    }
+
+    /// <summary>
+    /// 创建标签右键菜单
+    /// </summary>
+    private ContextMenu CreateTabContextMenu(PanelInfo panelInfo)
+    {
+        var contextMenu = new ContextMenu();
+
+        if (panelInfo.IsMovable)
+        {
+            foreach (var zone in new[] { PanelZone.Left, PanelZone.Right, PanelZone.Bottom })
+            {
+                if (zone == panelInfo.Zone) continue;
+
+                var zoneName = zone switch
+                {
+                    PanelZone.Left => "左侧",
+                    PanelZone.Right => "右侧",
+                    PanelZone.Bottom => "底部",
+                    _ => zone.ToString()
+                };
+
+                var moveItem = new MenuItem { Header = $"移动到{zoneName}" };
+                var targetZone = zone;
+                moveItem.Click += (_, _) => _panelManager?.MovePanel(panelInfo.Id, targetZone);
+                contextMenu.Items.Add(moveItem);
+            }
+
+            contextMenu.Items.Add(new Separator());
+
+            var floatItem = new MenuItem { Header = "弹出为独立窗口" };
+            floatItem.Click += (_, _) => FloatPanel(panelInfo.Id, new Point(0, 0));
+            contextMenu.Items.Add(floatItem);
+
+            contextMenu.Items.Add(new Separator());
+        }
+
+        var hideItem = new MenuItem { Header = "隐藏面板" };
+        hideItem.Click += (_, _) => HidePanel(panelInfo.Id);
+        contextMenu.Items.Add(hideItem);
+
+        return contextMenu;
+    }
+
+    /// <summary>
+    /// 获取区域对应的 UI 元素
+    /// </summary>
+    private (StackPanel? tabBar, ContentPresenter? contentPresenter, Border? zoneBorder, Border? tabBarBorder, GridSplitter? splitter) GetZoneElements(PanelZone zone)
+    {
+        return zone switch
+        {
+            PanelZone.Left => (LeftTabBar, LeftContentPresenter, LeftZoneBorder, LeftTabBarBorder, LeftSplitter),
+            PanelZone.Right => (RightTabBar, RightContentPresenter, RightZoneBorder, RightTabBarBorder, RightSplitter),
+            PanelZone.Bottom => (BottomTabBar, BottomContentPresenter, BottomZoneBorder, null, BottomSplitter),
+            _ => (null, null, null, null, null)
+        };
+    }
+
+    /// <summary>
+    /// 更新区域可见性
+    /// </summary>
+    private void UpdateZoneVisibility(PanelZone zone, int visiblePanelCount, bool hasActivePanel)
+    {
+        var hasVisiblePanels = visiblePanelCount > 0;
+
+        switch (zone)
+        {
+            case PanelZone.Left:
+                LeftTabBarBorder.Visibility = hasVisiblePanels ? Visibility.Visible : Visibility.Collapsed;
+                if (hasActivePanel)
+                {
+                    LeftZoneBorder.Visibility = Visibility.Visible;
+                    LeftSplitter.Visibility = Visibility.Visible;
+                    LeftColumnDefinition.Width = new GridLength(_panelManager?.GetZoneSize(PanelZone.Left) ?? 280);
+                    LeftColumnDefinition.MinWidth = 200;
+                    LeftColumnDefinition.MaxWidth = 450;
+                }
+                else
+                {
+                    LeftZoneBorder.Visibility = Visibility.Collapsed;
+                    LeftSplitter.Visibility = Visibility.Collapsed;
+                    LeftColumnDefinition.Width = new GridLength(0);
+                    LeftColumnDefinition.MinWidth = 0;
+                    LeftColumnDefinition.MaxWidth = double.PositiveInfinity;
+                }
+                break;
+
+            case PanelZone.Right:
+                RightTabBarBorder.Visibility = hasVisiblePanels ? Visibility.Visible : Visibility.Collapsed;
+                if (hasActivePanel)
+                {
+                    RightZoneBorder.Visibility = Visibility.Visible;
+                    RightSplitter.Visibility = Visibility.Visible;
+                    RightColumnDefinition.Width = new GridLength(_panelManager?.GetZoneSize(PanelZone.Right) ?? 300);
+                    RightColumnDefinition.MinWidth = 200;
+                    RightColumnDefinition.MaxWidth = 450;
+                }
+                else
+                {
+                    RightZoneBorder.Visibility = Visibility.Collapsed;
+                    RightSplitter.Visibility = Visibility.Collapsed;
+                    RightColumnDefinition.Width = new GridLength(0);
+                    RightColumnDefinition.MinWidth = 0;
+                    RightColumnDefinition.MaxWidth = double.PositiveInfinity;
+                }
+                break;
+
+            case PanelZone.Bottom:
+                if (hasVisiblePanels)
+                {
+                    BottomZoneBorder.Visibility = Visibility.Visible;
+                    if (hasActivePanel)
+                    {
+                        BottomSplitter.Visibility = Visibility.Visible;
+                        BottomRowDefinition.Height = new GridLength(_panelManager?.GetZoneSize(PanelZone.Bottom) ?? 200);
+                        BottomRowDefinition.MinHeight = 100;
+                    }
+                    else
+                    {
+                        BottomSplitter.Visibility = Visibility.Collapsed;
+                        BottomRowDefinition.Height = GridLength.Auto;
+                        BottomRowDefinition.MinHeight = 0;
+                    }
+                }
+                else
+                {
+                    BottomZoneBorder.Visibility = Visibility.Collapsed;
+                    BottomSplitter.Visibility = Visibility.Collapsed;
+                    BottomRowDefinition.Height = new GridLength(0);
+                    BottomRowDefinition.MinHeight = 0;
+                }
+                break;
         }
     }
 
@@ -333,22 +444,13 @@ public partial class MultiZoneLayout : UserControl
     private void FloatPanel(string panelId, Point screenPoint)
     {
         var panelInfo = _panelManager?.GetPanel(panelId);
-        if (panelInfo == null || !panelInfo.IsMovable)
-        {
-            return;
-        }
+        if (panelInfo == null || !panelInfo.IsMovable) return;
+        if (!_panelContents.TryGetValue(panelId, out var content)) return;
 
-        if (!_panelContents.TryGetValue(panelId, out var content))
-        {
-            return;
-        }
-
-        // 标记正在进行浮动操作，避免触发刷新
         _isFloatingInProgress = true;
-        
+
         try
         {
-            // 获取或创建浮动窗口
             if (!_floatingWindows.TryGetValue(panelId, out var floatingWindow))
             {
                 floatingWindow = new FloatingPanelWindow
@@ -357,23 +459,14 @@ public partial class MultiZoneLayout : UserControl
                     PanelTitle = panelInfo.Title
                 };
 
-                // 设置 Owner（如果可用）
                 if (_ownerWindow != null)
                 {
                     floatingWindow.Owner = _ownerWindow;
                 }
 
-                floatingWindow.DockRequested += (sender, zone) =>
-                {
-                    DockPanel(panelId, zone);
-                };
-
-                floatingWindow.PanelHidden += (sender, _) =>
-                {
-                    HidePanel(panelId);
-                };
-
-                floatingWindow.BoundsChanged += (sender, bounds) =>
+                floatingWindow.DockRequested += (_, zone) => DockPanel(panelId, zone);
+                floatingWindow.PanelHidden += (_, _) => HidePanel(panelId);
+                floatingWindow.BoundsChanged += (_, bounds) =>
                 {
                     _panelManager?.UpdateFloatingPanelBounds(panelId, bounds.X, bounds.Y, bounds.Width, bounds.Height);
                 };
@@ -381,50 +474,31 @@ public partial class MultiZoneLayout : UserControl
                 _floatingWindows[panelId] = floatingWindow;
             }
 
-            // 从 CollapsiblePanel 移除内容
-            if (_panelControls.TryGetValue(panelId, out var collapsiblePanel))
-            {
-                collapsiblePanel.ClearValue(CollapsiblePanel.PanelContentProperty);
-            }
-
-            // 确保内容从旧父级移除
+            // 清除内容的旧父级
             if (content is FrameworkElement fe && fe.Parent is ContentPresenter oldPresenter)
             {
                 oldPresenter.Content = null;
             }
 
-            // 设置浮动窗口内容
             floatingWindow.PanelContent = content;
 
-            // 计算显示位置：使用主窗口位置作为参考
             var width = panelInfo.FloatingWidth > 0 ? panelInfo.FloatingWidth : 300;
             var height = panelInfo.FloatingHeight > 0 ? panelInfo.FloatingHeight : 400;
-            
+
             double x, y;
             if (_ownerWindow != null)
             {
-                // 在主窗口中央偏右显示
                 x = _ownerWindow.Left + (_ownerWindow.Width - width) / 2 + 50;
                 y = _ownerWindow.Top + (_ownerWindow.Height - height) / 2;
             }
             else
             {
-                // 使用屏幕中央
                 x = (SystemParameters.PrimaryScreenWidth - width) / 2;
                 y = (SystemParameters.PrimaryScreenHeight - height) / 2;
             }
 
-            // 更新面板管理器状态
             _panelManager?.SetPanelFloating(panelId, x, y, width, height);
-
-            // 显示浮动窗口
             floatingWindow.ShowAt(x, y, width, height);
-
-            // 隐藏原位置的 CollapsiblePanel（因为内容已移到浮动窗口）
-            if (_panelControls.TryGetValue(panelId, out var panel))
-            {
-                panel.Visibility = Visibility.Collapsed;
-            }
         }
         finally
         {
@@ -438,8 +512,7 @@ public partial class MultiZoneLayout : UserControl
     public void DockPanel(string panelId, PanelZone zone)
     {
         _panelManager?.DockPanel(panelId, zone);
-        
-        // 隐藏浮动窗口
+
         if (_floatingWindows.TryGetValue(panelId, out var floatingWindow))
         {
             floatingWindow.Hide();
@@ -452,14 +525,12 @@ public partial class MultiZoneLayout : UserControl
     public void HidePanel(string panelId)
     {
         _panelManager?.SetPanelVisibility(panelId, false);
-        
-        // 隐藏浮动窗口（如果有）
+
         if (_floatingWindows.TryGetValue(panelId, out var floatingWindow))
         {
             floatingWindow.Hide();
         }
 
-        // 触发面板可见性变更事件
         PanelVisibilityChanged?.Invoke(this, (panelId, false));
     }
 
@@ -473,18 +544,21 @@ public partial class MultiZoneLayout : UserControl
 
         _panelManager?.SetPanelVisibility(panelId, true);
 
-        // 如果之前是浮动状态，恢复浮动窗口
         if (panelInfo.IsFloating && _floatingWindows.TryGetValue(panelId, out var floatingWindow))
         {
             if (_panelContents.TryGetValue(panelId, out var content))
             {
                 floatingWindow.PanelContent = content;
             }
-            floatingWindow.ShowAt(panelInfo.FloatingX, panelInfo.FloatingY, 
+            floatingWindow.ShowAt(panelInfo.FloatingX, panelInfo.FloatingY,
                 panelInfo.FloatingWidth, panelInfo.FloatingHeight);
         }
+        else
+        {
+            // 自动展开并激活该面板
+            _panelManager?.ActivatePanelInZone(panelId);
+        }
 
-        // 触发面板可见性变更事件
         PanelVisibilityChanged?.Invoke(this, (panelId, true));
     }
 
@@ -537,30 +611,34 @@ public partial class MultiZoneLayout : UserControl
     {
         foreach (var window in _floatingWindows.Values)
         {
-            window.AllowClose = true;  // 允许关闭，不触发隐藏逻辑
+            window.AllowClose = true;
             window.PanelContent = null;
             window.Close();
         }
         _floatingWindows.Clear();
     }
 
-    /// <summary>
-    /// 面板可见性变更事件
-    /// </summary>
-    public event EventHandler<(string PanelId, bool IsVisible)>? PanelVisibilityChanged;
-
     private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
     {
-        // 保存新的区域尺寸
         if (_panelManager != null)
         {
-            _panelManager.SetZoneSize(PanelZone.Left, LeftColumnDefinition.Width.Value);
-            _panelManager.SetZoneSize(PanelZone.Right, RightColumnDefinition.Width.Value);
-            _panelManager.SetZoneSize(PanelZone.Bottom, BottomRowDefinition.Height.Value);
+            if (LeftColumnDefinition.Width.Value > 0)
+            {
+                _panelManager.SetZoneSize(PanelZone.Left, LeftColumnDefinition.Width.Value);
+                ZoneSizeChanged?.Invoke(this, (PanelZone.Left, LeftColumnDefinition.Width.Value));
+            }
 
-            ZoneSizeChanged?.Invoke(this, (PanelZone.Left, LeftColumnDefinition.Width.Value));
-            ZoneSizeChanged?.Invoke(this, (PanelZone.Right, RightColumnDefinition.Width.Value));
-            ZoneSizeChanged?.Invoke(this, (PanelZone.Bottom, BottomRowDefinition.Height.Value));
+            if (RightColumnDefinition.Width.Value > 0)
+            {
+                _panelManager.SetZoneSize(PanelZone.Right, RightColumnDefinition.Width.Value);
+                ZoneSizeChanged?.Invoke(this, (PanelZone.Right, RightColumnDefinition.Width.Value));
+            }
+
+            if (BottomRowDefinition.Height.Value > 0 && !BottomRowDefinition.Height.IsAuto)
+            {
+                _panelManager.SetZoneSize(PanelZone.Bottom, BottomRowDefinition.Height.Value);
+                ZoneSizeChanged?.Invoke(this, (PanelZone.Bottom, BottomRowDefinition.Height.Value));
+            }
         }
     }
 }

@@ -23,8 +23,6 @@ using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Visualization.ViewModels;
 using FlexComDotnet.Core.Features.Visualization.Services;
 using FlexComDotnet.Features.Visualization.Views;
-using static FlexComDotnet.Features.Layout.Controls.ActivityBar;
-
 namespace FlexComDotnet;
 
 /// <summary>
@@ -268,11 +266,6 @@ public partial class MainWindow : Window
             order: savedVisualization?.Order ?? 0
         );
 
-        // 同步 ActivityBar 状态
-        ActivityBar.IsLeftPanelChecked = !_panelManager.IsZoneCollapsed(PanelZone.Left);
-        ActivityBar.IsRightPanelChecked = !_panelManager.IsZoneCollapsed(PanelZone.Right);
-        ActivityBar.IsBottomPanelChecked = !_panelManager.IsZoneCollapsed(PanelZone.Bottom);
-        
         // 设置面板列表提供器（用于面板管理菜单，过滤掉不可移动的面板）
         ActivityBar.SetPanelsProvider(() => _panelManager.Panels
             .Where(p => p.Id != PanelIds.ConnectionConfig)
@@ -388,11 +381,6 @@ public partial class MainWindow : Window
         };
         
         window.ShowDialog();
-    }
-
-    private void ActivityBar_ZoneToggled(object? sender, ZoneToggleEventArgs e)
-    {
-        MultiZoneLayout.SetZoneCollapsed(e.Zone, !e.IsVisible);
     }
 
     private void MultiZoneLayout_ZoneSizeChanged(object? sender, (PanelZone Zone, double Size) e)

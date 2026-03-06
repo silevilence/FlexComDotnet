@@ -72,6 +72,11 @@
     <SolidColorBrush x:Key="PressedBrush" Color="{StaticResource PressedColor}"/>
     <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource SelectedColor}"/>
 
+    <!-- 面板标签栏颜色 -->
+    <SolidColorBrush x:Key="TabBarBrush" Color="{StaticResource PanelHeaderColor}"/>
+    <SolidColorBrush x:Key="ActiveTabBrush" Color="{StaticResource SurfaceColor}"/>
+    <SolidColorBrush x:Key="ActiveTabIndicatorBrush" Color="{StaticResource PrimaryColor}"/>
+
     <!-- 状态栏颜色 -->
     <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="{StaticResource SidebarColor}"/>
     <SolidColorBrush x:Key="StatusBarBorderBrush" Color="{StaticResource BorderColor}"/>

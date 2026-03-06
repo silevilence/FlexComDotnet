@@ -7,6 +7,63 @@
              d:DesignHeight="600" d:DesignWidth="1200"
              Background="{DynamicResource BackgroundBrush}">
     
+    <UserControl.Resources>
+        <!-- 竖向标签按钮样式（左右侧面板） -->
+        <Style x:Key="VerticalTabButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="4,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- 横向标签按钮样式（底部面板） -->
+        <Style x:Key="HorizontalTabButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -17,60 +74,87 @@
         <!-- 上部区域 (Left + Center + Right) -->
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="LeftColumnDefinition" Width="280" MinWidth="200" MaxWidth="450"/>
+                <!-- 左侧标签栏 -->
+                <ColumnDefinition x:Name="LeftTabBarColumnDefinition" Width="Auto"/>
+                <!-- 左侧内容 -->
+                <ColumnDefinition x:Name="LeftColumnDefinition" Width="0" MinWidth="0"/>
+                <!-- 左侧分隔条 -->
                 <ColumnDefinition Width="Auto"/>
+                <!-- 中央 -->
                 <ColumnDefinition Width="*" MinWidth="400"/>
+                <!-- 右侧分隔条 -->
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition x:Name="RightColumnDefinition" Width="300" MinWidth="200" MaxWidth="450"/>
+                <!-- 右侧内容 -->
+                <ColumnDefinition x:Name="RightColumnDefinition" Width="0" MinWidth="0"/>
+                <!-- 右侧标签栏 -->
+                <ColumnDefinition x:Name="RightTabBarColumnDefinition" Width="Auto"/>
             </Grid.ColumnDefinitions>
             
-            <!-- 左侧区域 -->
-            <Border x:Name="LeftZoneBorder"
+            <!-- 左侧标签栏 (竖向) -->
+            <Border x:Name="LeftTabBarBorder"
                     Grid.Column="0"
+                    Background="{DynamicResource TabBarBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,1,0"
+                    Visibility="Collapsed">
+                <StackPanel x:Name="LeftTabBar" Orientation="Vertical"/>
+            </Border>
+            
+            <!-- 左侧内容区域 -->
+            <Border x:Name="LeftZoneBorder"
+                    Grid.Column="1"
                     Background="{DynamicResource SurfaceBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="0,0,1,0">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" 
-                              HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel x:Name="LeftZonePanel"/>
-                </ScrollViewer>
+                    BorderThickness="0,0,1,0"
+                    Visibility="Collapsed">
+                <ContentPresenter x:Name="LeftContentPresenter"/>
             </Border>
             
             <!-- 左侧分隔条 -->
             <GridSplitter x:Name="LeftSplitter"
-                          Grid.Column="1"
+                          Grid.Column="2"
                           Width="4"
                           HorizontalAlignment="Center"
                           Background="Transparent"
                           Cursor="SizeWE"
+                          Visibility="Collapsed"
                           DragCompleted="Splitter_DragCompleted"/>
             
             <!-- 中央区域 (主要内容) -->
             <Border x:Name="CenterZoneBorder"
-                    Grid.Column="2"
+                    Grid.Column="3"
                     Background="{DynamicResource BackgroundBrush}">
                 <ContentPresenter x:Name="CenterContent"/>
             </Border>
             
             <!-- 右侧分隔条 -->
             <GridSplitter x:Name="RightSplitter"
-                          Grid.Column="3"
+                          Grid.Column="4"
                           Width="4"
                           HorizontalAlignment="Center"
                           Background="Transparent"
                           Cursor="SizeWE"
+                          Visibility="Collapsed"
                           DragCompleted="Splitter_DragCompleted"/>
             
-            <!-- 右侧区域 -->
+            <!-- 右侧内容区域 -->
             <Border x:Name="RightZoneBorder"
-                    Grid.Column="4"
+                    Grid.Column="5"
                     Background="{DynamicResource SurfaceBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1,0,0,0">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" 
-                              HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel x:Name="RightZonePanel"/>
-                </ScrollViewer>
+                    BorderThickness="1,0,0,0"
+                    Visibility="Collapsed">
+                <ContentPresenter x:Name="RightContentPresenter"/>
+            </Border>
+            
+            <!-- 右侧标签栏 (竖向) -->
+            <Border x:Name="RightTabBarBorder"
+                    Grid.Column="6"
+                    Background="{DynamicResource TabBarBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1,0,0,0"
+                    Visibility="Collapsed">
+                <StackPanel x:Name="RightTabBar" Orientation="Vertical"/>
             </Border>
         </Grid>
         
@@ -92,10 +176,25 @@
                 BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="0,1,0,0"
                 Visibility="Collapsed">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" 
-                          HorizontalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="BottomZonePanel" Orientation="Vertical"/>
-            </ScrollViewer>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- 底部标签栏 (横向) -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- 底部内容 -->
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- 底部标签栏 -->
+                <Border Grid.Row="0"
+                        Background="{DynamicResource TabBarBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,0,1">
+                    <StackPanel x:Name="BottomTabBar" Orientation="Horizontal"/>
+                </Border>
+                
+                <!-- 底部内容 -->
+                <ContentPresenter x:Name="BottomContentPresenter" Grid.Row="1"/>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

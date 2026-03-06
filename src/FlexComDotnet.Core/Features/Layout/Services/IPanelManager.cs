@@ -145,4 +145,18 @@ public interface IPanelManager
     /// </summary>
     /// <param name="panelId">面板ID</param>
     void TogglePanelVisibility(string panelId);
+
+    /// <summary>
+    /// 激活区域中的指定面板（展开该面板，折叠同区域其他面板）。
+    /// 如果该面板已经是激活状态，则折叠所有面板。
+    /// </summary>
+    /// <param name="panelId">面板ID</param>
+    void ActivatePanelInZone(string panelId);
+
+    /// <summary>
+    /// 获取区域中当前激活（展开）的面板
+    /// </summary>
+    /// <param name="zone">区域</param>
+    /// <returns>激活的面板信息，无激活面板时返回 null</returns>
+    PanelInfo? GetActivePanelInZone(PanelZone zone);
 }

@@ -655,6 +655,120 @@ public class PanelManagerTests
 
     #endregion
 
+    #region ActivatePanelInZone Tests
+
+    [Fact]
+    public void ActivatePanelInZone_ShouldExpandTargetAndCollapseOthers()
+    {
+        // Arrange
+        _sut.RegisterPanel(CreateTestPanel("panel-1", "Panel 1", PanelZone.Right, 0));
+        _sut.RegisterPanel(CreateTestPanel("panel-2", "Panel 2", PanelZone.Right, 1));
+        _sut.RegisterPanel(CreateTestPanel("panel-3", "Panel 3", PanelZone.Right, 2));
+
+        // Act
+        _sut.ActivatePanelInZone("panel-2");
+
+        // Assert
+        _sut.GetPanel("panel-1")!.IsExpanded.Should().BeFalse();
+        _sut.GetPanel("panel-2")!.IsExpanded.Should().BeTrue();
+        _sut.GetPanel("panel-3")!.IsExpanded.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ActivatePanelInZone_WhenAlreadyActive_ShouldCollapseAll()
+    {
+        // Arrange
+        _sut.RegisterPanel(CreateTestPanel("panel-1", "Panel 1", PanelZone.Right, 0));
+        _sut.RegisterPanel(CreateTestPanel("panel-2", "Panel 2", PanelZone.Right, 1));
+        _sut.ActivatePanelInZone("panel-2");
+
+        // Act - click the already active panel again
+        _sut.ActivatePanelInZone("panel-2");
+
+        // Assert - all panels in zone collapsed
+        _sut.GetPanel("panel-1")!.IsExpanded.Should().BeFalse();
+        _sut.GetPanel("panel-2")!.IsExpanded.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ActivatePanelInZone_ShouldNotAffectOtherZones()
+    {
+        // Arrange
+        _sut.RegisterPanel(CreateTestPanel("left-1", "Left 1", PanelZone.Left, 0));
+        _sut.RegisterPanel(CreateTestPanel("right-1", "Right 1", PanelZone.Right, 0));
+        _sut.RegisterPanel(CreateTestPanel("right-2", "Right 2", PanelZone.Right, 1));
+
+        // Act
+        _sut.ActivatePanelInZone("right-1");
+
+        // Assert - left zone unaffected
+        _sut.GetPanel("left-1")!.IsExpanded.Should().BeTrue();
+        _sut.GetPanel("right-1")!.IsExpanded.Should().BeTrue();
+        _sut.GetPanel("right-2")!.IsExpanded.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ActivatePanelInZone_WithNonExistentPanel_ShouldDoNothing()
+    {
+        // Arrange
+        var eventRaised = false;
+        _sut.LayoutChanged += (_, _) => eventRaised = true;
+
+        // Act
+        _sut.ActivatePanelInZone("non-existent");
+
+        // Assert
+        eventRaised.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ActivatePanelInZone_ShouldRaiseLayoutChangedEvent()
+    {
+        // Arrange
+        _sut.RegisterPanel(CreateTestPanel("panel-1", "Panel 1", PanelZone.Right, 0));
+        var eventRaised = false;
+        _sut.LayoutChanged += (_, _) => eventRaised = true;
+
+        // Act
+        _sut.ActivatePanelInZone("panel-1");
+
+        // Assert
+        eventRaised.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetActivePanelInZone_ShouldReturnExpandedPanel()
+    {
+        // Arrange
+        _sut.RegisterPanel(CreateTestPanel("panel-1", "Panel 1", PanelZone.Right, 0));
+        _sut.RegisterPanel(CreateTestPanel("panel-2", "Panel 2", PanelZone.Right, 1));
+        _sut.ActivatePanelInZone("panel-2");
+
+        // Act
+        var active = _sut.GetActivePanelInZone(PanelZone.Right);
+
+        // Assert
+        active.Should().NotBeNull();
+        active!.Id.Should().Be("panel-2");
+    }
+
+    [Fact]
+    public void GetActivePanelInZone_WhenNoneExpanded_ShouldReturnNull()
+    {
+        // Arrange
+        var panel = CreateTestPanel("panel-1", "Panel 1", PanelZone.Right, 0);
+        panel.IsExpanded = false;
+        _sut.RegisterPanel(panel);
+
+        // Act
+        var active = _sut.GetActivePanelInZone(PanelZone.Right);
+
+        // Assert
+        active.Should().BeNull();
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static PanelInfo CreateTestPanel(string id, string title, PanelZone zone, int order = 0)

@@ -354,6 +354,39 @@ public class PanelManager : IPanelManager
         }
     }
 
+    /// <inheritdoc />
+    public void ActivatePanelInZone(string panelId)
+    {
+        var panel = _panels.FirstOrDefault(p => p.Id == panelId);
+        if (panel == null) return;
+
+        var zone = panel.Zone;
+        var zonePanels = _panels.Where(p => p.Zone == zone && !p.IsFloating).ToList();
+        
+        // Check if this panel is the sole active panel in the zone
+        var isSoleActive = panel.IsExpanded && zonePanels.Count(p => p.IsExpanded) == 1;
+
+        // Collapse all panels in the zone
+        foreach (var p in zonePanels)
+        {
+            p.IsExpanded = false;
+        }
+
+        // If the panel was not the sole active one, expand it
+        if (!isSoleActive)
+        {
+            panel.IsExpanded = true;
+        }
+
+        OnLayoutChanged();
+    }
+
+    /// <inheritdoc />
+    public PanelInfo? GetActivePanelInZone(PanelZone zone)
+    {
+        return _panels.FirstOrDefault(p => p.Zone == zone && p.IsExpanded && p.IsVisible && !p.IsFloating);
+    }
+
     private void OnLayoutChanged()
     {
         LayoutChanged?.Invoke(this, EventArgs.Empty);

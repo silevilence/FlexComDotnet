@@ -9,9 +9,9 @@
 
 ## 📋 项目状态
 
-**🚀 开发中 - Phase 9 (P2 高级功能扩展)**
+**🚀 开发中 - Phase 10 (日志整合)**
 
-当前版本 v1.2.0 已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能、Lua 脚本系统（含语法高亮与智能补全），下一步开发数据可视化与协议解析引擎。
+当前版本 v1.2.0 已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能、Lua 脚本系统（含语法高亮与智能补全）、通用帧协议解析引擎（含 DL/T 645-2007）、数据可视化实时示波器、VS Code 风格标签式面板交互。当前正在开发日志整合功能。
 
 ## ✨ 功能列表
 
@@ -25,7 +25,7 @@
 - [x] **视图交互与日志** - 通信日志保存、时间戳显示(支持日期切换)、暂停滚动/清空接收区
 - [x] **状态栏** - Rx/Tx 字节计数器、图标式重置按钮
 - [x] **多条指令列表** - 预设指令管理 (添加/编辑/删除/拖拽排序)、LiteDB 数据持久化、快速发送
-- [x] **多区域可折叠布局** - VS Code 风格三区架构 (Left/Right/Bottom)、Activity Bar 导航、面板拖拽移动
+- [x] **多区域可折叠布局** - VS Code 风格三区架构 (Left/Right/Bottom)、标签式面板交互、面板可见性独立配置
 - [x] **主题系统** - 浅色/深色/跟随系统三种模式、科技风格 UI (Panuon.WPF.UI)、主题设置持久化
 - [x] **独立校验与摘要计算器** - 策略模式架构，支持 Sum8/16、CRC-8/16/32 多种变体、XOR、MD5、SHA-1/256；Hex 输入带 ASCII 预览，可导入/附加发送帧
 - [x] **CI/CD 自动发布** - GitHub Actions 自动构建、打包 (.zip/.msix)、发布 Release
@@ -35,10 +35,16 @@
 - [x] **Lua 脚本系统** - 脚本引擎 (NLua)、脚本管理器、FCom API 桥接 (send/log/delay/crc16/crc32/checksum/getTimestamp)、调试控制台
 - [x] **脚本 Hook 机制** - 接收预处理 (Rx Hook)、发送后处理 (Tx Hook)、脚本自动应答 (Reply Hook)、手动任务触发 (Task Hook)
 - [x] **脚本编辑器增强** - Lua 语法高亮 (AvalonEdit)、智能代码补全、API 参考文档窗口
+- [x] **通用帧协议解析引擎** - 策略模式架构 (IProtocolParser)、可配置字段 (字节提取/位域解析/端序)、帧结构定义 UI、JSON 配置持久化
+- [x] **DL/T 645-2007 协议解析器** - 粘包/半包处理、BCD 地址解析、控制码解析、数据域偏置还原、数据标识字典映射、异常应答翻译
+- [x] **数据可视化** - ScottPlot 实时示波器、多通道绘制、暂停/缩放/十字游标、通道管理 (添加/删除/颜色/可见性)、PNG/CSV 导出
+- [x] **UI 调整** - VS Code 风格标签式面板交互、面板可见性独立配置、左右竖排/底部横排标签
+
+### 🚧 开发中
+- [ ] **日志整合** - 统一日志面板、多等级记录、本地持久化存储、多维度筛选
 
 ### 🔜 计划中
-- [ ] 数据可视化与实时示波器
-- [ ] 通用帧协议解析引擎
+- 暂无
 
 ## 🚀 快速开始
 
@@ -72,15 +78,21 @@ dotnet test
 FlexComDotnet/
 ├── src/
 │   ├── FlexComDotnet/              # WPF UI 层
-│   │   ├── Converters/             # XAML 值转换器
+│   │   ├── Converters/             # XAML 值转换器 (Serial/Network/Protocol/Script)
 │   │   ├── Features/
 │   │   │   ├── AutoReply/Views/    # 自动回复视图
 │   │   │   ├── Checksum/Views/     # 校验计算器视图
 │   │   │   ├── Layout/Controls/    # 布局控件 (ActivityBar, CollapsiblePanel 等)
 │   │   │   ├── Network/Views/      # 网络连接视图
-│   │   │   ├── Scripting/Views/    # 脚本视图 (编辑器、API参考)
+│   │   │   ├── Protocol/Views/     # 协议定义视图
+│   │   │   ├── Scripting/          # 脚本功能
+│   │   │   │   ├── Completion/     # 智能补全 (FComCompletionData)
+│   │   │   │   ├── Resources/      # 语法高亮定义 (LuaSyntax.xshd)
+│   │   │   │   └── Views/          # 脚本视图 (编辑器、API参考、对话框)
 │   │   │   ├── Serial/Views/       # 串口视图 (Config/Communication/CommandList)
-│   │   │   └── Update/Views/       # 更新视图
+│   │   │   ├── Update/Views/       # 更新视图
+│   │   │   └── Visualization/Views/# 数据可视化视图
+│   │   ├── Fonts/                  # 内嵌字体 (MapleMono-NF-CN)
 │   │   ├── Services/               # UI 层服务 (主题服务、DI 配置)
 │   │   ├── Themes/                 # 主题资源 (Light/Dark)
 │   │   ├── App.xaml                # 应用入口
@@ -103,6 +115,12 @@ FlexComDotnet/
 │           │   ├── Models/         # 连接模型 (ConnectionType, ConnectionState, NetworkConfig)
 │           │   ├── Services/       # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
 │           │   └── ViewModels/     # 连接配置 ViewModel
+│           ├── Protocol/           # 协议解析功能
+│           │   ├── Models/         # 协议模型 (FrameDefinition, FieldDefinition, DataType, Endianness)
+│           │   │   └── Dlt645/     # DL/T 645 专用模型 (控制码、数据字典、错误码)
+│           │   ├── Services/       # 协议服务 (IProtocolParser, IProtocolParserService)
+│           │   │   └── Parsers/    # 策略模式解析器 (ConfigurableParser, Dlt645Parser)
+│           │   └── ViewModels/     # 协议 ViewModel
 │           ├── Scripting/          # 脚本功能
 │           │   ├── Models/         # 脚本模型 (HookType, ScriptState, ScriptFileInfo)
 │           │   ├── Services/       # 脚本服务 (IScriptEngine, IScriptManager, IScriptHookService)
@@ -112,10 +130,14 @@ FlexComDotnet/
 │           │   ├── Models/         # 数据模型 & 枚举
 │           │   ├── Services/       # 串口/配置/存储服务
 │           │   └── ViewModels/     # MVVM ViewModel
-│           └── Update/             # 自动更新功能
-│               ├── Models/         # 版本/发布信息 (VersionInfo, ReleaseInfo, InstallationType)
-│               ├── Services/       # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService)
-│               └── ViewModels/     # 更新 ViewModel
+│           ├── Update/             # 自动更新功能
+│           │   ├── Models/         # 版本/发布信息 (VersionInfo, ReleaseInfo, InstallationType)
+│           │   ├── Services/       # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService)
+│           │   └── ViewModels/     # 更新 ViewModel
+│           └── Visualization/      # 数据可视化功能
+│               ├── Models/         # 可视化模型 (ChartDataPoint, ChannelConfig, VisualizationConfig)
+│               ├── Services/       # 可视化服务 (IVisualizationService)
+│               └── ViewModels/     # 可视化 ViewModel
 │
 └── tests/
     └── FlexComDotnet.Tests/        # 单元测试
@@ -124,9 +146,11 @@ FlexComDotnet/
             ├── Checksum/           # 校验计算器测试
             ├── Layout/             # 布局功能测试
             ├── Network/            # 网络功能测试
+            ├── Protocol/           # 协议解析测试
             ├── Scripting/          # 脚本功能测试
             ├── Serial/             # 串口功能测试
-            └── Update/             # 自动更新测试
+            ├── Update/             # 自动更新测试
+            └── Visualization/      # 数据可视化测试
 ```
 
 ### 架构模式
@@ -152,6 +176,7 @@ FlexComDotnet/
 | 存储 | LiteDB | 5.0.21 |
 | 脚本 | NLua | 1.7.8 |
 | 代码编辑器 | AvalonEdit | 6.3.1.120 |
+| 图表库 | ScottPlot.WPF | 5.1.57 |
 | 测试 | xUnit 2.9.3 + FluentAssertions 8.8.0 + Moq 4.20.72 | - |
 
 ## 📖 开发指南

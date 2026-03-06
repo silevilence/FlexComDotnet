@@ -17,15 +17,21 @@ FlexComDotnet/
 │   └── copilot-instructions.md   # Copilot 开发指南
 ├── src/
 │   ├── FlexComDotnet/            # WPF UI 层
-│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, NetworkConverters, ScriptConverters)
+│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, NetworkConverters, ProtocolConverters, ScriptConverters)
 │   │   ├── Features/
 │   │   │   ├── AutoReply/Views/  # 自动回复视图 (AutoReplyView)
 │   │   │   ├── Checksum/Views/   # 校验计算器视图 (ChecksumCalculatorWindow)
 │   │   │   ├── Layout/Controls/  # 布局控件 (ActivityBar, CollapsiblePanel, FloatingPanelWindow, MultiZoneLayout)
 │   │   │   ├── Network/Views/    # 网络连接视图 (ConnectionConfigView)
-│   │   │   ├── Scripting/Views/  # 脚本视图 (ScriptingView, ScriptEditorWindow, ApiReferenceWindow)
+│   │   │   ├── Protocol/Views/   # 协议定义视图 (ProtocolDefinitionWindow)
+│   │   │   ├── Scripting/        # 脚本功能
+│   │   │   │   ├── Completion/   # 智能补全 (FComCompletionData)
+│   │   │   │   ├── Resources/    # 语法高亮定义 (LuaSyntax.xshd)
+│   │   │   │   └── Views/        # 脚本视图 (ScriptingView, ScriptEditorWindow, ApiReferenceWindow, 对话框)
 │   │   │   ├── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
-│   │   │   └── Update/Views/     # 更新视图 (UpdateWindow)
+│   │   │   ├── Update/Views/     # 更新视图 (UpdateWindow)
+│   │   │   └── Visualization/Views/ # 数据可视化视图 (DataVisualizationView)
+│   │   ├── Fonts/                # 内嵌字体 (MapleMono-NF-CN)
 │   │   ├── Services/             # UI 层服务 (ThemeService, ServiceCollectionExtensions)
 │   │   ├── Themes/               # 主题资源字典 (DarkTheme.xaml, LightTheme.xaml)
 │   │   ├── App.xaml(.cs)         # 应用入口
@@ -48,6 +54,12 @@ FlexComDotnet/
 │           │   ├── Models/       # 连接模型 (ConnectionType, ConnectionState, NetworkConfig, ClientInfo)
 │           │   ├── Services/     # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
 │           │   └── ViewModels/   # 连接配置 ViewModel (ConnectionConfigViewModel)
+│           ├── Protocol/
+│           │   ├── Models/       # 协议模型 (FrameDefinition, FieldDefinition, DataType, Endianness, ProtocolType, ParsedFrame)
+│           │   │   └── Dlt645/   # DL/T 645 专用模型 (Dlt645ControlCode, Dlt645DataDictionary, Dlt645ErrorCode, Dlt645ParsedFrame)
+│           │   ├── Services/     # 协议服务 (IProtocolParser, IProtocolParserService, ProtocolParserService)
+│           │   │   └── Parsers/  # 策略模式解析器 (ConfigurableParser, Dlt645Parser)
+│           │   └── ViewModels/   # 协议 ViewModel (ProtocolParserViewModel)
 │           ├── Scripting/
 │           │   ├── Models/       # 脚本模型 (HookType, ScriptState, ScriptFileInfo, ScriptLogEntry)
 │           │   ├── Services/     # 脚本服务 (IScriptEngine, IScriptManager, IScriptHookService, IScriptApiBridge)
@@ -57,10 +69,14 @@ FlexComDotnet/
 │           │   ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem, SerialEnums)
 │           │   ├── Services/     # 串口/配置/存储服务 (ISerialPortService, IConfigurationService, ICommandStorageService)
 │           │   └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
-│           └── Update/
-│               ├── Models/       # 版本信息模型 (VersionInfo, ReleaseInfo, UpdateCheckResult, DownloadProgress, InstallationType)
-│               ├── Services/     # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService, IDownloadService)
-│               └── ViewModels/   # 更新 ViewModel (UpdateViewModel)
+│           ├── Update/
+│           │   ├── Models/       # 版本信息模型 (VersionInfo, ReleaseInfo, UpdateCheckResult, DownloadProgress, InstallationType)
+│           │   ├── Services/     # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService, IDownloadService)
+│           │   └── ViewModels/   # 更新 ViewModel (UpdateViewModel)
+│           └── Visualization/
+│               ├── Models/       # 可视化模型 (ChartDataPoint, ChannelConfig, VisualizationConfig, VisualizationEventArgs)
+│               ├── Services/     # 可视化服务 (IVisualizationService, VisualizationService)
+│               └── ViewModels/   # 可视化 ViewModel (DataVisualizationViewModel)
 │
 └── tests/
     └── FlexComDotnet.Tests/      # 单元测试
@@ -69,9 +85,11 @@ FlexComDotnet/
             ├── Checksum/         # 校验计算器测试
             ├── Layout/           # 布局功能测试
             ├── Network/          # 网络功能测试
+            ├── Protocol/         # 协议解析测试
             ├── Scripting/        # 脚本功能测试
             ├── Serial/           # 串口功能测试
-            └── Update/           # 自动更新测试
+            ├── Update/           # 自动更新测试
+            └── Visualization/    # 数据可视化测试
 ```
 
 **关键文件说明：**
@@ -154,6 +172,7 @@ FlexComDotnet/
 - **本地存储**: LiteDB 5.0.21 (文档数据库)
 - **脚本引擎**: NLua 1.7.8 (Lua 脚本支持)
 - **代码编辑器**: AvalonEdit 6.3.1.120 (语法高亮、代码补全)
+- **图表库**: ScottPlot.WPF 5.1.57 (实时数据可视化)
 - **配置管理**: Microsoft.Extensions.Configuration.Json 10.0.2
 - **依赖注入**: Microsoft.Extensions.DependencyInjection 10.0.2
 - **MVVM 工具包**: CommunityToolkit.Mvvm 8.4.0
@@ -294,10 +313,33 @@ public interface IAutoReplyService
 ```
 
 ### 扩展新算法/处理器
-1. 在对应枚举中添加新类型 (如 `ChecksumAlgorithmType`, `ReplyMode`)
+1. 在对应枚举中添加新类型 (如 `ChecksumAlgorithmType`, `ReplyMode`, `ProtocolType`)
 2. 创建实现对应接口的策略类
 3. 在服务构造函数中注册新策略
 4. 无需修改 ViewModel 或 UI 层代码
+
+### 示例：协议解析器策略
+```csharp
+// 接口定义
+public interface IProtocolParser
+{
+    ProtocolType Type { get; }
+    bool TryExtractFrame(byte[] buffer, out byte[] frame, out int consumed);
+    bool Validate(byte[] frame);
+    ParsedFrame Parse(byte[] frame, FrameDefinition definition);
+}
+
+// 具体策略 (位于 Services/Parsers/ 目录)
+public class ConfigurableParser : IProtocolParser { ... }   // 通用可配置解析器
+public class Dlt645Parser : IProtocolParser { ... }         // DL/T 645-2007 协议
+
+// 服务封装
+public interface IProtocolParserService
+{
+    IProtocolParser GetParser(ProtocolType type);
+    IEnumerable<ProtocolType> GetSupportedTypes();
+}
+```
 
 ## 9. 测试规范
 

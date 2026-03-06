@@ -31,8 +31,7 @@
         <!-- Activity Bar (侧边导航栏) -->
         <layoutControls:ActivityBar x:Name="ActivityBar" 
                                      Grid.Column="0"
-                                     Grid.Row="0"
-                                     ZoneToggled="ActivityBar_ZoneToggled"/>
+                                     Grid.Row="0"/>
         
         <!-- 多区域布局 -->
         <layoutControls:MultiZoneLayout x:Name="MultiZoneLayout" 
