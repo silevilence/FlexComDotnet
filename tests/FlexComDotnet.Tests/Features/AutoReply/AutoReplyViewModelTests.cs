@@ -256,4 +256,53 @@ public class AutoReplyViewModelTests
         var action = () => _viewModel.Dispose();
         action.Should().NotThrow();
     }
+
+    [Fact]
+    public void LoadConfig_ShouldNotTriggerAutoSave_WhenActiveModeChanges()
+    {
+        // Arrange - 配置中 ActiveMode 与默认值不同，且包含规则数据
+        var config = new AppConfig
+        {
+            AutoReplyConfig = new AutoReplyConfig
+            {
+                GlobalDelayMs = 200,
+                ActiveMode = ReplyMode.Sequential, // 默认是 Match
+                MatchConfig = new MatchReplyConfig
+                {
+                    Rules =
+                    [
+                        new MatchRule { Name = "TestRule", SortOrder = 0, TriggerPattern = "AA BB" }
+                    ]
+                },
+                SequentialConfig = new SequentialReplyConfig
+                {
+                    Frames =
+                    [
+                        new SequentialFrame { Name = "TestFrame", SortOrder = 0, Content = "CC DD" }
+                    ],
+                    EnableLoop = false
+                }
+            }
+        };
+
+        var mockConfig = new Mock<IConfigurationService>();
+        mockConfig.Setup(s => s.Load()).Returns(config);
+
+        var mockAutoReply = new Mock<IAutoReplyService>();
+        mockAutoReply.Setup(s => s.Config).Returns(new AutoReplyConfig());
+
+        // Act - 创建 ViewModel（触发 LoadConfig）
+        var vm = new AutoReplyViewModel(mockAutoReply.Object, mockConfig.Object);
+
+        // Assert - 加载期间不应触发 Save（即 AutoSave 不应执行）
+        mockConfig.Verify(s => s.Save(It.IsAny<AppConfig>()), Times.Never,
+            "LoadConfig 期间不应触发 AutoSave，否则会用空集合覆盖已保存的规则");
+
+        // 规则应正确加载
+        vm.MatchRules.Should().HaveCount(1);
+        vm.MatchRules[0].Name.Should().Be("TestRule");
+        vm.SequentialFrames.Should().HaveCount(1);
+        vm.SequentialFrames[0].Name.Should().Be("TestFrame");
+        vm.ActiveMode.Should().Be(ReplyMode.Sequential);
+    }
 }

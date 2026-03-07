@@ -17,11 +17,12 @@ FlexComDotnet/
 │   └── copilot-instructions.md   # Copilot 开发指南
 ├── src/
 │   ├── FlexComDotnet/            # WPF UI 层
-│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, NetworkConverters, ProtocolConverters, ScriptConverters)
+│   │   ├── Converters/           # XAML 值转换器 (SerialConverters, NetworkConverters, ProtocolConverters, ScriptConverters, LogConverters)
 │   │   ├── Features/
 │   │   │   ├── AutoReply/Views/  # 自动回复视图 (AutoReplyView)
 │   │   │   ├── Checksum/Views/   # 校验计算器视图 (ChecksumCalculatorWindow)
 │   │   │   ├── Layout/Controls/  # 布局控件 (ActivityBar, CollapsiblePanel, FloatingPanelWindow, MultiZoneLayout)
+│   │   │   ├── Logging/Views/    # 日志面板视图 (LogPanelView)
 │   │   │   ├── Network/Views/    # 网络连接视图 (ConnectionConfigView)
 │   │   │   ├── Protocol/Views/   # 协议定义视图 (ProtocolDefinitionWindow)
 │   │   │   ├── Scripting/        # 脚本功能
@@ -50,6 +51,10 @@ FlexComDotnet/
 │           ├── Layout/
 │           │   ├── Models/       # 布局状态模型 (LayoutState, PanelInfo, PanelZone)
 │           │   └── Services/     # 面板管理器 (IPanelManager)
+│           ├── Logging/
+│           │   ├── Models/       # 日志模型 (LogEntry, LogLevel, LogSource)
+│           │   ├── Services/     # 日志服务 (ILoggingService, ILogPersistenceService, LoggingService, LogPersistenceService)
+│           │   └── ViewModels/   # 日志 ViewModel (LogPanelViewModel)
 │           ├── Network/
 │           │   ├── Models/       # 连接模型 (ConnectionType, ConnectionState, NetworkConfig, ClientInfo)
 │           │   ├── Services/     # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
@@ -84,6 +89,7 @@ FlexComDotnet/
             ├── AutoReply/        # 自动回复测试
             ├── Checksum/         # 校验计算器测试
             ├── Layout/           # 布局功能测试
+            ├── Logging/          # 日志功能测试
             ├── Network/          # 网络功能测试
             ├── Protocol/         # 协议解析测试
             ├── Scripting/        # 脚本功能测试
@@ -182,6 +188,8 @@ FlexComDotnet/
 - **断言库**: FluentAssertions 8.8.0
 - **模拟框架**: Moq 4.20.72
 - **代码覆盖率**: coverlet.collector 6.0.4
+- **测试 SDK**: Microsoft.NET.Test.Sdk 17.14.1
+- **测试运行器**: xunit.runner.visualstudio 3.1.4
 
 ### 代码质量配置
 - **可为空引用类型**: 启用

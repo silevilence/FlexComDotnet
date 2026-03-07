@@ -23,6 +23,9 @@ using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Visualization.ViewModels;
 using FlexComDotnet.Core.Features.Visualization.Services;
 using FlexComDotnet.Features.Visualization.Views;
+using FlexComDotnet.Core.Features.Logging.ViewModels;
+using FlexComDotnet.Core.Features.Logging.Services;
+using FlexComDotnet.Features.Logging.Views;
 namespace FlexComDotnet;
 
 /// <summary>
@@ -37,6 +40,7 @@ public partial class MainWindow : Window
     private readonly AutoReplyView _autoReplyView;
     private readonly ScriptingView _scriptingView;
     private readonly DataVisualizationView _dataVisualizationView;
+    private readonly LogPanelView _logPanelView;
     private readonly SerialCommunicationView _serialCommunicationView;
 
     /// <summary>
@@ -49,6 +53,7 @@ public partial class MainWindow : Window
         public const string AutoReply = "auto-reply";
         public const string Scripting = "scripting";
         public const string DataVisualization = "data-visualization";
+        public const string LogPanel = "log-panel";
     }
 
     public MainWindow()
@@ -109,6 +114,16 @@ public partial class MainWindow : Window
         // 创建数据可视化视图
         var visualizationViewModel = App.Services.GetRequiredService<DataVisualizationViewModel>();
         _dataVisualizationView = new DataVisualizationView(visualizationViewModel);
+
+        // 创建统一日志面板
+        var loggingService = App.Services.GetRequiredService<ILoggingService>();
+        var persistenceService = App.Services.GetRequiredService<ILogPersistenceService>();
+        persistenceService.WriteSessionStart();
+        var logPanelViewModel = new LogPanelViewModel(loggingService);
+        _logPanelView = new LogPanelView(logPanelViewModel);
+
+        // 记录会话启动
+        loggingService.Info(Core.Features.Logging.Models.LogSource.System, "应用程序启动");
 
         // 连接所有数据源到可视化服务
         var visualizationService = App.Services.GetRequiredService<IVisualizationService>();
@@ -266,6 +281,17 @@ public partial class MainWindow : Window
             order: savedVisualization?.Order ?? 0
         );
 
+        // 添加统一日志面板（可移动，默认在底部）
+        var savedLogPanel = _panelManager.GetPanel(PanelIds.LogPanel);
+        MultiZoneLayout.AddPanel(
+            PanelIds.LogPanel,
+            "日志",
+            _logPanelView,
+            savedLogPanel?.Zone ?? PanelZone.Bottom,
+            isMovable: true,
+            order: savedLogPanel?.Order ?? 1
+        );
+
         // 设置面板列表提供器（用于面板管理菜单，过滤掉不可移动的面板）
         ActivityBar.SetPanelsProvider(() => _panelManager.Panels
             .Where(p => p.Id != PanelIds.ConnectionConfig)
@@ -386,6 +412,18 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // 记录会话结束
+        try
+        {
+            var loggingService = App.Services.GetRequiredService<ILoggingService>();
+            loggingService.Info(Core.Features.Logging.Models.LogSource.System, "应用程序关闭");
+            
+            var persistence = App.Services.GetRequiredService<ILogPersistenceService>();
+            persistence.WriteSessionEnd();
+            persistence.Flush();
+        }
+        catch { /* 关闭时忽略日志错误 */ }
+        
         // 关闭所有浮动窗口
         MultiZoneLayout.CloseAllFloatingWindows();
         

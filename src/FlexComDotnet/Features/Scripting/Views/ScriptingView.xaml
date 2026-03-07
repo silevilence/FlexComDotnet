@@ -15,8 +15,6 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
         <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
-        <converters:LogLevelToColorConverter x:Key="LogLevelToColorConverter"/>
-        <converters:LogLevelToLabelConverter x:Key="LogLevelToLabelConverter"/>
 
         <!-- 工具栏按钮样式 -->
         <Style x:Key="ToolButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -104,8 +102,6 @@
             <!-- 操作工具栏 -->
             <RowDefinition Height="Auto"/>
             <!-- 代码预览 -->
-            <RowDefinition Height="Auto"/>
-            <!-- 日志预览 -->
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -328,74 +324,5 @@
             </Grid>
         </Border>
 
-        <!-- ========================= 日志预览 ========================= -->
-        <Border Grid.Row="5" MaxHeight="150"
-                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <!-- 日志标题栏 -->
-                <Border Grid.Row="0" Padding="8,4"
-                        Background="{DynamicResource CardBrush}"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="🗑"
-                                Style="{StaticResource ToolButtonStyle}"
-                                Command="{Binding ClearLogsCommand}"
-                                ToolTip="清空日志" Width="22" Height="22"/>
-                        <TextBlock Text="📋 日志" FontSize="10" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center"/>
-                    </DockPanel>
-                </Border>
-
-                <!-- 日志列表 -->
-                <ListBox Grid.Row="1" x:Name="LogListBox"
-                         ItemsSource="{Binding LogEntries}"
-                         Background="{DynamicResource BackgroundBrush}"
-                         BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto"
-                         FontFamily="Cascadia Code, Consolas, Courier New"
-                         FontSize="10"
-                         MaxHeight="120"
-                         SelectionMode="Extended">
-                    <ListBox.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="复制" Click="CopyLogMenuItem_Click" InputGestureText="Ctrl+C"/>
-                            <MenuItem Header="全选" Click="SelectAllLogMenuItem_Click" InputGestureText="Ctrl+A"/>
-                        </ContextMenu>
-                    </ListBox.ContextMenu>
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Padding" Value="6,1"/>
-                            <Setter Property="BorderThickness" Value="0"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                        </Style>
-                    </ListBox.ItemContainerStyle>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Timestamp, StringFormat='HH:mm:ss'}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelToLabelConverter}}"
-                                           Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
-                                           FontWeight="SemiBold"
-                                           MinWidth="28" Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding Message}"
-                                           Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
-                                           TextWrapping="NoWrap"
-                                           TextTrimming="CharacterEllipsis"
-                                           MaxWidth="200"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </Grid>
-        </Border>
     </Grid>
 </UserControl>

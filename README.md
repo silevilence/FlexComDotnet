@@ -9,9 +9,9 @@
 
 ## 📋 项目状态
 
-**🚀 开发中 - Phase 10 (日志整合)**
+**🚀 开发中 - Phase 11 (界面修改与调试增强)**
 
-当前版本 v1.2.0 已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能、Lua 脚本系统（含语法高亮与智能补全）、通用帧协议解析引擎（含 DL/T 645-2007）、数据可视化实时示波器、VS Code 风格标签式面板交互。当前正在开发日志整合功能。
+当前版本 v1.2.0 已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能、Lua 脚本系统（含语法高亮与智能补全）、通用帧协议解析引擎（含 DL/T 645-2007）、数据可视化实时示波器、VS Code 风格标签式面板交互、统一日志系统。当前正在开发界面修改与调试增强功能。
 
 ## ✨ 功能列表
 
@@ -39,9 +39,10 @@
 - [x] **DL/T 645-2007 协议解析器** - 粘包/半包处理、BCD 地址解析、控制码解析、数据域偏置还原、数据标识字典映射、异常应答翻译
 - [x] **数据可视化** - ScottPlot 实时示波器、多通道绘制、暂停/缩放/十字游标、通道管理 (添加/删除/颜色/可见性)、PNG/CSV 导出
 - [x] **UI 调整** - VS Code 风格标签式面板交互、面板可见性独立配置、左右竖排/底部横排标签
+- [x] **日志整合** - 统一日志面板 (多来源标注)、多等级记录 (Info/Warning/Error + emoji 前缀)、本地持久化存储 (按日期分文件)、多维度筛选 (等级/关键词/来源/时间)
 
 ### 🚧 开发中
-- [ ] **日志整合** - 统一日志面板、多等级记录、本地持久化存储、多维度筛选
+- [ ] **界面修改与调试增强** - 独立设置窗口 (调试设置/面板管理/日志目录/关于信息)、F12 调试工具窗口 (Tab 架构、日志调试模块)
 
 ### 🔜 计划中
 - 暂无
@@ -78,11 +79,12 @@ dotnet test
 FlexComDotnet/
 ├── src/
 │   ├── FlexComDotnet/              # WPF UI 层
-│   │   ├── Converters/             # XAML 值转换器 (Serial/Network/Protocol/Script)
+│   │   ├── Converters/             # XAML 值转换器 (Serial/Network/Protocol/Script/Log)
 │   │   ├── Features/
 │   │   │   ├── AutoReply/Views/    # 自动回复视图
 │   │   │   ├── Checksum/Views/     # 校验计算器视图
 │   │   │   ├── Layout/Controls/    # 布局控件 (ActivityBar, CollapsiblePanel 等)
+│   │   │   ├── Logging/Views/      # 日志面板视图 (LogPanelView)
 │   │   │   ├── Network/Views/      # 网络连接视图
 │   │   │   ├── Protocol/Views/     # 协议定义视图
 │   │   │   ├── Scripting/          # 脚本功能
@@ -111,6 +113,10 @@ FlexComDotnet/
 │           ├── Layout/             # 布局功能
 │           │   ├── Models/         # 布局状态模型
 │           │   └── Services/       # 面板管理器
+│           ├── Logging/            # 日志功能
+│           │   ├── Models/         # 日志模型 (LogEntry, LogLevel, LogSource)
+│           │   ├── Services/       # 日志服务 (ILoggingService, ILogPersistenceService)
+│           │   └── ViewModels/     # 日志 ViewModel (LogPanelViewModel)
 │           ├── Network/            # 网络功能
 │           │   ├── Models/         # 连接模型 (ConnectionType, ConnectionState, NetworkConfig)
 │           │   ├── Services/       # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
@@ -145,6 +151,7 @@ FlexComDotnet/
             ├── AutoReply/          # 自动回复测试
             ├── Checksum/           # 校验计算器测试
             ├── Layout/             # 布局功能测试
+            ├── Logging/            # 日志功能测试
             ├── Network/            # 网络功能测试
             ├── Protocol/           # 协议解析测试
             ├── Scripting/          # 脚本功能测试

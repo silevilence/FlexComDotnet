@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.AutoReply.Services;
+using FlexComDotnet.Core.Features.Logging.Models;
+using FlexComDotnet.Core.Features.Logging.Services;
 using FlexComDotnet.Core.Features.Serial.Services;
 
 namespace FlexComDotnet.Core.Features.AutoReply.ViewModels;
@@ -14,8 +16,10 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
 {
     private readonly IAutoReplyService _autoReplyService;
     private readonly IConfigurationService _configurationService;
+    private readonly ILoggingService? _loggingService;
     private readonly SynchronizationContext? _syncContext;
     private bool _disposed;
+    private bool _isLoading;
 
     #region Observable Properties
 
@@ -362,10 +366,11 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
 
     #endregion
 
-    public AutoReplyViewModel(IAutoReplyService autoReplyService, IConfigurationService configurationService)
+    public AutoReplyViewModel(IAutoReplyService autoReplyService, IConfigurationService configurationService, ILoggingService? loggingService = null)
     {
         _autoReplyService = autoReplyService;
         _configurationService = configurationService;
+        _loggingService = loggingService;
 
         // 捕获 UI 线程的同步上下文，用于跨线程更新 UI
         _syncContext = SynchronizationContext.Current;
@@ -382,6 +387,9 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// </summary>
     private void LoadConfig()
     {
+        _isLoading = true;
+        try
+        {
         var appConfig = _configurationService.Load();
         var config = appConfig.AutoReplyConfig;
 
@@ -408,6 +416,11 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
 
         // 同步到服务
         _autoReplyService.UpdateConfig(config);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     /// <summary>
@@ -440,6 +453,8 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// </summary>
     private void AutoSave()
     {
+        if (_isLoading) return;
+
         SyncToService();
         var appConfig = _configurationService.Load();
         appConfig.AutoReplyConfig = _autoReplyService.Config;
@@ -459,6 +474,10 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
             ReceivedDataHex = BitConverter.ToString(e.ReceivedData).Replace("-", " "),
             ReplyDataHex = BitConverter.ToString(e.ReplyData).Replace("-", " ")
         };
+
+        // 转发到统一日志服务
+        _loggingService?.Info(LogSource.AutoReply,
+            $"触发回复 [{logEntry.RuleName}] Rx: {logEntry.ReceivedDataHex} → Tx: {logEntry.ReplyDataHex}");
 
         // 确保在 UI 线程上操作 ObservableCollection 和属性更新
         if (_syncContext != null)

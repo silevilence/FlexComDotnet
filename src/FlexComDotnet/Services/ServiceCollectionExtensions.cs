@@ -16,6 +16,7 @@ using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Protocol.ViewModels;
 using FlexComDotnet.Core.Features.Visualization.Services;
 using FlexComDotnet.Core.Features.Visualization.ViewModels;
+using FlexComDotnet.Core.Features.Logging.Services;
 
 namespace FlexComDotnet.Services;
 
@@ -60,6 +61,18 @@ public static class ServiceCollectionExtensions
 
         // 数据可视化服务 (单例)
         services.AddSingleton<IVisualizationService, VisualizationService>();
+
+        // 统一日志服务 (单例)
+        services.AddSingleton<ILogPersistenceService>(sp =>
+        {
+            var logsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            return new LogPersistenceService(logsDir);
+        });
+        services.AddSingleton<ILoggingService>(sp =>
+        {
+            var persistence = sp.GetRequiredService<ILogPersistenceService>();
+            return new LoggingService(persistence);
+        });
 
         // 更新服务 (单例)
         services.AddSingleton<IVersionService, VersionService>();
@@ -111,7 +124,13 @@ public static class ServiceCollectionExtensions
         });
         services.AddTransient<CommandListViewModel>();
         services.AddTransient<ChecksumCalculatorViewModel>();
-        services.AddTransient<AutoReplyViewModel>();
+        services.AddTransient<AutoReplyViewModel>(sp =>
+        {
+            var autoReplyService = sp.GetRequiredService<IAutoReplyService>();
+            var configService = sp.GetRequiredService<IConfigurationService>();
+            var loggingService = sp.GetRequiredService<ILoggingService>();
+            return new AutoReplyViewModel(autoReplyService, configService, loggingService);
+        });
         services.AddTransient<ConnectionConfigViewModel>();
         services.AddTransient<UpdateViewModel>();
         services.AddTransient<ScriptingViewModel>(sp =>
@@ -120,7 +139,8 @@ public static class ServiceCollectionExtensions
             var manager = sp.GetRequiredService<IScriptManager>();
             var bridge = sp.GetRequiredService<IScriptApiBridge>();
             var hookService = sp.GetRequiredService<IScriptHookService>();
-            return new ScriptingViewModel(engine, manager, bridge, hookService);
+            var loggingService = sp.GetRequiredService<ILoggingService>();
+            return new ScriptingViewModel(engine, manager, bridge, hookService, loggingService);
         });
         services.AddTransient<ProtocolParserViewModel>();
         services.AddTransient<DataVisualizationViewModel>();

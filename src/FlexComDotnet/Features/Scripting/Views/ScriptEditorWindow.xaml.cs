@@ -1,4 +1,3 @@
-using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
@@ -44,21 +43,6 @@ public partial class ScriptEditorWindow : Window
         // 设置智能补全
         CodeEditor.TextArea.TextEntering += OnTextEntering;
         CodeEditor.TextArea.TextEntered += OnTextEntered;
-
-        // 日志自动滚动到底部
-        if (viewModel.LogEntries is INotifyCollectionChanged collection)
-        {
-            collection.CollectionChanged += (_, _) =>
-            {
-                Dispatcher.BeginInvoke(() =>
-                {
-                    if (LogListBox.Items.Count > 0)
-                    {
-                        LogListBox.ScrollIntoView(LogListBox.Items[^1]);
-                    }
-                });
-            };
-        }
 
         Closed += OnWindowClosed;
     }

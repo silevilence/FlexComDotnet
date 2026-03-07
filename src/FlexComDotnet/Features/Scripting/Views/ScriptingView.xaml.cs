@@ -1,11 +1,8 @@
-using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Xml;
-using FlexComDotnet.Core.Features.Scripting.Models;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
@@ -34,21 +31,6 @@ public partial class ScriptingView : UserControl
 
         // 监听 EditorContent 变化以更新预览
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
-
-        // 日志自动滚动到底部（CollectionChanged 可能从后台线程触发，需要通过 Dispatcher 访问 UI 控件）
-        if (viewModel.LogEntries is INotifyCollectionChanged collection)
-        {
-            collection.CollectionChanged += (_, _) =>
-            {
-                Dispatcher.BeginInvoke(() =>
-                {
-                    if (LogListBox.Items.Count > 0)
-                    {
-                        LogListBox.ScrollIntoView(LogListBox.Items[^1]);
-                    }
-                });
-            };
-        }
 
         // 订阅打开编辑器请求
         viewModel.OpenEditorRequested += OnOpenEditorRequested;
@@ -167,33 +149,6 @@ public partial class ScriptingView : UserControl
         {
             _viewModel.DeleteScriptCommand.Execute(null);
         }
-    }
-
-    #endregion
-
-    #region 日志右键菜单
-
-    private void CopyLogMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (LogListBox.SelectedItems.Count == 0) return;
-
-        var sb = new StringBuilder();
-        foreach (var item in LogListBox.SelectedItems)
-        {
-            if (item is ScriptLogEntry entry)
-            {
-                sb.AppendLine($"{entry.Timestamp:HH:mm:ss} [{entry.Level}] {entry.Message}");
-            }
-        }
-        if (sb.Length > 0)
-        {
-            Clipboard.SetText(sb.ToString().TrimEnd());
-        }
-    }
-
-    private void SelectAllLogMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        LogListBox.SelectAll();
     }
 
     #endregion

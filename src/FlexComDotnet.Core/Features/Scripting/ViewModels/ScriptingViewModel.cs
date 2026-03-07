@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FlexComDotnet.Core.Features.Logging.Models;
+using FlexComDotnet.Core.Features.Logging.Services;
 using FlexComDotnet.Core.Features.Scripting.Models;
 using FlexComDotnet.Core.Features.Scripting.Services;
 
@@ -15,6 +17,7 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     private readonly IScriptManager _manager;
     private readonly IScriptApiBridge _bridge;
     private readonly IScriptHookService? _hookService;
+    private readonly ILoggingService? _loggingService;
     private bool _disposed;
 
     #region Observable Properties
@@ -123,12 +126,14 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
         IScriptEngine engine,
         IScriptManager manager,
         IScriptApiBridge bridge,
-        IScriptHookService? hookService = null)
+        IScriptHookService? hookService = null,
+        ILoggingService? loggingService = null)
     {
         _engine = engine;
         _manager = manager;
         _bridge = bridge;
         _hookService = hookService;
+        _loggingService = loggingService;
 
         // 订阅引擎事件
         _engine.StateChanged += OnEngineStateChanged;
@@ -322,6 +327,17 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
         {
             LogEntries.Add(entry);
         });
+
+        // 转发到统一日志服务
+        var level = entry.Level switch
+        {
+            ScriptLogLevel.Debug => Logging.Models.LogLevel.Debug,
+            ScriptLogLevel.Info => Logging.Models.LogLevel.Info,
+            ScriptLogLevel.Warning => Logging.Models.LogLevel.Warning,
+            ScriptLogLevel.Error => Logging.Models.LogLevel.Error,
+            _ => Logging.Models.LogLevel.Info
+        };
+        _loggingService?.Log(level, LogSource.Script, entry.Message);
     }
 
     private void OnEngineErrorOccurred(object? sender, string errorMessage)
@@ -335,6 +351,8 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
                 ScriptName = _engine.CurrentScriptName ?? "unknown"
             });
         });
+
+        _loggingService?.Error(LogSource.Script, errorMessage);
     }
 
     private void OnScriptsChanged(object? sender, EventArgs args)
@@ -348,6 +366,17 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
         {
             LogEntries.Add(entry);
         });
+
+        // 转发到统一日志服务
+        var level = entry.Level switch
+        {
+            ScriptLogLevel.Debug => Logging.Models.LogLevel.Debug,
+            ScriptLogLevel.Info => Logging.Models.LogLevel.Info,
+            ScriptLogLevel.Warning => Logging.Models.LogLevel.Warning,
+            ScriptLogLevel.Error => Logging.Models.LogLevel.Error,
+            _ => Logging.Models.LogLevel.Info
+        };
+        _loggingService?.Log(level, LogSource.Script, entry.Message);
     }
 
     #endregion
