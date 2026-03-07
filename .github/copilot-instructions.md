@@ -30,6 +30,7 @@ FlexComDotnet/
 │   │   │   │   ├── Resources/    # 语法高亮定义 (LuaSyntax.xshd)
 │   │   │   │   └── Views/        # 脚本视图 (ScriptingView, ScriptEditorWindow, ApiReferenceWindow, 对话框)
 │   │   │   ├── Serial/Views/     # 串口视图 (Config/Communication/CommandList)
+│   │   │   ├── Settings/Views/   # 设置视图 (SettingsWindow, DebugToolsWindow)
 │   │   │   ├── Update/Views/     # 更新视图 (UpdateWindow)
 │   │   │   └── Visualization/Views/ # 数据可视化视图 (DataVisualizationView)
 │   │   ├── Fonts/                # 内嵌字体 (MapleMono-NF-CN)
@@ -74,6 +75,9 @@ FlexComDotnet/
 │           │   ├── Models/       # 数据模型 & 枚举 (AppConfig, SerialPortConfig, CommandItem, SerialEnums)
 │           │   ├── Services/     # 串口/配置/存储服务 (ISerialPortService, IConfigurationService, ICommandStorageService)
 │           │   └── ViewModels/   # MVVM ViewModel (SerialConfigViewModel, SerialCommunicationViewModel, CommandListViewModel)
+│           ├── Settings/
+│           │   ├── Models/       # 调试配置模型 (DebugConfig)
+│           │   └── ViewModels/   # 设置/调试 ViewModel (SettingsViewModel, DebugToolsViewModel)
 │           ├── Update/
 │           │   ├── Models/       # 版本信息模型 (VersionInfo, ReleaseInfo, UpdateCheckResult, DownloadProgress, InstallationType)
 │           │   ├── Services/     # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService, IDownloadService)
@@ -94,6 +98,7 @@ FlexComDotnet/
             ├── Protocol/         # 协议解析测试
             ├── Scripting/        # 脚本功能测试
             ├── Serial/           # 串口功能测试
+            ├── Settings/         # 设置与调试测试
             ├── Update/           # 自动更新测试
             └── Visualization/    # 数据可视化测试
 ```

@@ -2,6 +2,7 @@ using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.Layout.Models;
 using FlexComDotnet.Core.Features.Network.Models;
 using FlexComDotnet.Core.Features.Protocol.Models;
+using FlexComDotnet.Core.Features.Settings.Models;
 using FlexComDotnet.Core.Features.Visualization.Models;
 
 namespace FlexComDotnet.Core.Features.Serial.Models;
@@ -45,6 +46,11 @@ public class AppConfig
     /// 数据可视化配置
     /// </summary>
     public VisualizationConfig VisualizationConfig { get; set; } = new();
+
+    /// <summary>
+    /// 调试配置
+    /// </summary>
+    public DebugConfig DebugConfig { get; set; } = new();
 
     /// <summary>
     /// 配置版本号，用于未来兼容性升级

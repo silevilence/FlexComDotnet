@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using FlexComDotnet.Core.Features.Serial.ViewModels;
 using FlexComDotnet.Core.Features.Serial.Services;
@@ -10,11 +11,13 @@ using FlexComDotnet.Core.Features.AutoReply.ViewModels;
 using FlexComDotnet.Core.Features.Network.ViewModels;
 using FlexComDotnet.Core.Features.Network.Services;
 using FlexComDotnet.Core.Features.Update.ViewModels;
+using FlexComDotnet.Core.Features.Settings.ViewModels;
 using FlexComDotnet.Features.Serial.Views;
 using FlexComDotnet.Features.Network.Views;
 using FlexComDotnet.Features.Checksum.Views;
 using FlexComDotnet.Features.AutoReply.Views;
 using FlexComDotnet.Features.Update.Views;
+using FlexComDotnet.Features.Settings.Views;
 using FlexComDotnet.Features.Scripting.Views;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
 using FlexComDotnet.Core.Features.Protocol.ViewModels;
@@ -292,7 +295,7 @@ public partial class MainWindow : Window
             order: savedLogPanel?.Order ?? 1
         );
 
-        // 设置面板列表提供器（用于面板管理菜单，过滤掉不可移动的面板）
+        // 设置面板列表提供器（保留兼容性）
         ActivityBar.SetPanelsProvider(() => _panelManager.Panels
             .Where(p => p.Id != PanelIds.ConnectionConfig)
             .Select(p => (p.Id, p.Title, p.IsVisible)));
@@ -325,6 +328,12 @@ public partial class MainWindow : Window
         ActivityBar.UpdateClicked += (sender, args) =>
         {
             OpenUpdateWindow();
+        };
+
+        // 订阅设置按钮点击事件
+        ActivityBar.SettingsClicked += (sender, args) =>
+        {
+            OpenSettingsWindow();
         };
 
     }
@@ -404,10 +413,68 @@ public partial class MainWindow : Window
         window.ShowDialog();
     }
 
+    /// <summary>
+    /// 打开设置窗口
+    /// </summary>
+    private void OpenSettingsWindow()
+    {
+        var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        var viewModel = new SettingsViewModel(
+            _configService,
+            App.Services.GetRequiredService<Core.Features.Update.Services.IVersionService>(),
+            _panelManager,
+            logDir);
+
+        var window = new SettingsWindow(viewModel)
+        {
+            Owner = this
+        };
+
+        // 订阅面板可见性切换事件
+        window.PanelVisibilityToggled += (_, panelId) =>
+        {
+            MultiZoneLayout.TogglePanelVisibility(panelId);
+        };
+
+        viewModel.PanelVisibilityToggled += (_, panelId) =>
+        {
+            MultiZoneLayout.TogglePanelVisibility(panelId);
+        };
+
+        window.ShowDialog();
+    }
+
+    /// <summary>
+    /// 打开调试工具窗口
+    /// </summary>
+    private void OpenDebugToolsWindow()
+    {
+        var config = _configService.Load();
+        if (!config.DebugConfig.IsDebugModeEnabled)
+            return;
+
+        var loggingService = App.Services.GetRequiredService<ILoggingService>();
+        var viewModel = new DebugToolsViewModel(loggingService);
+        var window = new DebugToolsWindow(viewModel)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
     private void MultiZoneLayout_ZoneSizeChanged(object? sender, (PanelZone Zone, double Size) e)
     {
         // 区域尺寸变更时自动保存
         // 面板管理器已自动更新尺寸
+    }
+
+    private void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.F12)
+        {
+            OpenDebugToolsWindow();
+            e.Handled = true;
+        }
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)

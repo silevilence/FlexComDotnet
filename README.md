@@ -92,6 +92,7 @@ FlexComDotnet/
 │   │   │   │   ├── Resources/      # 语法高亮定义 (LuaSyntax.xshd)
 │   │   │   │   └── Views/          # 脚本视图 (编辑器、API参考、对话框)
 │   │   │   ├── Serial/Views/       # 串口视图 (Config/Communication/CommandList)
+│   │   │   ├── Settings/Views/     # 设置视图 (SettingsWindow, DebugToolsWindow)
 │   │   │   ├── Update/Views/       # 更新视图
 │   │   │   └── Visualization/Views/# 数据可视化视图
 │   │   ├── Fonts/                  # 内嵌字体 (MapleMono-NF-CN)
@@ -136,6 +137,9 @@ FlexComDotnet/
 │           │   ├── Models/         # 数据模型 & 枚举
 │           │   ├── Services/       # 串口/配置/存储服务
 │           │   └── ViewModels/     # MVVM ViewModel
+│           ├── Settings/           # 设置与调试功能
+│           │   ├── Models/         # 调试配置模型 (DebugConfig)
+│           │   └── ViewModels/     # 设置/调试 ViewModel (SettingsViewModel, DebugToolsViewModel)
 │           ├── Update/             # 自动更新功能
 │           │   ├── Models/         # 版本/发布信息 (VersionInfo, ReleaseInfo, InstallationType)
 │           │   ├── Services/       # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService)
@@ -156,6 +160,7 @@ FlexComDotnet/
             ├── Protocol/           # 协议解析测试
             ├── Scripting/          # 脚本功能测试
             ├── Serial/             # 串口功能测试
+            ├── Settings/           # 设置与调试测试
             ├── Update/             # 自动更新测试
             └── Visualization/      # 数据可视化测试
 ```

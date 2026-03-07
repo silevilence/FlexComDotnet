@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using FlexComDotnet.Core.Features.Layout.Models;
 using FlexComDotnet.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,15 +28,16 @@ public partial class ActivityBar : UserControl
     /// </summary>
     public event EventHandler<PanelVisibilityEventArgs>? PanelVisibilityToggled;
 
-    private readonly ContextMenu _panelMenu;
-    private Func<IEnumerable<(string Id, string Title, bool IsVisible)>>? _getPanelsFunc;
+    /// <summary>
+    /// 设置按钮点击事件
+    /// </summary>
+    public event EventHandler? SettingsClicked;
+
     private readonly IThemeService? _themeService;
 
     public ActivityBar()
     {
         InitializeComponent();
-        _panelMenu = new ContextMenu();
-        SettingsButton.ContextMenu = _panelMenu;
 
         // 获取主题服务
         _themeService = App.Services?.GetService<IThemeService>();
@@ -77,71 +77,16 @@ public partial class ActivityBar : UserControl
     }
 
     /// <summary>
-    /// 设置获取面板列表的委托
+    /// 设置获取面板列表的委托（保留以备兼容）
     /// </summary>
     public void SetPanelsProvider(Func<IEnumerable<(string Id, string Title, bool IsVisible)>> getPanelsFunc)
     {
-        _getPanelsFunc = getPanelsFunc;
+        // 面板管理已迁移至设置窗口，此方法保留兼容性
     }
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        // 更新面板菜单
-        UpdatePanelMenu();
-        
-        // 显示面板菜单
-        _panelMenu.PlacementTarget = SettingsButton;
-        _panelMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Right;
-        _panelMenu.IsOpen = true;
-    }
-
-    private void UpdatePanelMenu()
-    {
-        _panelMenu.Items.Clear();
-
-        // 获取面板列表
-        var panels = _getPanelsFunc?.Invoke();
-        if (panels != null)
-        {
-            foreach (var (id, title, isVisible) in panels)
-            {
-                var menuItem = new MenuItem
-                {
-                    Header = title,
-                    IsCheckable = true,
-                    IsChecked = isVisible,
-                    Tag = id
-                };
-                menuItem.Click += (s, _) =>
-                {
-                    if (s is MenuItem item && item.Tag is string panelId)
-                    {
-                        PanelVisibilityToggled?.Invoke(this, new PanelVisibilityEventArgs(panelId));
-                    }
-                };
-                _panelMenu.Items.Add(menuItem);
-            }
-        }
-
-        _panelMenu.Items.Add(new Separator());
-
-        // 添加全部显示/隐藏选项
-        var showAllItem = new MenuItem { Header = "显示全部" };
-        showAllItem.Click += (_, _) =>
-        {
-            var allPanels = _getPanelsFunc?.Invoke();
-            if (allPanels != null)
-            {
-                foreach (var (id, _, isVisible) in allPanels)
-                {
-                    if (!isVisible)
-                    {
-                        PanelVisibilityToggled?.Invoke(this, new PanelVisibilityEventArgs(id));
-                    }
-                }
-            }
-        };
-        _panelMenu.Items.Add(showAllItem);
+        SettingsClicked?.Invoke(this, EventArgs.Empty);
     }
 
     private void ThemeCycleButton_Click(object sender, RoutedEventArgs e)
