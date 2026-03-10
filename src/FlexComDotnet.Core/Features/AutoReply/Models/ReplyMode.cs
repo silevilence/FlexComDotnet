@@ -18,5 +18,10 @@ public enum ReplyMode
     /// <summary>
     /// 脚本回复模式 - 使用 Lua 脚本处理复杂应答逻辑
     /// </summary>
-    Script = 2
+    Script = 2,
+
+    /// <summary>
+    /// 协议回复模式 - 根据协议定义动态构建回复帧
+    /// </summary>
+    Protocol = 3
 }

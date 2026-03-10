@@ -204,7 +204,7 @@ public class ConfigurableParser : IProtocolParser
         {
             requiredByFields = Definition.Fields
                 .Where(f => f.IsEnabled)
-                .Select(f => f.StartIndex + (f.Length > 0 ? f.Length : FieldDefinition.GetDefaultLength(f.DataType)))
+                .Select(f => _headerBytes.Length + f.StartIndex + (f.Length > 0 ? f.Length : FieldDefinition.GetDefaultLength(f.DataType)))
                 .DefaultIfEmpty(0)
                 .Max();
         }
@@ -261,12 +261,13 @@ public class ConfigurableParser : IProtocolParser
 
     private ParsedField? ParseField(byte[] frame, FieldDefinition fieldDef)
     {
-        int startIndex = fieldDef.StartIndex;
+        // StartIndex is relative to data area (after header)
+        int startIndex = fieldDef.StartIndex + _headerBytes.Length;
         int length = fieldDef.Length > 0
             ? fieldDef.Length
             : FieldDefinition.GetDefaultLength(fieldDef.DataType);
 
-        if (length <= 0 || startIndex < 0 || startIndex + length > frame.Length)
+        if (length <= 0 || startIndex < _headerBytes.Length || startIndex + length > frame.Length)
             return null;
 
         byte[] rawBytes = new byte[length];
@@ -390,5 +391,206 @@ public class ConfigurableParser : IProtocolParser
             return [];
 
         return HexHelper.HexStringToBytes(hex);
+    }
+
+    public byte[] BuildFrame(Dictionary<string, object> fieldValues)
+    {
+        ArgumentNullException.ThrowIfNull(fieldValues);
+
+        // Calculate frame size
+        int frameSize = CalculateFrameSize(fieldValues);
+        var frame = new byte[frameSize];
+
+        // Fill header
+        if (_headerBytes.Length > 0)
+        {
+            Array.Copy(_headerBytes, 0, frame, 0, _headerBytes.Length);
+        }
+
+        // Fill trailer
+        if (_trailerBytes.Length > 0)
+        {
+            Array.Copy(_trailerBytes, 0, frame, frameSize - _trailerBytes.Length, _trailerBytes.Length);
+        }
+
+        // Fill field values
+        int headerLen = _headerBytes.Length;
+        int trailerStart = _trailerBytes.Length > 0 ? frameSize - _trailerBytes.Length : frameSize;
+        foreach (var fieldDef in Definition.Fields.Where(f => f.IsEnabled))
+        {
+            if (!fieldValues.TryGetValue(fieldDef.Name, out var value))
+                continue;
+
+            int length = fieldDef.Length > 0
+                ? fieldDef.Length
+                : FieldDefinition.GetDefaultLength(fieldDef.DataType);
+
+            // Offset StartIndex by header length to avoid overwriting header
+            int writeOffset = fieldDef.StartIndex + headerLen;
+
+            if (length <= 0 || writeOffset < headerLen || writeOffset + length > trailerStart)
+                continue;
+
+            var bytes = ConvertValueToBytes(value, fieldDef.DataType, fieldDef.Endianness, length);
+            if (bytes.Length > 0)
+            {
+                Array.Copy(bytes, 0, frame, writeOffset, Math.Min(bytes.Length, length));
+            }
+        }
+
+        // Calculate and fill checksum
+        if (Definition.ChecksumConfig != null)
+        {
+            FillChecksum(frame);
+        }
+
+        return frame;
+    }
+
+    private int CalculateFrameSize(Dictionary<string, object> fieldValues)
+    {
+        int maxEnd = 0;
+
+        // Consider header
+        maxEnd = Math.Max(maxEnd, _headerBytes.Length);
+
+        // Consider fields (StartIndex is relative to after header)
+        int headerLen = _headerBytes.Length;
+        foreach (var fieldDef in Definition.Fields.Where(f => f.IsEnabled))
+        {
+            int length = fieldDef.Length > 0
+                ? fieldDef.Length
+                : FieldDefinition.GetDefaultLength(fieldDef.DataType);
+            maxEnd = Math.Max(maxEnd, headerLen + fieldDef.StartIndex + length);
+        }
+
+        // Consider checksum
+        if (Definition.ChecksumConfig != null)
+        {
+            var config = Definition.ChecksumConfig;
+            if (config.StartIndex >= 0)
+            {
+                maxEnd = Math.Max(maxEnd, config.StartIndex + config.Length);
+            }
+            else
+            {
+                // Negative index - checksum is at the end, we need to figure out the size
+                // The frame size needs to accommodate the checksum at the end
+                maxEnd = Math.Max(maxEnd, maxEnd + config.Length);
+            }
+        }
+
+        // Consider trailer
+        if (_trailerBytes.Length > 0)
+        {
+            maxEnd += _trailerBytes.Length;
+        }
+
+        return Math.Max(maxEnd, Definition.MinFrameLength);
+    }
+
+    private void FillChecksum(byte[] frame)
+    {
+        var config = Definition.ChecksumConfig!;
+
+        int checksumStart = config.StartIndex >= 0
+            ? config.StartIndex
+            : frame.Length + config.StartIndex;
+
+        int calcStart = config.CalculateStartIndex;
+        int calcEnd = config.CalculateEndIndex >= 0
+            ? config.CalculateEndIndex
+            : frame.Length + config.CalculateEndIndex;
+
+        if (calcStart < 0 || calcEnd > frame.Length || calcStart >= calcEnd)
+            return;
+
+        byte[] dataToCheck = new byte[calcEnd - calcStart];
+        Array.Copy(frame, calcStart, dataToCheck, 0, dataToCheck.Length);
+
+        byte[] calculatedChecksum = _checksumService.Calculate(config.Algorithm, dataToCheck);
+
+        if (config.Endianness == Endianness.LittleEndian && calculatedChecksum.Length > 1)
+        {
+            Array.Reverse(calculatedChecksum);
+        }
+
+        // Copy checksum to frame (take last N bytes if checksum is longer)
+        int copyLen = Math.Min(config.Length, calculatedChecksum.Length);
+        int srcOffset = calculatedChecksum.Length - copyLen;
+        if (checksumStart >= 0 && checksumStart + copyLen <= frame.Length)
+        {
+            Array.Copy(calculatedChecksum, srcOffset, frame, checksumStart, copyLen);
+        }
+    }
+
+    private static byte[] ConvertValueToBytes(object value, DataType dataType, Endianness endianness, int targetLength)
+    {
+        byte[] rawBytes = ConvertToRawBytes(value, dataType, targetLength);
+
+        if (rawBytes.Length == 0)
+            return rawBytes;
+
+        // Apply endianness for multi-byte types
+        if (endianness == Endianness.BigEndian && rawBytes.Length > 1 && dataType != DataType.Bytes && dataType != DataType.AsciiString)
+        {
+            Array.Reverse(rawBytes);
+        }
+
+        return rawBytes;
+    }
+
+    private static byte[] ConvertToRawBytes(object value, DataType dataType, int targetLength)
+    {
+        // Handle string input (from UI)
+        if (value is string strValue)
+        {
+            return ConvertStringToBytes(strValue, dataType, targetLength);
+        }
+
+        // Handle raw byte array (from Hex mode input)
+        if (value is byte[] rawBytes)
+        {
+            return rawBytes;
+        }
+
+        return dataType switch
+        {
+            DataType.UInt8 => [Convert.ToByte(value)],
+            DataType.Int8 => [unchecked((byte)Convert.ToSByte(value))],
+            DataType.UInt16 => BitConverter.GetBytes(Convert.ToUInt16(value)),
+            DataType.Int16 => BitConverter.GetBytes(Convert.ToInt16(value)),
+            DataType.UInt32 => BitConverter.GetBytes(Convert.ToUInt32(value)),
+            DataType.Int32 => BitConverter.GetBytes(Convert.ToInt32(value)),
+            DataType.UInt64 => BitConverter.GetBytes(Convert.ToUInt64(value)),
+            DataType.Int64 => BitConverter.GetBytes(Convert.ToInt64(value)),
+            DataType.Float => BitConverter.GetBytes(Convert.ToSingle(value)),
+            DataType.Double => BitConverter.GetBytes(Convert.ToDouble(value)),
+            DataType.Bool => [(byte)(Convert.ToBoolean(value) ? 1 : 0)],
+            DataType.AsciiString => System.Text.Encoding.ASCII.GetBytes(value.ToString() ?? string.Empty),
+            DataType.Bytes when value is byte[] byteArr => byteArr,
+            _ => []
+        };
+    }
+
+    private static byte[] ConvertStringToBytes(string strValue, DataType dataType, int targetLength)
+    {
+        return dataType switch
+        {
+            DataType.UInt8 => [byte.Parse(strValue)],
+            DataType.Int8 => [unchecked((byte)sbyte.Parse(strValue))],
+            DataType.UInt16 => BitConverter.GetBytes(ushort.Parse(strValue)),
+            DataType.Int16 => BitConverter.GetBytes(short.Parse(strValue)),
+            DataType.UInt32 => BitConverter.GetBytes(uint.Parse(strValue)),
+            DataType.Int32 => BitConverter.GetBytes(int.Parse(strValue)),
+            DataType.UInt64 => BitConverter.GetBytes(ulong.Parse(strValue)),
+            DataType.Int64 => BitConverter.GetBytes(long.Parse(strValue)),
+            DataType.Float => BitConverter.GetBytes(float.Parse(strValue)),
+            DataType.Double => BitConverter.GetBytes(double.Parse(strValue)),
+            DataType.Bool => [(byte)(bool.Parse(strValue) ? 1 : 0)],
+            DataType.AsciiString => System.Text.Encoding.ASCII.GetBytes(strValue),
+            DataType.Bytes => HexHelper.HexStringToBytes(strValue),
+            _ => []
+        };
     }
 }

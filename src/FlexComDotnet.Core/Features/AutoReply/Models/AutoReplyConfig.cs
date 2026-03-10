@@ -34,4 +34,9 @@ public class AutoReplyConfig
     /// 脚本回复配置
     /// </summary>
     public ScriptReplyConfig ScriptConfig { get; set; } = new();
+
+    /// <summary>
+    /// 协议回复配置
+    /// </summary>
+    public ProtocolReplyConfig ProtocolConfig { get; set; } = new();
 }

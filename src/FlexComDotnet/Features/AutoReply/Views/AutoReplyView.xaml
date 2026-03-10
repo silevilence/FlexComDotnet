@@ -272,6 +272,8 @@
                           Margin="5,0,0,0" VerticalAlignment="Center">
                     <ComboBoxItem Content="匹配回复"/>
                     <ComboBoxItem Content="顺序回复"/>
+                    <ComboBoxItem Content="脚本回复"/>
+                    <ComboBoxItem Content="协议回复"/>
                 </ComboBox>
             </Grid>
         </Border>
@@ -537,6 +539,171 @@
                                         Command="{Binding SaveSequentialFrameCommand}"/>
                             </StackPanel>
                         </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+            
+            <!-- 协议回复 Tab -->
+            <TabItem Header="协议回复">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- 工具栏 -->
+                    <Border Grid.Row="0" Padding="8,6" Background="{DynamicResource SurfaceBrush}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="➕" ToolTip="添加方案" Style="{StaticResource ToolButtonStyle}"
+                                    Command="{Binding AddProtocolSchemeCommand}"/>
+                            <Button Content="🗑" ToolTip="删除方案" Style="{StaticResource ToolButtonStyle}"
+                                    Command="{Binding RemoveProtocolSchemeCommand}"/>
+                            <Button Content="🔄" ToolTip="刷新协议列表" Style="{StaticResource ToolButtonStyle}"
+                                    Command="{Binding RefreshAvailableProtocolsCommand}"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- 方案列表 -->
+                    <ListBox Grid.Row="1" ItemsSource="{Binding ProtocolSchemes}"
+                             SelectedItem="{Binding SelectedProtocolScheme}"
+                             ItemContainerStyle="{StaticResource ListItemStyle}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- 单选互斥：RadioButton -->
+                                    <RadioButton Grid.Column="0" 
+                                                 IsChecked="{Binding IsActive}" 
+                                                 GroupName="ProtocolSchemeActive"
+                                                 VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <CheckBox Grid.Column="1" IsChecked="{Binding IsEnabled}" 
+                                              VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="{Binding Name}" FontWeight="Medium"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock FontSize="11"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}{0} - {1}">
+                                                    <Binding Path="ProtocolName"/>
+                                                    <Binding Path="Description"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    
+                    <!-- 方案编辑区 -->
+                    <Border Grid.Row="2" Padding="10" Background="{DynamicResource CardBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                            Visibility="{Binding SelectedProtocolScheme, Converter={StaticResource NullToVisibilityConverter}}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="300">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                            
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="名称:" 
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource TechTextBoxStyle}"
+                                         Text="{Binding SelectedProtocolScheme.Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,2"/>
+                            
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="协议:" 
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" Style="{StaticResource TechComboBoxStyle}"
+                                          ItemsSource="{Binding AvailableProtocols}"
+                                          DisplayMemberPath="Name"
+                                          SelectedValuePath="Name"
+                                          SelectedValue="{Binding SelectedProtocolScheme.ProtocolName, UpdateSourceTrigger=PropertyChanged}"
+                                          Margin="0,2"/>
+                            
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="描述:" 
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource ExpandableTextBoxStyle}"
+                                         Text="{Binding SelectedProtocolScheme.Description, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,2"/>
+                            
+                                <!-- 动态字段输入区 -->
+                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" 
+                                           Text="数据字段" FontWeight="SemiBold" Margin="0,8,0,4"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <ItemsControl Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,24,0,0"
+                                              ItemsSource="{Binding ProtocolFieldInputs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="70"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayName, StringFormat={}{0}:}" 
+                                                           VerticalAlignment="Center" FontSize="11"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <TextBox Grid.Column="1" 
+                                                         Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                         Background="{DynamicResource CardBrush}"
+                                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                                         BorderBrush="{DynamicResource BorderBrush}"
+                                                         CaretBrush="{DynamicResource PrimaryBrush}"
+                                                         pu:TextBoxHelper.Watermark="{Binding DefaultValue}"
+                                                         pu:TextBoxHelper.CornerRadius="4"/>
+                                                <CheckBox Grid.Column="2" Content="Hex" Margin="6,0,0,0"
+                                                          IsChecked="{Binding IsHexMode}"
+                                                          VerticalAlignment="Center" FontSize="11"/>
+                                                <TextBlock Grid.Row="1" Grid.ColumnSpan="3"
+                                                           FontSize="10" Margin="0,1,0,0"
+                                                           Foreground="{DynamicResource TextMutedBrush}"
+                                                           TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Text>
+                                                        <MultiBinding StringFormat="{}{0} | {1}">
+                                                            <Binding Path="DataTypeDisplay"/>
+                                                            <Binding Path="Description"/>
+                                                        </MultiBinding>
+                                                    </TextBlock.Text>
+                                                </TextBlock>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            
+                                <!-- 保存/取消按钮 -->
+                                <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" 
+                                            Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                                    <Button Content="🔄 刷新字段" Style="{StaticResource ActionButtonStyle}"
+                                            Command="{Binding RefreshProtocolFieldsCommand}" Margin="0,0,8,0"/>
+                                    <Button Content="❌ 取消" Style="{StaticResource ActionButtonStyle}"
+                                            Command="{Binding CancelProtocolSchemeCommand}" Margin="0,0,8,0"/>
+                                    <Button Content="💾 保存" Style="{StaticResource SaveButtonStyle}"
+                                            Command="{Binding SaveProtocolSchemeFieldsCommand}"/>
+                                </StackPanel>
+                            </Grid>
+                        </ScrollViewer>
                     </Border>
                 </Grid>
             </TabItem>

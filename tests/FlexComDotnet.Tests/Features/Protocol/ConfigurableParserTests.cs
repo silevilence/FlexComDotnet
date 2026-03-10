@@ -23,13 +23,13 @@ public class ConfigurableParserTests
                 new FieldDefinition
                 {
                     Name = "Command",
-                    StartIndex = 2,
+                    StartIndex = 0,
                     DataType = DataType.UInt8
                 },
                 new FieldDefinition
                 {
                     Name = "Data",
-                    StartIndex = 3,
+                    StartIndex = 1,
                     Length = 2,
                     DataType = DataType.UInt16,
                     Endianness = Endianness.BigEndian

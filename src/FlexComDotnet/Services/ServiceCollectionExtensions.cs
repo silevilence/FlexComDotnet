@@ -108,7 +108,8 @@ public static class ServiceCollectionExtensions
         {
             var serialPortService = sp.GetRequiredService<ISerialPortService>();
             var scriptHookService = sp.GetRequiredService<IScriptHookService>();
-            return new AutoReplyService(serialPortService, scriptHookService);
+            var protocolParserService = sp.GetRequiredService<IProtocolParserService>();
+            return new AutoReplyService(serialPortService, scriptHookService, protocolParserService);
         });
 
         // ViewModels (瞬态)
@@ -129,7 +130,8 @@ public static class ServiceCollectionExtensions
             var autoReplyService = sp.GetRequiredService<IAutoReplyService>();
             var configService = sp.GetRequiredService<IConfigurationService>();
             var loggingService = sp.GetRequiredService<ILoggingService>();
-            return new AutoReplyViewModel(autoReplyService, configService, loggingService);
+            var protocolParserService = sp.GetRequiredService<IProtocolParserService>();
+            return new AutoReplyViewModel(autoReplyService, configService, loggingService, protocolParserService);
         });
         services.AddTransient<ConnectionConfigViewModel>();
         services.AddTransient<UpdateViewModel>();

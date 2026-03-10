@@ -17,6 +17,8 @@ public class FrameDefinition
     /// </summary>
     public string Name { get; set; } = string.Empty;
 
+    public override string ToString() => Name;
+
     /// <summary>
     /// 协议描述
     /// </summary>

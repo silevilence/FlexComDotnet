@@ -362,6 +362,51 @@ public class Dlt645ParserTests
         remaining.Should().NotBeNull();
         remaining!.Length.Should().Be(2);
     }
+
+    [Fact]
+    public void BuildFrame_WithAddressAndControlCode_ShouldBuildValidFrame()
+    {
+        var fieldValues = new Dictionary<string, object>
+        {
+            ["电表地址"] = "130879500239",
+            ["控制码"] = (byte)0x11,
+            ["数据标识"] = (uint)0x00010000
+        };
+
+        var frame = _parser.BuildFrame(fieldValues);
+
+        frame.Should().NotBeNull();
+        frame.Length.Should().BeGreaterThanOrEqualTo(12);
+        frame[0].Should().Be(0x68);
+        frame[7].Should().Be(0x68);
+        frame[^1].Should().Be(0x16);
+        _parser.Validate(frame).Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildFrame_Roundtrip_ParseAndBuildMatch()
+    {
+        byte[] address = [0x39, 0x02, 0x50, 0x79, 0x08, 0x13];
+        byte[] data = [0x33, 0x33, 0x34, 0x33]; // 解码后: 0x00, 0x00, 0x01, 0x00 (DI=0x00010000)
+        var originalFrame = BuildFrame(address, 0x11, data);
+
+        // Parse original
+        var parsed = _parser.Parse(originalFrame) as Dlt645ParsedFrame;
+        parsed.Should().NotBeNull();
+        parsed!.IsValid.Should().BeTrue();
+
+        // Build from parsed values
+        var fieldValues = new Dictionary<string, object>
+        {
+            ["电表地址"] = parsed.MeterAddress!,
+            ["控制码"] = originalFrame[8],
+            ["数据标识"] = parsed.DataIdentifier!
+        };
+
+        var rebuilt = _parser.BuildFrame(fieldValues);
+
+        rebuilt.Should().Equal(originalFrame);
+    }
 }
 
 public class Dlt645ControlCodeTests

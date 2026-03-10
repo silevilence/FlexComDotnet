@@ -5,6 +5,8 @@ using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.AutoReply.Services;
 using FlexComDotnet.Core.Features.Logging.Models;
 using FlexComDotnet.Core.Features.Logging.Services;
+using FlexComDotnet.Core.Features.Protocol.Models;
+using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Serial.Services;
 
 namespace FlexComDotnet.Core.Features.AutoReply.ViewModels;
@@ -17,6 +19,7 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     private readonly IAutoReplyService _autoReplyService;
     private readonly IConfigurationService _configurationService;
     private readonly ILoggingService? _loggingService;
+    private readonly IProtocolParserService? _protocolParserService;
     private readonly SynchronizationContext? _syncContext;
     private bool _disposed;
     private bool _isLoading;
@@ -111,6 +114,35 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// 顺序帧编辑前的备份（用于取消编辑）
     /// </summary>
     private SequentialFrame? _sequentialFrameBackup;
+
+    /// <summary>
+    /// 协议回复方案编辑前的备份（用于取消编辑）
+    /// </summary>
+    private ProtocolReplyScheme? _protocolSchemeBackup;
+
+    /// <summary>
+    /// 协议回复方案列表
+    /// </summary>
+    public ObservableCollection<ProtocolReplySchemeViewModel> ProtocolSchemes { get; } = [];
+
+    /// <summary>
+    /// 当前选中的协议回复方案
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RemoveProtocolSchemeCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveProtocolSchemeFieldsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelProtocolSchemeCommand))]
+    private ProtocolReplySchemeViewModel? _selectedProtocolScheme;
+
+    /// <summary>
+    /// 可用的协议定义列表
+    /// </summary>
+    public ObservableCollection<FrameDefinition> AvailableProtocols { get; } = [];
+
+    /// <summary>
+    /// 协议回复方案的字段输入项
+    /// </summary>
+    public ObservableCollection<FieldInputItem> ProtocolFieldInputs { get; } = [];
 
     #endregion
 
@@ -364,13 +396,199 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         ReplyLogs.Clear();
     }
 
+    #region Protocol Reply Commands
+
+    /// <summary>
+    /// 添加协议回复方案
+    /// </summary>
+    [RelayCommand]
+    private void AddProtocolScheme()
+    {
+        var scheme = new ProtocolReplySchemeViewModel
+        {
+            Id = ProtocolSchemes.Count > 0 ? ProtocolSchemes.Max(s => s.Id) + 1 : 1,
+            Name = $"方案 {ProtocolSchemes.Count + 1}",
+            SortOrder = ProtocolSchemes.Count,
+            IsEnabled = true
+        };
+        ProtocolSchemes.Add(scheme);
+        SelectedProtocolScheme = scheme;
+        AutoSave();
+    }
+
+    /// <summary>
+    /// 移除协议回复方案
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifyProtocolScheme))]
+    private void RemoveProtocolScheme()
+    {
+        if (SelectedProtocolScheme == null) return;
+        ProtocolSchemes.Remove(SelectedProtocolScheme);
+        for (int i = 0; i < ProtocolSchemes.Count; i++)
+            ProtocolSchemes[i].SortOrder = i;
+        AutoSave();
+    }
+
+    private bool CanModifyProtocolScheme() => SelectedProtocolScheme != null;
+
+    /// <summary>
+    /// 设置激活的协议回复方案（单选互斥）
+    /// </summary>
+    [RelayCommand]
+    private void SetActiveProtocolScheme(ProtocolReplySchemeViewModel? scheme)
+    {
+        foreach (var s in ProtocolSchemes)
+        {
+            s.IsActive = s == scheme;
+        }
+        AutoSave();
+    }
+
+    /// <summary>
+    /// 刷新可用协议列表
+    /// </summary>
+    [RelayCommand]
+    private void RefreshAvailableProtocols()
+    {
+        // 保存当前正在编辑的协议名，防止刷新列表时清空选择
+        var currentProtocolName = SelectedProtocolScheme?.ProtocolName;
+
+        AvailableProtocols.Clear();
+        if (_protocolParserService == null) return;
+        foreach (var def in _protocolParserService.GetAllDefinitions())
+        {
+            AvailableProtocols.Add(def);
+        }
+
+        // 恢复编辑中的协议选择
+        if (SelectedProtocolScheme != null && !string.IsNullOrEmpty(currentProtocolName))
+        {
+            SelectedProtocolScheme.ProtocolName = currentProtocolName;
+        }
+    }
+
+    /// <summary>
+    /// 当选中方案的协议变化时，刷新字段输入
+    /// </summary>
+    [RelayCommand]
+    private void RefreshProtocolFields()
+    {
+        ProtocolFieldInputs.Clear();
+        if (SelectedProtocolScheme == null || _protocolParserService == null)
+            return;
+
+        var protocolName = SelectedProtocolScheme.ProtocolName;
+        if (string.IsNullOrEmpty(protocolName))
+            return;
+
+        var definitions = _protocolParserService.GetAllDefinitions();
+        var definition = definitions.FirstOrDefault(d => d.Name == protocolName);
+        if (definition == null) return;
+
+        // DL/T 645 固定字段
+        if (definition.ProtocolType == Protocol.Models.ProtocolType.Dlt645)
+        {
+            ProtocolFieldInputs.Add(new FieldInputItem
+            {
+                FieldName = "电表地址",
+                DisplayName = "电表地址",
+                Description = "12位BCD码地址",
+                DataType = Protocol.Models.DataType.AsciiString,
+                DefaultValue = "000000000000"
+            });
+            ProtocolFieldInputs.Add(new FieldInputItem
+            {
+                FieldName = "控制码",
+                DisplayName = "控制码",
+                Description = "功能控制字节 (Hex)",
+                DataType = Protocol.Models.DataType.UInt8,
+                DefaultValue = "11"
+            });
+            ProtocolFieldInputs.Add(new FieldInputItem
+            {
+                FieldName = "数据标识",
+                DisplayName = "数据标识",
+                Description = "4字节数据标识 (十进制)",
+                DataType = Protocol.Models.DataType.UInt32,
+                DefaultValue = "65536"
+            });
+        }
+
+        // 用户定义字段
+        foreach (var field in definition.Fields.Where(f => f.IsEnabled))
+        {
+            ProtocolFieldInputs.Add(new FieldInputItem
+            {
+                FieldName = field.Name,
+                DisplayName = field.Name,
+                Description = field.Description,
+                DataType = field.DataType,
+                DefaultValue = string.Empty,
+                IsHexMode = field.DataType is Protocol.Models.DataType.Bytes or Protocol.Models.DataType.UInt8
+            });
+        }
+
+        // 恢复已保存的值
+        if (SelectedProtocolScheme.FieldValues.Count > 0)
+        {
+            foreach (var input in ProtocolFieldInputs)
+            {
+                if (SelectedProtocolScheme.FieldValues.TryGetValue(input.FieldName, out var savedValue))
+                {
+                    input.Value = savedValue;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 保存当前方案的字段值
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifyProtocolScheme))]
+    private void SaveProtocolSchemeFields()
+    {
+        if (SelectedProtocolScheme == null) return;
+
+        SelectedProtocolScheme.FieldValues.Clear();
+        foreach (var input in ProtocolFieldInputs)
+        {
+            if (!string.IsNullOrEmpty(input.Value))
+            {
+                SelectedProtocolScheme.FieldValues[input.FieldName] = input.Value;
+            }
+        }
+        _protocolSchemeBackup = null;
+        AutoSave();
+        SelectedProtocolScheme = null;
+    }
+
+    /// <summary>
+    /// 取消协议回复方案编辑，恢复到编辑前状态
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifyProtocolScheme))]
+    private void CancelProtocolScheme()
+    {
+        if (SelectedProtocolScheme != null && _protocolSchemeBackup != null)
+        {
+            SelectedProtocolScheme.Name = _protocolSchemeBackup.Name;
+            SelectedProtocolScheme.Description = _protocolSchemeBackup.Description;
+            SelectedProtocolScheme.ProtocolName = _protocolSchemeBackup.ProtocolName;
+            SelectedProtocolScheme.FieldValues = new Dictionary<string, string>(_protocolSchemeBackup.FieldValues);
+            _protocolSchemeBackup = null;
+        }
+        SelectedProtocolScheme = null;
+    }
+
     #endregion
 
-    public AutoReplyViewModel(IAutoReplyService autoReplyService, IConfigurationService configurationService, ILoggingService? loggingService = null)
+    #endregion
+
+    public AutoReplyViewModel(IAutoReplyService autoReplyService, IConfigurationService configurationService, ILoggingService? loggingService = null, IProtocolParserService? protocolParserService = null)
     {
         _autoReplyService = autoReplyService;
         _configurationService = configurationService;
         _loggingService = loggingService;
+        _protocolParserService = protocolParserService;
 
         // 捕获 UI 线程的同步上下文，用于跨线程更新 UI
         _syncContext = SynchronizationContext.Current;
@@ -414,6 +632,19 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
             SequentialFrames.Add(SequentialFrameViewModel.FromModel(frame));
         }
 
+        // 加载协议回复方案
+        ProtocolSchemes.Clear();
+        foreach (var scheme in config.ProtocolConfig.Schemes.OrderBy(s => s.SortOrder))
+        {
+            var vm = ProtocolReplySchemeViewModel.FromModel(scheme);
+            vm.IsActive = config.ProtocolConfig.ActiveSchemeIndex >= 0
+                && config.ProtocolConfig.Schemes.IndexOf(scheme) == config.ProtocolConfig.ActiveSchemeIndex;
+            ProtocolSchemes.Add(vm);
+        }
+
+        // 刷新可用协议列表
+        RefreshAvailableProtocols();
+
         // 同步到服务
         _autoReplyService.UpdateConfig(config);
         }
@@ -428,9 +659,15 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// </summary>
     private void SyncToService()
     {
+        var protocolConfig = new ProtocolReplyConfig
+        {
+            Schemes = ProtocolSchemes.Select(s => s.ToModel()).ToList(),
+            ActiveSchemeIndex = ProtocolSchemes.ToList().FindIndex(s => s.IsActive)
+        };
+
         var config = new AutoReplyConfig
         {
-            IsEnabled = IsRunning, // 使用 IsRunning 作为启用状态
+            IsEnabled = IsRunning,
             GlobalDelayMs = GlobalDelayMs,
             ActiveMode = ActiveMode,
             MatchConfig = new MatchReplyConfig
@@ -442,7 +679,8 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
                 Frames = SequentialFrames.Select(f => f.ToModel()).ToList(),
                 EnableLoop = EnableLoop,
                 CurrentIndex = CurrentFrameIndex
-            }
+            },
+            ProtocolConfig = protocolConfig
         };
 
         _autoReplyService.UpdateConfig(config);
@@ -559,6 +797,15 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         _sequentialFrameBackup = value?.ToModel();
     }
 
+    /// <summary>
+    /// 选中协议回复方案变更时刷新字段
+    /// </summary>
+    partial void OnSelectedProtocolSchemeChanged(ProtocolReplySchemeViewModel? value)
+    {
+        _protocolSchemeBackup = value?.ToModel();
+        RefreshProtocolFields();
+    }
+
     public void Dispose()
     {
         Dispose(true);
@@ -667,4 +914,45 @@ public class ReplyLogEntry
     public string ReplyDataHex { get; init; } = string.Empty;
 
     public string TimestampString => Timestamp.ToString("HH:mm:ss.fff");
+}
+
+/// <summary>
+/// 协议回复方案 ViewModel
+/// </summary>
+public partial class ProtocolReplySchemeViewModel : ObservableObject
+{
+    [ObservableProperty] private int _id;
+    [ObservableProperty] private string _name = string.Empty;
+    [ObservableProperty] private string _description = string.Empty;
+    [ObservableProperty] private string _protocolName = string.Empty;
+    [ObservableProperty] private bool _isEnabled = true;
+    [ObservableProperty] private int _sortOrder;
+    [ObservableProperty] private bool _isActive;
+
+    /// <summary>
+    /// 字段值配置（字段名 -> 值表达式）
+    /// </summary>
+    public Dictionary<string, string> FieldValues { get; set; } = [];
+
+    public ProtocolReplyScheme ToModel() => new()
+    {
+        Id = Id,
+        Name = Name,
+        Description = Description,
+        ProtocolName = ProtocolName,
+        FieldValues = new Dictionary<string, string>(FieldValues),
+        IsEnabled = IsEnabled,
+        SortOrder = SortOrder
+    };
+
+    public static ProtocolReplySchemeViewModel FromModel(ProtocolReplyScheme model) => new()
+    {
+        Id = model.Id,
+        Name = model.Name,
+        Description = model.Description,
+        ProtocolName = model.ProtocolName,
+        FieldValues = new Dictionary<string, string>(model.FieldValues),
+        IsEnabled = model.IsEnabled,
+        SortOrder = model.SortOrder
+    };
 }

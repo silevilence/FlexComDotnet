@@ -1,5 +1,6 @@
 using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.AutoReply.Services.Handlers;
+using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Serial.Services;
 
@@ -31,7 +32,7 @@ public class AutoReplyService : IAutoReplyService, IDisposable
     /// <inheritdoc/>
     public event EventHandler<ReplyEventArgs>? ReplyTriggered;
 
-    public AutoReplyService(ISerialPortService serialPortService, IScriptHookService? scriptHookService = null)
+    public AutoReplyService(ISerialPortService serialPortService, IScriptHookService? scriptHookService = null, IProtocolParserService? protocolParserService = null)
     {
         _serialPortService = serialPortService;
 
@@ -46,6 +47,12 @@ public class AutoReplyService : IAutoReplyService, IDisposable
         if (scriptHookService != null)
         {
             _handlerList.Add(new ScriptReplyHandler(scriptHookService));
+        }
+
+        // 如果有协议解析服务，注册协议回复处理器
+        if (protocolParserService != null)
+        {
+            _handlerList.Add(new ProtocolReplyHandler(protocolParserService));
         }
 
         _handlers = _handlerList.ToDictionary(h => h.Mode);

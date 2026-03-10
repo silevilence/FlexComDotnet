@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using FlexComDotnet.Core.Features.Checksum.Models;
 using FlexComDotnet.Core.Features.Protocol.Models;
 using FlexComDotnet.Core.Features.Protocol.Services;
+using FlexComDotnet.Core.Features.Serial.Helpers;
 using FlexComDotnet.Core.Features.Serial.Services;
 
 namespace FlexComDotnet.Core.Features.Protocol.ViewModels;
@@ -53,6 +54,40 @@ public partial class ProtocolParserViewModel : ObservableObject
     public IReadOnlyList<ChecksumAlgorithmType> ChecksumAlgorithms { get; } = Enum.GetValues<ChecksumAlgorithmType>();
     public IReadOnlyList<ProtocolType> ProtocolTypes { get; } = Enum.GetValues<ProtocolType>();
 
+    /// <summary>
+    /// 帧组合测试 - 字段输入项
+    /// </summary>
+    public ObservableCollection<FieldInputItem> BuildFieldInputs { get; } = [];
+
+    /// <summary>
+    /// 帧组合测试 - 构建结果（Hex字符串）
+    /// </summary>
+    [ObservableProperty]
+    private string _buildResultHex = string.Empty;
+
+    /// <summary>
+    /// 帧组合测试 - 构建状态消息
+    /// </summary>
+    [ObservableProperty]
+    private string _buildStatusMessage = string.Empty;
+
+    /// <summary>
+    /// 帧组合测试 - 使用的协议名称
+    /// </summary>
+    [ObservableProperty]
+    private FrameDefinition? _buildSelectedDefinition;
+
+    /// <summary>
+    /// 编辑前的协议定义快照（用于脏状态检测）
+    /// </summary>
+    private string? _editingSnapshot;
+
+    /// <summary>
+    /// 当前编辑是否已被修改（脏状态）
+    /// </summary>
+    [ObservableProperty]
+    private bool _isDirty;
+
     public ProtocolParserViewModel(IProtocolParserService parserService, IConfigurationService configService)
     {
         _parserService = parserService ?? throw new ArgumentNullException(nameof(parserService));
@@ -79,6 +114,12 @@ public partial class ProtocolParserViewModel : ObservableObject
     [RelayCommand]
     private void NewDefinition()
     {
+        if (IsEditing && IsDirty)
+        {
+            StatusMessage = "请先保存或取消当前编辑";
+            return;
+        }
+
         EditingDefinition = new FrameDefinition
         {
             Name = "新协议",
@@ -86,8 +127,10 @@ public partial class ProtocolParserViewModel : ObservableObject
             ProtocolType = ProtocolType.Generic,
             MinFrameLength = 1
         };
+        _editingSnapshot = SerializeDefinitionSnapshot(EditingDefinition);
         SyncEditingFields();
         IsEditing = true;
+        IsDirty = false;
         OnPropertyChanged(nameof(IsGenericProtocol));
         OnPropertyChanged(nameof(IsDlt645Protocol));
         StatusMessage = "正在创建新协议定义...";
@@ -96,6 +139,12 @@ public partial class ProtocolParserViewModel : ObservableObject
     [RelayCommand]
     private void NewDlt645Definition()
     {
+        if (IsEditing && IsDirty)
+        {
+            StatusMessage = "请先保存或取消当前编辑";
+            return;
+        }
+
         EditingDefinition = new FrameDefinition
         {
             Name = "DL/T 645-2007",
@@ -106,8 +155,10 @@ public partial class ProtocolParserViewModel : ObservableObject
             MinFrameLength = 12,
             MaxFrameLength = 256
         };
+        _editingSnapshot = SerializeDefinitionSnapshot(EditingDefinition);
         SyncEditingFields();
         IsEditing = true;
+        IsDirty = false;
         OnPropertyChanged(nameof(IsGenericProtocol));
         OnPropertyChanged(nameof(IsDlt645Protocol));
         StatusMessage = "正在创建 DL/T 645-2007 协议定义...";
@@ -119,9 +170,63 @@ public partial class ProtocolParserViewModel : ObservableObject
         if (SelectedDefinition == null)
             return;
 
+        if (IsEditing && IsDirty)
+        {
+            // 如果当前正在编辑且有未保存的修改，不直接切换
+            StatusMessage = "请先保存或取消当前编辑";
+            return;
+        }
+
         EditingDefinition = CloneDefinition(SelectedDefinition);
+        _editingSnapshot = SerializeDefinitionSnapshot(EditingDefinition);
         SyncEditingFields();
         IsEditing = true;
+        IsDirty = false;
+        OnPropertyChanged(nameof(IsGenericProtocol));
+        OnPropertyChanged(nameof(IsDlt645Protocol));
+        StatusMessage = $"正在编辑: {EditingDefinition.Name}";
+    }
+
+    /// <summary>
+    /// 双击协议列表项进入编辑状态
+    /// </summary>
+    [RelayCommand]
+    private void DoubleClickDefinition()
+    {
+        if (SelectedDefinition == null)
+            return;
+
+        if (IsEditing && IsDirty)
+        {
+            // 脏状态时不直接切换，需要UI层弹出确认对话框
+            StatusMessage = "当前编辑已修改，请先保存或取消";
+            return;
+        }
+
+        EditingDefinition = CloneDefinition(SelectedDefinition);
+        _editingSnapshot = SerializeDefinitionSnapshot(EditingDefinition);
+        SyncEditingFields();
+        IsEditing = true;
+        IsDirty = false;
+        OnPropertyChanged(nameof(IsGenericProtocol));
+        OnPropertyChanged(nameof(IsDlt645Protocol));
+        StatusMessage = $"正在编辑: {EditingDefinition.Name}";
+    }
+
+    /// <summary>
+    /// 强制切换编辑（放弃当前修改）
+    /// </summary>
+    [RelayCommand]
+    private void ForceEditDefinition(FrameDefinition? definition)
+    {
+        if (definition == null)
+            return;
+
+        EditingDefinition = CloneDefinition(definition);
+        _editingSnapshot = SerializeDefinitionSnapshot(EditingDefinition);
+        SyncEditingFields();
+        IsEditing = true;
+        IsDirty = false;
         OnPropertyChanged(nameof(IsGenericProtocol));
         OnPropertyChanged(nameof(IsDlt645Protocol));
         StatusMessage = $"正在编辑: {EditingDefinition.Name}";
@@ -153,6 +258,8 @@ public partial class ProtocolParserViewModel : ObservableObject
         LoadDefinitions();
         SaveToConfig();
         IsEditing = false;
+        IsDirty = false;
+        _editingSnapshot = null;
         StatusMessage = $"已保存: {EditingDefinition.Name}";
     }
 
@@ -160,6 +267,8 @@ public partial class ProtocolParserViewModel : ObservableObject
     private void CancelEdit()
     {
         IsEditing = false;
+        IsDirty = false;
+        _editingSnapshot = null;
         StatusMessage = "已取消编辑";
     }
 
@@ -192,6 +301,7 @@ public partial class ProtocolParserViewModel : ObservableObject
         };
         EditingFields.Add(newField);
         SelectedField = newField;
+        MarkDirty();
     }
 
     [RelayCommand]
@@ -202,6 +312,7 @@ public partial class ProtocolParserViewModel : ObservableObject
 
         EditingFields.Remove(SelectedField);
         SelectedField = null;
+        MarkDirty();
     }
 
     [RelayCommand]
@@ -285,6 +396,7 @@ public partial class ProtocolParserViewModel : ObservableObject
         }
         OnPropertyChanged(nameof(HasLengthFieldConfig));
         OnPropertyChanged(nameof(EditingDefinition));
+        MarkDirty();
     }
 
     [RelayCommand]
@@ -300,6 +412,7 @@ public partial class ProtocolParserViewModel : ObservableObject
         }
         OnPropertyChanged(nameof(HasChecksumConfig));
         OnPropertyChanged(nameof(EditingDefinition));
+        MarkDirty();
     }
 
     [RelayCommand]
@@ -391,6 +504,159 @@ public partial class ProtocolParserViewModel : ObservableObject
                 }))
             }).ToList()
         };
+    }
+
+    /// <summary>
+    /// 构建测试帧
+    /// </summary>
+    [RelayCommand]
+    private void BuildTestFrame()
+    {
+        if (BuildSelectedDefinition == null)
+        {
+            BuildStatusMessage = "请先选择协议";
+            return;
+        }
+
+        try
+        {
+            var parser = _parserService.GetParser(BuildSelectedDefinition.Name);
+            if (parser == null)
+            {
+                BuildStatusMessage = "未找到对应的解析器";
+                return;
+            }
+
+            var fieldValues = new Dictionary<string, object>();
+            foreach (var input in BuildFieldInputs)
+            {
+                if (!string.IsNullOrEmpty(input.Value))
+                {
+                    fieldValues[input.FieldName] = input.IsHexMode
+                        ? (object)HexHelper.HexStringToBytes(input.Value.Replace(" ", ""))
+                        : input.Value;
+                }
+            }
+
+            var frame = parser.BuildFrame(fieldValues);
+            BuildResultHex = string.Join(" ", frame.Select(b => b.ToString("X2")));
+            BuildStatusMessage = $"帧构建成功: {frame.Length} 字节";
+        }
+        catch (Exception ex)
+        {
+            BuildStatusMessage = $"帧构建失败: {ex.Message}";
+            BuildResultHex = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// 刷新帧组合输入字段（当选择协议变化时）
+    /// </summary>
+    [RelayCommand]
+    private void RefreshBuildInputs()
+    {
+        BuildFieldInputs.Clear();
+        BuildResultHex = string.Empty;
+        BuildStatusMessage = string.Empty;
+
+        if (BuildSelectedDefinition == null)
+            return;
+
+        // Add protocol-specific fixed fields for DL/T 645
+        if (BuildSelectedDefinition.ProtocolType == ProtocolType.Dlt645)
+        {
+            BuildFieldInputs.Add(new FieldInputItem
+            {
+                FieldName = "电表地址",
+                DisplayName = "电表地址",
+                Description = "12位BCD码地址",
+                DataType = DataType.AsciiString,
+                DefaultValue = "000000000000"
+            });
+            BuildFieldInputs.Add(new FieldInputItem
+            {
+                FieldName = "控制码",
+                DisplayName = "控制码",
+                Description = "功能控制字节 (Hex)",
+                DataType = DataType.UInt8,
+                DefaultValue = "11"
+            });
+            BuildFieldInputs.Add(new FieldInputItem
+            {
+                FieldName = "数据标识",
+                DisplayName = "数据标识",
+                Description = "4字节数据标识 (十进制)",
+                DataType = DataType.UInt32,
+                DefaultValue = "65536"
+            });
+        }
+
+        // Add user-defined fields
+        foreach (var field in BuildSelectedDefinition.Fields.Where(f => f.IsEnabled))
+        {
+            BuildFieldInputs.Add(new FieldInputItem
+            {
+                FieldName = field.Name,
+                DisplayName = field.Name,
+                Description = field.Description,
+                DataType = field.DataType,
+                DefaultValue = string.Empty,
+                IsHexMode = field.DataType is DataType.Bytes or DataType.UInt8
+            });
+        }
+    }
+
+    partial void OnBuildSelectedDefinitionChanged(FrameDefinition? value)
+    {
+        RefreshBuildInputs();
+    }
+
+    /// <summary>
+    /// 标记编辑为脏状态
+    /// </summary>
+    public void MarkDirty()
+    {
+        if (IsEditing && _editingSnapshot != null)
+        {
+            IsDirty = true;
+        }
+    }
+
+    /// <summary>
+    /// 检测当前编辑是否有修改
+    /// </summary>
+    public bool CheckDirty()
+    {
+        if (!IsEditing || _editingSnapshot == null)
+            return false;
+
+        var current = SerializeDefinitionSnapshot(EditingDefinition);
+        IsDirty = current != _editingSnapshot;
+        return IsDirty;
+    }
+
+    private static string SerializeDefinitionSnapshot(FrameDefinition def)
+    {
+        // Simple serialization for comparison
+        var parts = new List<string>
+        {
+            def.Name,
+            def.Description,
+            def.Header,
+            def.Trailer,
+            def.MinFrameLength.ToString(),
+            def.MaxFrameLength.ToString(),
+            def.ProtocolType.ToString(),
+            def.ChecksumConfig?.Algorithm.ToString() ?? "",
+            def.LengthFieldConfig?.StartIndex.ToString() ?? ""
+        };
+
+        foreach (var field in def.Fields)
+        {
+            parts.Add($"{field.Name}|{field.StartIndex}|{field.Length}|{field.DataType}|{field.Endianness}|{field.IsEnabled}");
+        }
+
+        return string.Join(";;", parts);
     }
 
     private static byte[] HexStringToBytes(string hex)

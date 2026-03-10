@@ -679,6 +679,197 @@ public class Dlt645Parser : IProtocolParser
         };
     }
 
+    public byte[] BuildFrame(Dictionary<string, object> fieldValues)
+    {
+        ArgumentNullException.ThrowIfNull(fieldValues);
+
+        // Parse address (6 bytes BCD, little-endian)
+        string address = fieldValues.TryGetValue("电表地址", out var addrObj)
+            ? addrObj.ToString() ?? "000000000000"
+            : "000000000000";
+        var addressBytes = ParseAddressToBytes(address);
+
+        // Parse control code
+        byte controlCode = fieldValues.TryGetValue("控制码", out var ccObj)
+            ? Convert.ToByte(ccObj)
+            : (byte)0x11; // Default: read data
+
+        // Build data field
+        byte[] dataField = BuildDataField(fieldValues);
+
+        // Encode data field (+33H)
+        byte[] encodedData = EncodeDataField(dataField);
+
+        // Build frame: 68 + addr(6) + 68 + ctrl + len + data + cs + 16
+        int frameLength = 12 + encodedData.Length;
+        var frame = new byte[frameLength];
+
+        frame[0] = FrameStart;
+        Array.Copy(addressBytes, 0, frame, 1, AddressLength);
+        frame[7] = FrameStart;
+        frame[8] = controlCode;
+        frame[9] = (byte)encodedData.Length;
+        Array.Copy(encodedData, 0, frame, 10, encodedData.Length);
+
+        // Calculate checksum
+        byte cs = 0;
+        for (int i = 0; i < frameLength - 2; i++)
+            cs += frame[i];
+        frame[frameLength - 2] = cs;
+        frame[frameLength - 1] = FrameEnd;
+
+        return frame;
+    }
+
+    private byte[] BuildDataField(Dictionary<string, object> fieldValues)
+    {
+        var dataBytes = new List<byte>();
+
+        // Data identifier (4 bytes)
+        if (fieldValues.TryGetValue("数据标识", out var diObj))
+        {
+            uint di = Convert.ToUInt32(diObj);
+            dataBytes.Add((byte)(di & 0xFF));
+            dataBytes.Add((byte)((di >> 8) & 0xFF));
+            dataBytes.Add((byte)((di >> 16) & 0xFF));
+            dataBytes.Add((byte)((di >> 24) & 0xFF));
+        }
+
+        // Custom fields (user-defined data domain sub-fields)
+        if (_customDefinition?.Fields.Any(f => f.IsEnabled) == true)
+        {
+            // Determine max data size needed
+            int maxEnd = dataBytes.Count;
+            foreach (var fieldDef in _customDefinition.Fields.Where(f => f.IsEnabled))
+            {
+                int length = fieldDef.Length > 0
+                    ? fieldDef.Length
+                    : FieldDefinition.GetDefaultLength(fieldDef.DataType);
+                maxEnd = Math.Max(maxEnd, fieldDef.StartIndex + length);
+            }
+
+            // Extend data bytes if needed
+            while (dataBytes.Count < maxEnd)
+                dataBytes.Add(0);
+
+            // Fill custom field values
+            foreach (var fieldDef in _customDefinition.Fields.Where(f => f.IsEnabled))
+            {
+                if (!fieldValues.TryGetValue(fieldDef.Name, out var value))
+                    continue;
+
+                int length = fieldDef.Length > 0
+                    ? fieldDef.Length
+                    : FieldDefinition.GetDefaultLength(fieldDef.DataType);
+
+                var bytes = ConvertFieldValueToBytes(value, fieldDef.DataType, fieldDef.Endianness, length);
+                for (int i = 0; i < Math.Min(bytes.Length, length) && fieldDef.StartIndex + i < dataBytes.Count; i++)
+                {
+                    dataBytes[fieldDef.StartIndex + i] = bytes[i];
+                }
+            }
+        }
+        // Additional raw data
+        else if (fieldValues.TryGetValue("数据值", out var dataVal))
+        {
+            if (dataVal is byte[] rawData)
+            {
+                dataBytes.AddRange(rawData);
+            }
+            else if (dataVal is string hexStr)
+            {
+                var parsed = Serial.Helpers.HexHelper.HexStringToBytes(hexStr);
+                dataBytes.AddRange(parsed);
+            }
+        }
+
+        return [.. dataBytes];
+    }
+
+    private static byte[] EncodeDataField(byte[] data)
+    {
+        var encoded = new byte[data.Length];
+        for (int i = 0; i < data.Length; i++)
+        {
+            encoded[i] = (byte)(data[i] + 0x33);
+        }
+        return encoded;
+    }
+
+    private static byte[] ParseAddressToBytes(string address)
+    {
+        var bytes = new byte[AddressLength];
+        // Remove non-hex characters
+        address = address.Replace(" ", "").Replace("-", "");
+
+        // Pad to 12 characters
+        address = address.PadLeft(12, '0');
+        if (address.Length > 12) address = address[..12];
+
+        // Convert to BCD bytes in reverse order (little-endian)
+        for (int i = 0; i < AddressLength; i++)
+        {
+            int strIndex = (AddressLength - 1 - i) * 2;
+            if (strIndex + 2 <= address.Length)
+            {
+                byte.TryParse(address.AsSpan(strIndex, 2),
+                    System.Globalization.NumberStyles.HexNumber, null, out bytes[i]);
+            }
+        }
+
+        return bytes;
+    }
+
+    private static byte[] ConvertFieldValueToBytes(object value, DataType dataType, Endianness endianness, int targetLength)
+    {
+        byte[] rawBytes;
+
+        if (value is string strValue)
+        {
+            rawBytes = dataType switch
+            {
+                DataType.UInt8 => [byte.Parse(strValue)],
+                DataType.Int8 => [unchecked((byte)sbyte.Parse(strValue))],
+                DataType.UInt16 => BitConverter.GetBytes(ushort.Parse(strValue)),
+                DataType.Int16 => BitConverter.GetBytes(short.Parse(strValue)),
+                DataType.UInt32 => BitConverter.GetBytes(uint.Parse(strValue)),
+                DataType.Int32 => BitConverter.GetBytes(int.Parse(strValue)),
+                DataType.Float => BitConverter.GetBytes(float.Parse(strValue)),
+                DataType.Double => BitConverter.GetBytes(double.Parse(strValue)),
+                DataType.Bool => [(byte)(bool.Parse(strValue) ? 1 : 0)],
+                DataType.AsciiString => Encoding.ASCII.GetBytes(strValue),
+                DataType.Bytes => Serial.Helpers.HexHelper.HexStringToBytes(strValue),
+                _ => []
+            };
+        }
+        else
+        {
+            rawBytes = dataType switch
+            {
+                DataType.UInt8 => [Convert.ToByte(value)],
+                DataType.Int8 => [unchecked((byte)Convert.ToSByte(value))],
+                DataType.UInt16 => BitConverter.GetBytes(Convert.ToUInt16(value)),
+                DataType.Int16 => BitConverter.GetBytes(Convert.ToInt16(value)),
+                DataType.UInt32 => BitConverter.GetBytes(Convert.ToUInt32(value)),
+                DataType.Int32 => BitConverter.GetBytes(Convert.ToInt32(value)),
+                DataType.Float => BitConverter.GetBytes(Convert.ToSingle(value)),
+                DataType.Double => BitConverter.GetBytes(Convert.ToDouble(value)),
+                DataType.Bool => [(byte)(Convert.ToBoolean(value) ? 1 : 0)],
+                DataType.AsciiString => Encoding.ASCII.GetBytes(value.ToString() ?? ""),
+                DataType.Bytes when value is byte[] byteArr => byteArr,
+                _ => []
+            };
+        }
+
+        // Apply endianness for multi-byte non-string types
+        if (endianness == Endianness.BigEndian && rawBytes.Length > 1 && dataType != DataType.Bytes && dataType != DataType.AsciiString)
+        {
+            Array.Reverse(rawBytes);
+        }
+
+        return rawBytes;
+    }
+
     private static object? ConvertToValue(byte[] bytes, DataType dataType, Endianness endianness)
     {
         if (bytes.Length == 0)

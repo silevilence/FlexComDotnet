@@ -44,4 +44,11 @@ public interface IProtocolParser
     /// <param name="consumedBytes">消耗的字节数</param>
     /// <returns>是否成功提取</returns>
     bool TryExtractFrame(byte[] buffer, out byte[] frame, out int consumedBytes);
+
+    /// <summary>
+    /// 根据字段值构建完整数据帧
+    /// </summary>
+    /// <param name="fieldValues">字段名到值的映射，值可以是具体类型或字符串</param>
+    /// <returns>构建的完整帧字节数组</returns>
+    byte[] BuildFrame(Dictionary<string, object> fieldValues);
 }

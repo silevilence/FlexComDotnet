@@ -110,6 +110,7 @@
                          SelectedItem="{Binding SelectedDefinition}"
                          Background="Transparent"
                          BorderThickness="0"
+                         MouseDoubleClick="ProtocolList_MouseDoubleClick"
                          ContextMenuOpening="ListBox_ContextMenuOpening">
                     <ListBox.ContextMenu>
                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
@@ -147,7 +148,7 @@
         
         <!-- 中间: 编辑区域 -->
         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="0,0,8,0">
-            <StackPanel IsEnabled="{Binding IsEditing}">
+            <StackPanel IsEnabled="{Binding IsEditing}" TextBoxBase.TextChanged="EditingPanel_TextChanged">
                 <!-- 基本信息 -->
                 <Border Style="{StaticResource SectionBorder}">
                     <StackPanel>
@@ -497,7 +498,7 @@
                 
                 <!-- 操作按钮 -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                    <Button Content="取消" Command="{Binding CancelEditCommand}"
+                    <Button Content="取消" Click="CancelButton_Click"
                             pu:ButtonHelper.CornerRadius="4" Padding="16,8" Margin="0,0,8,0"/>
                     <Button Content="保存" Command="{Binding SaveDefinitionCommand}"
                             pu:ButtonHelper.CornerRadius="4" Padding="16,8"
@@ -593,6 +594,86 @@
                     <TextBlock Text="{Binding StatusMessage}"
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="11"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- 测试数据帧组合 -->
+            <Border DockPanel.Dock="Top"
+                    Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12"
+                    Margin="0,8,0,0">
+                <StackPanel>
+                    <TextBlock Text="测试数据帧组合" Style="{StaticResource SectionTitle}"/>
+                    
+                    <!-- 协议选择 -->
+                    <TextBlock Text="协议" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding Definitions}"
+                              SelectedItem="{Binding BuildSelectedDefinition}"
+                              DisplayMemberPath="Name"
+                              pu:ComboBoxHelper.CornerRadius="4"
+                              Margin="0,0,0,8"/>
+                    
+                    <!-- 动态字段输入 -->
+                    <ItemsControl ItemsSource="{Binding BuildFieldInputs}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Column="0" 
+                                               Text="{Binding DisplayName, StringFormat={}{0}:}" 
+                                               VerticalAlignment="Center" FontSize="11"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBox Grid.Column="1" 
+                                             Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                             pu:TextBoxHelper.CornerRadius="4"
+                                             pu:TextBoxHelper.Watermark="{Binding DefaultValue}"/>
+                                    <CheckBox Grid.Column="2" Content="Hex" Margin="6,0,0,0"
+                                              IsChecked="{Binding IsHexMode}"
+                                              VerticalAlignment="Center"
+                                              Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
+                                    <TextBlock Grid.Row="1" Grid.ColumnSpan="3"
+                                               Text="{Binding Description}" FontSize="10"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               Margin="0,1,0,0"
+                                               TextTrimming="CharacterEllipsis"
+                                               Visibility="{Binding Description, Converter={StaticResource NullToBoolConverter}}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    
+                    <!-- 构建按钮 -->
+                    <Button Content="构建帧" Command="{Binding BuildTestFrameCommand}"
+                            pu:ButtonHelper.CornerRadius="4" Padding="16,8" Margin="0,8"
+                            HorizontalAlignment="Stretch"/>
+                    
+                    <!-- 构建结果 -->
+                    <TextBlock Text="构建结果 (Hex)" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"
+                               Visibility="{Binding BuildResultHex, Converter={StaticResource NullToBoolConverter}}"/>
+                    <TextBox Text="{Binding BuildResultHex, Mode=OneWay}" IsReadOnly="True"
+                             pu:TextBoxHelper.CornerRadius="4"
+                             FontFamily="Consolas" FontSize="12"
+                             TextWrapping="Wrap" Margin="0,0,0,4"
+                             Background="{DynamicResource SurfaceBrush}"
+                             Foreground="{DynamicResource AccentBrush}"/>
+                    
+                    <!-- 构建状态消息 -->
+                    <TextBlock Text="{Binding BuildStatusMessage}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding BuildStatusMessage, Converter={StaticResource NullToBoolConverter}}"/>
                 </StackPanel>
             </Border>
         </DockPanel>

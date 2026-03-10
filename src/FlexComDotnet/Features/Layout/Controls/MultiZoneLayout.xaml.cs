@@ -17,6 +17,7 @@ public partial class MultiZoneLayout : UserControl
     private IPanelManager? _panelManager;
     private Window? _ownerWindow;
     private bool _isFloatingInProgress;
+    private bool _isSavingLayout;
 
     #region Dependency Properties
 
@@ -133,7 +134,7 @@ public partial class MultiZoneLayout : UserControl
 
     private void OnLayoutChanged(object? sender, EventArgs e)
     {
-        if (_isFloatingInProgress) return;
+        if (_isFloatingInProgress || _isSavingLayout) return;
         Dispatcher.Invoke(RefreshLayout);
     }
 
@@ -620,7 +621,11 @@ public partial class MultiZoneLayout : UserControl
 
     private void Splitter_DragCompleted(object sender, DragCompletedEventArgs e)
     {
-        if (_panelManager != null)
+        if (_panelManager == null) return;
+
+        // 抑制保存期间的布局刷新，避免尚未保存的区域被重置为旧值
+        _isSavingLayout = true;
+        try
         {
             if (LeftColumnDefinition.Width.Value > 0)
             {
@@ -639,6 +644,10 @@ public partial class MultiZoneLayout : UserControl
                 _panelManager.SetZoneSize(PanelZone.Bottom, BottomRowDefinition.Height.Value);
                 ZoneSizeChanged?.Invoke(this, (PanelZone.Bottom, BottomRowDefinition.Height.Value));
             }
+        }
+        finally
+        {
+            _isSavingLayout = false;
         }
     }
 }
