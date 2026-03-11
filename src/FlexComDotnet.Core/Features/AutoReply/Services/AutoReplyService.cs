@@ -7,7 +7,7 @@ using FlexComDotnet.Core.Features.Serial.Services;
 namespace FlexComDotnet.Core.Features.AutoReply.Services;
 
 /// <summary>
-/// 自动回复服务实现
+/// 自动回复服务实现 - 支持多规则并发触发
 /// </summary>
 public class AutoReplyService : IAutoReplyService, IDisposable
 {
@@ -111,9 +111,25 @@ public class AutoReplyService : IAutoReplyService, IDisposable
     {
         lock (_lockObj)
         {
-            foreach (var handler in _handlerList)
+            foreach (var rule in Config.Rules)
             {
-                handler.Reset(Config);
+                if (_handlers.TryGetValue(rule.Type, out var handler))
+                {
+                    handler.Reset(rule);
+                }
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public void ResetRuleState(string ruleId)
+    {
+        lock (_lockObj)
+        {
+            var rule = Config.Rules.FirstOrDefault(r => r.Id == ruleId);
+            if (rule != null && _handlers.TryGetValue(rule.Type, out var handler))
+            {
+                handler.Reset(rule);
             }
         }
     }
@@ -133,7 +149,7 @@ public class AutoReplyService : IAutoReplyService, IDisposable
     }
 
     /// <summary>
-    /// 异步处理数据
+    /// 异步处理数据 - 遍历所有启用的规则按优先级执行
     /// </summary>
     private async Task ProcessDataAsync(byte[] data)
     {
@@ -148,33 +164,49 @@ public class AutoReplyService : IAutoReplyService, IDisposable
             await Task.Delay(Config.GlobalDelayMs);
         }
 
-        ReplyResult result;
+        // 获取所有启用的规则，按优先级排序
+        List<AutoReplyRule> enabledRules;
         lock (_lockObj)
         {
-            var handler = GetHandler(Config.ActiveMode);
-            result = handler.Process(data, Config);
+            enabledRules = Config.Rules
+                .Where(r => r.IsEnabled)
+                .OrderBy(r => r.SortOrder)
+                .ToList();
         }
 
-        if (result.ShouldReply && result.ResponseData.Length > 0)
+        // 遍历所有启用的规则，依次处理
+        foreach (var rule in enabledRules)
         {
-            // 发送回复
-            var sent = _serialPortService.Send(result.ResponseData);
-
-            if (sent)
+            if (!_handlers.TryGetValue(rule.Type, out var handler))
             {
-                lock (_lockObj)
-                {
-                    ReplyCount++;
-                }
+                continue;
+            }
 
-                // 触发事件
-                ReplyTriggered?.Invoke(this, new ReplyEventArgs
+            ReplyResult result;
+            lock (_lockObj)
+            {
+                result = handler.Process(data, rule);
+            }
+
+            if (result.ShouldReply && result.ResponseData.Length > 0)
+            {
+                var sent = _serialPortService.Send(result.ResponseData);
+
+                if (sent)
                 {
-                    ReceivedData = data,
-                    ReplyData = result.ResponseData,
-                    RuleName = result.MatchedRuleName,
-                    Timestamp = DateTime.Now
-                });
+                    lock (_lockObj)
+                    {
+                        ReplyCount++;
+                    }
+
+                    ReplyTriggered?.Invoke(this, new ReplyEventArgs
+                    {
+                        ReceivedData = data,
+                        ReplyData = result.ResponseData,
+                        RuleName = result.MatchedRuleName,
+                        Timestamp = DateTime.Now
+                    });
+                }
             }
         }
     }

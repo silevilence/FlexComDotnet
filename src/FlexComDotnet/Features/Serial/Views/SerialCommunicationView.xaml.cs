@@ -15,6 +15,20 @@ public partial class SerialCommunicationView : UserControl
         InitializeComponent();
     }
 
+    private void CopyReceived_Click(object sender, RoutedEventArgs e)
+    {
+        if (ReceivedDataListBox.SelectedItems.Count > 0)
+        {
+            var text = string.Join(Environment.NewLine, ReceivedDataListBox.SelectedItems.Cast<string>());
+            Clipboard.SetText(text);
+        }
+    }
+
+    private void SelectAllReceived_Click(object sender, RoutedEventArgs e)
+    {
+        ReceivedDataListBox.SelectAll();
+    }
+
     /// <summary>
     /// 保存日志按钮点击事件
     /// </summary>

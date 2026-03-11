@@ -45,7 +45,6 @@ public interface IAutoReplyService
     /// <summary>
     /// 更新配置
     /// </summary>
-    /// <param name="config">新配置</param>
     void UpdateConfig(AutoReplyConfig config);
 
     /// <summary>
@@ -54,9 +53,14 @@ public interface IAutoReplyService
     void ResetCounters();
 
     /// <summary>
-    /// 重置当前处理器状态
+    /// 重置所有规则的处理器状态
     /// </summary>
     void ResetHandlerState();
+
+    /// <summary>
+    /// 重置指定规则的处理器状态
+    /// </summary>
+    void ResetRuleState(string ruleId);
 
     /// <summary>
     /// 获取所有可用的回复处理器

@@ -105,23 +105,24 @@ public class AutoReplyServiceTests
     [Fact]
     public void ResetCounters_ShouldResetBothCounters()
     {
-        // Arrange - 先通过模拟数据接收增加计数
+        // Arrange - 配置一个匹配规则
         _service.UpdateConfig(new AutoReplyConfig
         {
             IsEnabled = true,
-            ActiveMode = ReplyMode.Match,
-            MatchConfig = new MatchReplyConfig
-            {
-                Rules =
-                [
-                    new MatchRule
+            Rules =
+            [
+                new AutoReplyRule
+                {
+                    Name = "Test",
+                    Type = ReplyMode.Match,
+                    IsEnabled = true,
+                    MatchConfig = new MatchRuleConfig
                     {
                         TriggerPattern = "AA",
-                        ResponseContent = "BB",
-                        IsEnabled = true
+                        ResponseContent = "BB"
                     }
-                ]
-            }
+                }
+            ]
         });
         _service.Start();
 
@@ -139,10 +140,20 @@ public class AutoReplyServiceTests
         // Arrange
         var config = new AutoReplyConfig
         {
-            SequentialConfig = new SequentialReplyConfig
-            {
-                CurrentIndex = 5
-            }
+            Rules =
+            [
+                new AutoReplyRule
+                {
+                    Id = "seq-1",
+                    Name = "SeqRule",
+                    Type = ReplyMode.Sequential,
+                    IsEnabled = true,
+                    SequentialConfig = new SequentialRuleConfig
+                    {
+                        CurrentIndex = 5
+                    }
+                }
+            ]
         };
         _service.UpdateConfig(config);
 
@@ -150,7 +161,7 @@ public class AutoReplyServiceTests
         _service.ResetHandlerState();
 
         // Assert
-        _service.Config.SequentialConfig.CurrentIndex.Should().Be(0);
+        _service.Config.Rules[0].SequentialConfig!.CurrentIndex.Should().Be(0);
     }
 
     [Fact]
@@ -163,18 +174,20 @@ public class AutoReplyServiceTests
         _service.UpdateConfig(new AutoReplyConfig
         {
             IsEnabled = true,
-            MatchConfig = new MatchReplyConfig
-            {
-                Rules =
-                [
-                    new MatchRule
+            Rules =
+            [
+                new AutoReplyRule
+                {
+                    Name = "Test",
+                    Type = ReplyMode.Match,
+                    IsEnabled = true,
+                    MatchConfig = new MatchRuleConfig
                     {
                         TriggerPattern = "AA",
-                        ResponseContent = "BB",
-                        IsEnabled = true
+                        ResponseContent = "BB"
                     }
-                ]
-            }
+                }
+            ]
         });
         // 注意：不调用 Start()
 
@@ -196,18 +209,20 @@ public class AutoReplyServiceTests
         _service.UpdateConfig(new AutoReplyConfig
         {
             IsEnabled = false, // 禁用
-            MatchConfig = new MatchReplyConfig
-            {
-                Rules =
-                [
-                    new MatchRule
+            Rules =
+            [
+                new AutoReplyRule
+                {
+                    Name = "Test",
+                    Type = ReplyMode.Match,
+                    IsEnabled = true,
+                    MatchConfig = new MatchRuleConfig
                     {
                         TriggerPattern = "AA",
-                        ResponseContent = "BB",
-                        IsEnabled = true
+                        ResponseContent = "BB"
                     }
-                ]
-            }
+                }
+            ]
         });
         _service.Start();
 
@@ -234,22 +249,22 @@ public class AutoReplyServiceTests
         {
             IsEnabled = true,
             GlobalDelayMs = 0, // 无延迟
-            ActiveMode = ReplyMode.Match,
-            MatchConfig = new MatchReplyConfig
-            {
-                Rules =
-                [
-                    new MatchRule
+            Rules =
+            [
+                new AutoReplyRule
+                {
+                    Name = "Test",
+                    Type = ReplyMode.Match,
+                    IsEnabled = true,
+                    MatchConfig = new MatchRuleConfig
                     {
-                        Name = "Test",
                         TriggerPattern = "AA",
                         MatchType = MatchType.HexContains,
                         ResponseContent = "BB CC",
-                        IsResponseHex = true,
-                        IsEnabled = true
+                        IsResponseHex = true
                     }
-                ]
-            }
+                }
+            ]
         });
         _service.Start();
 
@@ -279,19 +294,20 @@ public class AutoReplyServiceTests
         {
             IsEnabled = true,
             GlobalDelayMs = 0,
-            ActiveMode = ReplyMode.Match,
-            MatchConfig = new MatchReplyConfig
-            {
-                Rules =
-                [
-                    new MatchRule
+            Rules =
+            [
+                new AutoReplyRule
+                {
+                    Name = "Test",
+                    Type = ReplyMode.Match,
+                    IsEnabled = true,
+                    MatchConfig = new MatchRuleConfig
                     {
                         TriggerPattern = "FF",
-                        ResponseContent = "BB",
-                        IsEnabled = true
+                        ResponseContent = "BB"
                     }
-                ]
-            }
+                }
+            ]
         });
         _service.Start();
 
@@ -307,7 +323,7 @@ public class AutoReplyServiceTests
     }
 
     [Fact]
-    public async Task WhenDataReceived_WithSequentialMode_ShouldReplyInOrder()
+    public async Task WhenDataReceived_WithSequentialRule_ShouldReplyInOrder()
     {
         // Arrange
         var replies = new List<byte[]>();
@@ -327,17 +343,25 @@ public class AutoReplyServiceTests
         {
             IsEnabled = true,
             GlobalDelayMs = 0,
-            ActiveMode = ReplyMode.Sequential,
-            SequentialConfig = new SequentialReplyConfig
-            {
-                Frames =
-                [
-                    new SequentialFrame { Content = "AA", IsHexMode = true, IsEnabled = true, SortOrder = 0 },
-                    new SequentialFrame { Content = "BB", IsHexMode = true, IsEnabled = true, SortOrder = 1 }
-                ],
-                EnableLoop = false,
-                CurrentIndex = 0
-            }
+            Rules =
+            [
+                new AutoReplyRule
+                {
+                    Name = "SeqRule",
+                    Type = ReplyMode.Sequential,
+                    IsEnabled = true,
+                    SequentialConfig = new SequentialRuleConfig
+                    {
+                        Frames =
+                        [
+                            new SequentialFrame { Content = "AA", IsHexMode = true, IsEnabled = true, SortOrder = 0 },
+                            new SequentialFrame { Content = "BB", IsHexMode = true, IsEnabled = true, SortOrder = 1 }
+                        ],
+                        EnableLoop = false,
+                        CurrentIndex = 0
+                    }
+                }
+            ]
         });
         _service.Start();
 

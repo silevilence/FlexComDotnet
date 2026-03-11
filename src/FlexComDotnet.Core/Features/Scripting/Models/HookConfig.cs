@@ -53,3 +53,24 @@ public class ScriptHookSettings
     /// </summary>
     public HookConfig Reply { get; set; } = new() { Type = HookType.Reply };
 }
+
+/// <summary>
+/// 持久化用 Hook 配置（仅保存脚本绑定，不保存启用状态）
+/// </summary>
+public class ScriptHookConfig
+{
+    /// <summary>
+    /// 接收预处理 Hook 绑定的脚本 ID
+    /// </summary>
+    public string? RxPreProcessorScriptId { get; set; }
+
+    /// <summary>
+    /// 发送后处理 Hook 绑定的脚本 ID
+    /// </summary>
+    public string? TxPostProcessorScriptId { get; set; }
+
+    /// <summary>
+    /// 应答 Hook 绑定的脚本 ID
+    /// </summary>
+    public string? ReplyScriptId { get; set; }
+}

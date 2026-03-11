@@ -18,6 +18,21 @@ public class ProtocolReplyHandlerTests
         return service;
     }
 
+    private static AutoReplyRule CreateProtocolRule(string protocolName, Dictionary<string, string>? fieldValues = null, string name = "ProtoRule")
+    {
+        return new AutoReplyRule
+        {
+            Name = name,
+            Type = ReplyMode.Protocol,
+            IsEnabled = true,
+            ProtocolConfig = new ProtocolRuleConfig
+            {
+                ProtocolName = protocolName,
+                FieldValues = fieldValues ?? []
+            }
+        };
+    }
+
     [Fact]
     public void Mode_ShouldBeProtocol()
     {
@@ -37,39 +52,33 @@ public class ProtocolReplyHandlerTests
     }
 
     [Fact]
-    public void Process_NoSchemes_ReturnsNoReply()
+    public void Process_NoProtocolConfig_ReturnsNoReply()
     {
         var service = new ProtocolParserService(_checksumService);
         var handler = new ProtocolReplyHandler(service);
 
-        var config = new AutoReplyConfig
+        var rule = new AutoReplyRule
         {
-            ActiveMode = ReplyMode.Protocol,
-            ProtocolConfig = new ProtocolReplyConfig()
+            Name = "No Config",
+            Type = ReplyMode.Protocol,
+            IsEnabled = true,
+            ProtocolConfig = null
         };
 
-        var result = handler.Process([0x01, 0x02], config);
+        var result = handler.Process([0x01, 0x02], rule);
 
         result.ShouldReply.Should().BeFalse();
     }
 
     [Fact]
-    public void Process_NoActiveScheme_ReturnsNoReply()
+    public void Process_EmptyProtocolName_ReturnsNoReply()
     {
         var service = new ProtocolParserService(_checksumService);
         var handler = new ProtocolReplyHandler(service);
 
-        var config = new AutoReplyConfig
-        {
-            ActiveMode = ReplyMode.Protocol,
-            ProtocolConfig = new ProtocolReplyConfig
-            {
-                Schemes = [new ProtocolReplyScheme { Name = "Test", ProtocolName = "TestProto" }],
-                ActiveSchemeIndex = -1
-            }
-        };
+        var rule = CreateProtocolRule("");
 
-        var result = handler.Process([0x01, 0x02], config);
+        var result = handler.Process([0x01, 0x02], rule);
 
         result.ShouldReply.Should().BeFalse();
     }
@@ -80,64 +89,15 @@ public class ProtocolReplyHandlerTests
         var service = new ProtocolParserService(_checksumService);
         var handler = new ProtocolReplyHandler(service);
 
-        var config = new AutoReplyConfig
-        {
-            ActiveMode = ReplyMode.Protocol,
-            ProtocolConfig = new ProtocolReplyConfig
-            {
-                Schemes = [new ProtocolReplyScheme
-                {
-                    Name = "Test",
-                    ProtocolName = "NonExistent",
-                    IsEnabled = true
-                }],
-                ActiveSchemeIndex = 0
-            }
-        };
+        var rule = CreateProtocolRule("NonExistent");
 
-        var result = handler.Process([0x01, 0x02], config);
+        var result = handler.Process([0x01, 0x02], rule);
 
         result.ShouldReply.Should().BeFalse();
     }
 
     [Fact]
-    public void Process_DisabledScheme_ReturnsNoReply()
-    {
-        var definition = new FrameDefinition
-        {
-            Name = "TestProto",
-            MinFrameLength = 2,
-            Fields =
-            [
-                new FieldDefinition { Name = "Data", StartIndex = 0, DataType = DataType.UInt8, Length = 1 }
-            ]
-        };
-        var service = CreateServiceWithDefinition(definition);
-        var handler = new ProtocolReplyHandler(service);
-
-        var config = new AutoReplyConfig
-        {
-            ActiveMode = ReplyMode.Protocol,
-            ProtocolConfig = new ProtocolReplyConfig
-            {
-                Schemes = [new ProtocolReplyScheme
-                {
-                    Name = "Test",
-                    ProtocolName = "TestProto",
-                    IsEnabled = false,
-                    FieldValues = new() { ["Data"] = "42" }
-                }],
-                ActiveSchemeIndex = 0
-            }
-        };
-
-        var result = handler.Process([0x01], config);
-
-        result.ShouldReply.Should().BeFalse();
-    }
-
-    [Fact]
-    public void Process_ValidScheme_BuildsAndReturnsFrame()
+    public void Process_ValidRule_BuildsAndReturnsFrame()
     {
         var definition = new FrameDefinition
         {
@@ -153,23 +113,11 @@ public class ProtocolReplyHandlerTests
         var service = CreateServiceWithDefinition(definition);
         var handler = new ProtocolReplyHandler(service);
 
-        var config = new AutoReplyConfig
-        {
-            ActiveMode = ReplyMode.Protocol,
-            ProtocolConfig = new ProtocolReplyConfig
-            {
-                Schemes = [new ProtocolReplyScheme
-                {
-                    Name = "Reply1",
-                    ProtocolName = "SimpleProto",
-                    IsEnabled = true,
-                    FieldValues = new() { ["Cmd"] = "1", ["Value"] = "42" }
-                }],
-                ActiveSchemeIndex = 0
-            }
-        };
+        var rule = CreateProtocolRule("SimpleProto",
+            new() { ["Cmd"] = "1", ["Value"] = "42" },
+            name: "Reply1");
 
-        var result = handler.Process([0x01, 0x02], config);
+        var result = handler.Process([0x01, 0x02], rule);
 
         result.ShouldReply.Should().BeTrue();
         result.ResponseData.Should().NotBeEmpty();
@@ -180,82 +128,13 @@ public class ProtocolReplyHandlerTests
     }
 
     [Fact]
-    public void Process_WithMultipleSchemes_UsesActive()
-    {
-        var definition = new FrameDefinition
-        {
-            Name = "MultiProto",
-            MinFrameLength = 1,
-            Fields =
-            [
-                new FieldDefinition { Name = "Data", StartIndex = 0, DataType = DataType.UInt8, Length = 1 }
-            ]
-        };
-        var service = CreateServiceWithDefinition(definition);
-        var handler = new ProtocolReplyHandler(service);
-
-        var config = new AutoReplyConfig
-        {
-            ActiveMode = ReplyMode.Protocol,
-            ProtocolConfig = new ProtocolReplyConfig
-            {
-                Schemes =
-                [
-                    new ProtocolReplyScheme
-                    {
-                        Name = "Scheme1",
-                        ProtocolName = "MultiProto",
-                        IsEnabled = true,
-                        FieldValues = new() { ["Data"] = "10" }
-                    },
-                    new ProtocolReplyScheme
-                    {
-                        Name = "Scheme2",
-                        ProtocolName = "MultiProto",
-                        IsEnabled = true,
-                        FieldValues = new() { ["Data"] = "20" }
-                    }
-                ],
-                ActiveSchemeIndex = 1 // Second scheme active
-            }
-        };
-
-        var result = handler.Process([0x01], config);
-
-        result.ShouldReply.Should().BeTrue();
-        result.ResponseData[0].Should().Be(20);
-        result.MatchedRuleName.Should().Contain("Scheme2");
-    }
-
-    [Fact]
-    public void Process_ActiveSchemeIndexOutOfRange_ReturnsNoReply()
-    {
-        var service = new ProtocolParserService(_checksumService);
-        var handler = new ProtocolReplyHandler(service);
-
-        var config = new AutoReplyConfig
-        {
-            ActiveMode = ReplyMode.Protocol,
-            ProtocolConfig = new ProtocolReplyConfig
-            {
-                Schemes = [new ProtocolReplyScheme { Name = "Test", ProtocolName = "X", IsEnabled = true }],
-                ActiveSchemeIndex = 5
-            }
-        };
-
-        var result = handler.Process([0x01], config);
-
-        result.ShouldReply.Should().BeFalse();
-    }
-
-    [Fact]
     public void Reset_ShouldNotThrow()
     {
         var service = new ProtocolParserService(_checksumService);
         var handler = new ProtocolReplyHandler(service);
-        var config = new AutoReplyConfig();
+        var rule = CreateProtocolRule("Test");
 
-        var action = () => handler.Reset(config);
+        var action = () => handler.Reset(rule);
 
         action.Should().NotThrow();
     }

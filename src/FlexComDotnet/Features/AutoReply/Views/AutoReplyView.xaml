@@ -5,7 +5,11 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:FlexComDotnet.Features.AutoReply.Views"
              xmlns:converters="clr-namespace:FlexComDotnet.Converters"
+             xmlns:models="clr-namespace:FlexComDotnet.Core.Features.AutoReply.Models;assembly=FlexComDotnet.Core"
              xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+             xmlns:emojiBehavior="clr-namespace:FlexComDotnet.Features.EmojiSupport.Behaviors"
+             xmlns:emojiControls="clr-namespace:FlexComDotnet.Features.EmojiSupport.Controls"
+             xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              mc:Ignorable="d" 
              d:DesignHeight="500" d:DesignWidth="350"
              Background="{DynamicResource SurfaceBrush}">
@@ -118,85 +122,13 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
-        
-        <!-- 科技风格 TabItem 样式 -->
-        <Style x:Key="TechTabItemStyle" TargetType="TabItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-            <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="border" 
-                                Background="{TemplateBinding Background}"
-                                BorderThickness="0,0,0,2"
-                                BorderBrush="Transparent"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter x:Name="contentPresenter"
-                                              ContentSource="Header"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
-                                <Setter TargetName="border" Property="Background">
-                                    <Setter.Value>
-                                        <SolidColorBrush Color="{DynamicResource PrimaryColor}" Opacity="0.1"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                            <MultiTrigger>
-                                <MultiTrigger.Conditions>
-                                    <Condition Property="IsMouseOver" Value="True"/>
-                                    <Condition Property="IsSelected" Value="False"/>
-                                </MultiTrigger.Conditions>
-                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverBrush}"/>
-                            </MultiTrigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        
-        <!-- 科技风格 TabControl 样式 -->
-        <Style x:Key="TechTabControlStyle" TargetType="TabControl">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="ItemContainerStyle" Value="{StaticResource TechTabItemStyle}"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabControl">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            
-                            <!-- Tab Header 区域 -->
-                            <Border Grid.Row="0" 
-                                    Background="{DynamicResource CardBrush}"
-                                    BorderBrush="{DynamicResource BorderBrush}"
-                                    BorderThickness="0,0,0,1">
-                                <TabPanel IsItemsHost="True" 
-                                          HorizontalAlignment="Stretch"/>
-                            </Border>
-                            
-                            <!-- Tab Content 区域 -->
-                            <Border Grid.Row="1" 
-                                    Background="{DynamicResource SurfaceBrush}">
-                                <ContentPresenter x:Name="PART_SelectedContentHost"
-                                                  ContentSource="SelectedContent"/>
-                            </Border>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+
+        <!-- 类型标签样式 -->
+        <Style x:Key="TypeBadgeStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="5,1"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
     </UserControl.Resources>
     
@@ -204,7 +136,9 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
@@ -251,99 +185,136 @@
         <Border Grid.Row="1" Background="{DynamicResource CardBrush}" 
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
                 Padding="12,8">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="延迟(ms):" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                <TextBox Style="{StaticResource TechTextBoxStyle}" Width="70"
+                         Text="{Binding GlobalDelayMs, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="5,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- 规则工具栏 -->
+        <Border Grid.Row="2" Padding="4,6" Background="{DynamicResource SurfaceBrush}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="80"/>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 
-                <TextBlock Grid.Column="0" Text="延迟(ms):" VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                <TextBox Grid.Column="1" Style="{StaticResource TechTextBoxStyle}"
-                         Text="{Binding GlobalDelayMs, UpdateSourceTrigger=PropertyChanged}"
-                         Margin="5,0,15,0" VerticalAlignment="Center"/>
+                <!-- 添加按钮组 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button ToolTip="添加匹配规则" Style="{StaticResource ToolButtonStyle}"
+                            Command="{Binding AddMatchRuleCommand}" Content="M" FontSize="10" FontWeight="Bold"/>
+                    <Button ToolTip="添加顺序规则" Style="{StaticResource ToolButtonStyle}"
+                            Command="{Binding AddSequentialRuleCommand}" Content="S" FontSize="10" FontWeight="Bold"/>
+                    <Button ToolTip="添加协议规则" Style="{StaticResource ToolButtonStyle}"
+                            Command="{Binding AddProtocolRuleCommand}" Content="P" FontSize="10" FontWeight="Bold"/>
+                </StackPanel>
                 
-                <TextBlock Grid.Column="2" Text="模式:" VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
-                <ComboBox Grid.Column="3" Style="{StaticResource TechComboBoxStyle}"
-                          SelectedIndex="{Binding ActiveMode, Converter={StaticResource EnumToIntConverter}}"
-                          Margin="5,0,0,0" VerticalAlignment="Center">
-                    <ComboBoxItem Content="匹配回复"/>
-                    <ComboBoxItem Content="顺序回复"/>
-                    <ComboBoxItem Content="脚本回复"/>
-                    <ComboBoxItem Content="协议回复"/>
-                </ComboBox>
+                <!-- 操作按钮组 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="🗑" ToolTip="删除规则" Style="{StaticResource ToolButtonStyle}"
+                            Command="{Binding RemoveRuleCommand}"/>
+                    <Button Content="⬆" ToolTip="上移" Style="{StaticResource ToolButtonStyle}"
+                            Command="{Binding MoveRuleUpCommand}"/>
+                    <Button Content="⬇" ToolTip="下移" Style="{StaticResource ToolButtonStyle}"
+                            Command="{Binding MoveRuleDownCommand}"/>
+                </StackPanel>
             </Grid>
         </Border>
         
-        <!-- TabControl: 匹配规则 / 顺序帧 -->
-        <TabControl Grid.Row="2" Style="{StaticResource TechTabControlStyle}">
-            
-            <!-- 匹配回复 Tab -->
-            <TabItem Header="匹配规则">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    
-                    <!-- 工具栏 -->
-                    <Border Grid.Row="0" Padding="8,6" Background="{DynamicResource SurfaceBrush}">
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="➕" ToolTip="添加规则" Style="{StaticResource ToolButtonStyle}"
-                                    Command="{Binding AddMatchRuleCommand}"/>
-                            <Button Content="🗑" ToolTip="删除规则" Style="{StaticResource ToolButtonStyle}"
-                                    Command="{Binding RemoveMatchRuleCommand}"/>
-                            <Button Content="⬆" ToolTip="上移" Style="{StaticResource ToolButtonStyle}"
-                                    Command="{Binding MoveMatchRuleUpCommand}"/>
-                            <Button Content="⬇" ToolTip="下移" Style="{StaticResource ToolButtonStyle}"
-                                    Command="{Binding MoveMatchRuleDownCommand}"/>
+        <!-- 统一规则池列表 -->
+        <ListBox Grid.Row="3" ItemsSource="{Binding Rules}"
+                 SelectedItem="{Binding SelectedRule}"
+                 ItemContainerStyle="{StaticResource ListItemStyle}"
+                 Background="Transparent" BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled}" 
+                                  VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        
+                        <!-- 类型标签 -->
+                        <Border Grid.Column="1" Style="{StaticResource TypeBadgeStyle}">
+                            <Border.Background>
+                                <SolidColorBrush Color="{DynamicResource PrimaryColor}" Opacity="0.15"/>
+                            </Border.Background>
+                            <TextBlock Text="{Binding TypeDisplayName}" FontSize="10" FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"/>
+                        </Border>
+                        
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <emoji:TextBlock Text="{Binding Name}" FontWeight="Medium"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <emoji:TextBlock Text="{Binding Description}" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Visibility="{Binding Description, Converter={StaticResource NullToVisibilityConverter}}"/>
                         </StackPanel>
-                    </Border>
+                        
+                        <TextBlock Grid.Column="3" Text="{Binding SortOrder, StringFormat=[{0}]}"
+                                   FontSize="10" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="4,0"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        
+        <!-- 规则编辑区（选中规则后显示） -->
+        <Border Grid.Row="4" Padding="10" Background="{DynamicResource CardBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                Visibility="{Binding SelectedRule, Converter={StaticResource NullToVisibilityConverter}}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="350">
+                <StackPanel>
+                    <!-- 公共字段 -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="名称:" 
+                                   VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <emojiControls:EmojiTextBox Grid.Row="0" Grid.Column="1"
+                                 Text="{Binding SelectedRule.Name, UpdateSourceTrigger=PropertyChanged}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 Margin="0,2"/>
+                        
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="描述:" 
+                                   VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <emojiControls:EmojiTextBox Grid.Row="1" Grid.Column="1"
+                                 Text="{Binding SelectedRule.Description, UpdateSourceTrigger=PropertyChanged}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 Margin="0,2"/>
+                    </Grid>
                     
-                    <!-- 规则列表 -->
-                    <ListBox Grid.Row="1" ItemsSource="{Binding MatchRules}"
-                             SelectedItem="{Binding SelectedMatchRule}"
-                             ItemContainerStyle="{StaticResource ListItemStyle}"
-                             Background="Transparent" BorderThickness="0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    
-                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled}" 
-                                              VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding Name}" FontWeight="Medium"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="{Binding TriggerPattern}" FontSize="11"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="2" Text="→" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="5,0"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    
-                    <!-- 规则编辑区 -->
-                    <Border Grid.Row="2" Padding="10" Background="{DynamicResource CardBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
-                            Visibility="{Binding SelectedMatchRule, Converter={StaticResource NullToVisibilityConverter}}">
+                    <!-- 匹配规则专属字段 -->
+                    <StackPanel Margin="0,6,0,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedRule.Type}" Value="{x:Static models:ReplyMode.Match}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
@@ -352,24 +323,18 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="名称:" 
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="触发条件:" 
                                        VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource TechTextBoxStyle}"
-                                     Text="{Binding SelectedMatchRule.Name, UpdateSourceTrigger=PropertyChanged}"
-                                     Margin="0,2"/>
-                            
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="触发条件:" 
-                                       VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <Grid Grid.Row="1" Grid.Column="1" Margin="0,2">
+                            <Grid Grid.Row="0" Grid.Column="1" Margin="0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" Style="{StaticResource ExpandableTextBoxStyle}"
-                                         Text="{Binding SelectedMatchRule.TriggerPattern, UpdateSourceTrigger=PropertyChanged}"
+                                         Text="{Binding SelectedRule.MatchConfig.TriggerPattern, UpdateSourceTrigger=PropertyChanged}"
                                          pu:TextBoxHelper.Watermark="如: AA BB CC 或 HELLO"/>
                                 <ComboBox Grid.Column="1" Style="{StaticResource TechComboBoxStyle}"
-                                          SelectedIndex="{Binding SelectedMatchRule.MatchType, Converter={StaticResource EnumToIntConverter}}"
+                                          SelectedIndex="{Binding SelectedRule.MatchConfig.MatchType, Converter={StaticResource EnumToIntConverter}}"
                                           Width="90" Margin="5,0,0,0">
                                     <ComboBoxItem Content="Hex包含"/>
                                     <ComboBoxItem Content="ASCII包含"/>
@@ -378,123 +343,153 @@
                                 </ComboBox>
                             </Grid>
                             
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="响应内容:" 
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="响应内容:" 
                                        VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <Grid Grid.Row="2" Grid.Column="1" Margin="0,2">
+                            <Grid Grid.Row="1" Grid.Column="1" Margin="0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" Style="{StaticResource ExpandableTextBoxStyle}"
-                                         Text="{Binding SelectedMatchRule.ResponseContent, UpdateSourceTrigger=PropertyChanged}"
+                                         Text="{Binding SelectedRule.MatchConfig.ResponseContent, UpdateSourceTrigger=PropertyChanged}"
                                          pu:TextBoxHelper.Watermark="如: DD EE FF"/>
                                 <CheckBox Grid.Column="1" Content="Hex" Margin="8,0,0,0"
-                                          IsChecked="{Binding SelectedMatchRule.IsResponseHex}"
+                                          IsChecked="{Binding SelectedRule.MatchConfig.IsResponseHex}"
                                           VerticalAlignment="Center"/>
                             </Grid>
-                            
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="描述:" 
-                                       VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource ExpandableTextBoxStyle}"
-                                     Text="{Binding SelectedMatchRule.Description, UpdateSourceTrigger=PropertyChanged}"
-                                     Margin="0,2"/>
-                            
-                            <!-- 保存/取消按钮 -->
-                            <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" 
-                                        Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
-                                <Button Content="取消" Style="{StaticResource CancelButtonStyle}"
-                                        Command="{Binding CancelMatchRuleCommand}" Margin="0,0,8,0"/>
-                                <Button Content="💾 保存" Style="{StaticResource SaveButtonStyle}"
-                                        Command="{Binding SaveMatchRuleCommand}"/>
-                            </StackPanel>
                         </Grid>
-                    </Border>
-                </Grid>
-            </TabItem>
-            
-            <!-- 顺序回复 Tab -->
-            <TabItem Header="顺序帧">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                    </StackPanel>
                     
-                    <!-- 工具栏 -->
-                    <Border Grid.Row="0" Padding="4,6" Background="{DynamicResource SurfaceBrush}">
-                        <Grid>
+                    <!-- 顺序规则专属字段 -->
+                    <StackPanel Margin="0,6,0,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedRule.Type}" Value="{x:Static models:ReplyMode.Sequential}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        
+                        <!-- 顺序帧控制条 -->
+                        <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             
-                            <!-- 左侧按钮组 -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal">
                                 <Button Content="➕" ToolTip="添加帧" Style="{StaticResource ToolButtonStyle}"
-                                        Command="{Binding AddSequentialFrameCommand}"/>
+                                        Command="{Binding AddFrameCommand}"/>
                                 <Button Content="🗑" ToolTip="删除帧" Style="{StaticResource ToolButtonStyle}"
-                                        Command="{Binding RemoveSequentialFrameCommand}"/>
+                                        Command="{Binding RemoveFrameCommand}"/>
                                 <Button Content="⬆" ToolTip="上移" Style="{StaticResource ToolButtonStyle}"
-                                        Command="{Binding MoveSequentialFrameUpCommand}"/>
+                                        Command="{Binding MoveFrameUpCommand}"/>
                                 <Button Content="⬇" ToolTip="下移" Style="{StaticResource ToolButtonStyle}"
-                                        Command="{Binding MoveSequentialFrameDownCommand}"/>
+                                        Command="{Binding MoveFrameDownCommand}"/>
                             </StackPanel>
                             
-                            <!-- 右侧控制组 -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal">
-                                <CheckBox Content="循环" IsChecked="{Binding EnableLoop}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <CheckBox Content="循环" IsChecked="{Binding SelectedRule.SequentialConfig.EnableLoop}"
+                                          VerticalAlignment="Center" Margin="0,0,8,0"/>
                                 <Button Content="重置" ToolTip="重置索引" Style="{StaticResource ToolButtonStyle}"
-                                        Command="{Binding ResetSequenceIndexCommand}" Width="Auto" Padding="8,4"/>
+                                        Command="{Binding ResetRuleStateCommand}" Width="Auto" Padding="8,4"/>
                                 <TextBlock Text="#" VerticalAlignment="Center" Margin="8,0,2,0"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
-                                <TextBlock Text="{Binding CurrentFrameIndex}" VerticalAlignment="Center"
+                                <TextBlock Text="{Binding SelectedRule.CurrentFrameIndex}" VerticalAlignment="Center"
                                            Foreground="{DynamicResource PrimaryBrush}" FontWeight="Bold" MinWidth="15"/>
                             </StackPanel>
                         </Grid>
-                    </Border>
-                    
-                    <!-- 帧列表 -->
-                    <ListBox Grid.Row="1" ItemsSource="{Binding SequentialFrames}"
-                             SelectedItem="{Binding SelectedSequentialFrame}"
-                             ItemContainerStyle="{StaticResource ListItemStyle}"
-                             Background="Transparent" BorderThickness="0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
+                        
+                        <!-- 帧列表 -->
+                        <ListBox ItemsSource="{Binding EditingFrames}"
+                                 SelectedItem="{Binding SelectedEditingFrame}"
+                                 ItemContainerStyle="{StaticResource ListItemStyle}"
+                                 Background="Transparent" BorderThickness="1"
+                                 BorderBrush="{DynamicResource BorderBrush}"
+                                 MaxHeight="150"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled}" 
+                                                  VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding SortOrder, StringFormat=[{0}]}" 
+                                                   FontSize="11" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0"/>
+                                        <StackPanel Grid.Column="2">
+                                            <emoji:TextBlock Text="{Binding Name}" FontWeight="Medium"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding Content}" FontSize="11"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        
+                        <!-- 帧编辑 -->
+                        <Border Padding="0,6,0,0"
+                                Visibility="{Binding SelectedEditingFrame, Converter={StaticResource NullToVisibilityConverter}}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="帧名称:" 
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <emojiControls:EmojiTextBox Grid.Row="0" Grid.Column="1"
+                                         Text="{Binding SelectedEditingFrame.Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                         Margin="0,2"/>
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="内容:" 
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Grid Grid.Row="1" Grid.Column="1" Margin="0,2">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    
-                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled}" 
-                                              VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding SortOrder, StringFormat=[{0}]}" 
-                                               FontSize="11" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0"/>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="{Binding Name}" FontWeight="Medium"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="{Binding Content}" FontSize="11"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
+                                    <TextBox Grid.Column="0" Style="{StaticResource ExpandableTextBoxStyle}"
+                                             Text="{Binding SelectedEditingFrame.Content, UpdateSourceTrigger=PropertyChanged}"
+                                             pu:TextBoxHelper.Watermark="如: 01 02 03 或 OK"/>
+                                    <CheckBox Grid.Column="1" Content="Hex" Margin="8,0,0,0"
+                                              IsChecked="{Binding SelectedEditingFrame.IsHexMode}"
+                                              VerticalAlignment="Center"/>
                                 </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
                     
-                    <!-- 帧编辑区 -->
-                    <Border Grid.Row="2" Padding="10" Background="{DynamicResource CardBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
-                            Visibility="{Binding SelectedSequentialFrame, Converter={StaticResource NullToVisibilityConverter}}">
+                    <!-- 协议规则专属字段 -->
+                    <StackPanel Margin="0,6,0,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedRule.Type}" Value="{x:Static models:ReplyMode.Protocol}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
@@ -503,214 +498,87 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="名称:" 
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="协议:" 
                                        VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource TechTextBoxStyle}"
-                                     Text="{Binding SelectedSequentialFrame.Name, UpdateSourceTrigger=PropertyChanged}"
-                                     Margin="0,2"/>
-                            
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="内容:" 
-                                       VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <Grid Grid.Row="1" Grid.Column="1" Margin="0,2">
+                            <Grid Grid.Row="0" Grid.Column="1" Margin="0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Style="{StaticResource ExpandableTextBoxStyle}"
-                                         Text="{Binding SelectedSequentialFrame.Content, UpdateSourceTrigger=PropertyChanged}"
-                                         pu:TextBoxHelper.Watermark="如: 01 02 03 或 OK"/>
-                                <CheckBox Grid.Column="1" Content="Hex" Margin="8,0,0,0"
-                                          IsChecked="{Binding SelectedSequentialFrame.IsHexMode}"
-                                          VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="0" Style="{StaticResource TechComboBoxStyle}"
+                                          ItemsSource="{Binding AvailableProtocols}"
+                                          DisplayMemberPath="Name"
+                                          SelectedValuePath="Name"
+                                          SelectedValue="{Binding SelectedRule.ProtocolConfig.ProtocolName, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1" Content="🔄" ToolTip="刷新协议" Style="{StaticResource ToolButtonStyle}"
+                                        Command="{Binding RefreshAvailableProtocolsCommand}" Margin="4,0,0,0"/>
                             </Grid>
-                            
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="描述:" 
-                                       VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource ExpandableTextBoxStyle}"
-                                     Text="{Binding SelectedSequentialFrame.Description, UpdateSourceTrigger=PropertyChanged}"
-                                     Margin="0,2"/>
-                            
-                            <!-- 保存/取消按钮 -->
-                            <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" 
-                                        Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
-                                <Button Content="取消" Style="{StaticResource CancelButtonStyle}"
-                                        Command="{Binding CancelSequentialFrameCommand}" Margin="0,0,8,0"/>
-                                <Button Content="💾 保存" Style="{StaticResource SaveButtonStyle}"
-                                        Command="{Binding SaveSequentialFrameCommand}"/>
-                            </StackPanel>
                         </Grid>
-                    </Border>
-                </Grid>
-            </TabItem>
-            
-            <!-- 协议回复 Tab -->
-            <TabItem Header="协议回复">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    
-                    <!-- 工具栏 -->
-                    <Border Grid.Row="0" Padding="8,6" Background="{DynamicResource SurfaceBrush}">
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="➕" ToolTip="添加方案" Style="{StaticResource ToolButtonStyle}"
-                                    Command="{Binding AddProtocolSchemeCommand}"/>
-                            <Button Content="🗑" ToolTip="删除方案" Style="{StaticResource ToolButtonStyle}"
-                                    Command="{Binding RemoveProtocolSchemeCommand}"/>
-                            <Button Content="🔄" ToolTip="刷新协议列表" Style="{StaticResource ToolButtonStyle}"
-                                    Command="{Binding RefreshAvailableProtocolsCommand}"/>
-                        </StackPanel>
-                    </Border>
-                    
-                    <!-- 方案列表 -->
-                    <ListBox Grid.Row="1" ItemsSource="{Binding ProtocolSchemes}"
-                             SelectedItem="{Binding SelectedProtocolScheme}"
-                             ItemContainerStyle="{StaticResource ListItemStyle}"
-                             Background="Transparent" BorderThickness="0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    
-                                    <!-- 单选互斥：RadioButton -->
-                                    <RadioButton Grid.Column="0" 
-                                                 IsChecked="{Binding IsActive}" 
-                                                 GroupName="ProtocolSchemeActive"
-                                                 VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <CheckBox Grid.Column="1" IsChecked="{Binding IsEnabled}" 
-                                              VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="{Binding Name}" FontWeight="Medium"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock FontSize="11"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                        
+                        <!-- 动态字段输入区 -->
+                        <TextBlock Text="数据字段" FontWeight="SemiBold" Margin="0,8,0,4"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ItemsControl ItemsSource="{Binding ProtocolFieldInputs}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding DisplayName, StringFormat={}{0}:}" 
+                                                   VerticalAlignment="Center" FontSize="11"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBox Grid.Column="1" 
+                                                 Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="{DynamicResource CardBrush}"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                                 BorderBrush="{DynamicResource BorderBrush}"
+                                                 CaretBrush="{DynamicResource PrimaryBrush}"
+                                                 pu:TextBoxHelper.Watermark="{Binding DefaultValue}"
+                                                 pu:TextBoxHelper.CornerRadius="4"/>
+                                        <CheckBox Grid.Column="2" Content="Hex" Margin="6,0,0,0"
+                                                  IsChecked="{Binding IsHexMode}"
+                                                  VerticalAlignment="Center" FontSize="11"/>
+                                        <TextBlock Grid.Row="1" Grid.ColumnSpan="3"
+                                                   FontSize="10" Margin="0,1,0,0"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
                                                    TextTrimming="CharacterEllipsis">
                                             <TextBlock.Text>
-                                                <MultiBinding StringFormat="{}{0} - {1}">
-                                                    <Binding Path="ProtocolName"/>
+                                                <MultiBinding StringFormat="{}{0} | {1}">
+                                                    <Binding Path="DataTypeDisplay"/>
                                                     <Binding Path="Description"/>
                                                 </MultiBinding>
                                             </TextBlock.Text>
                                         </TextBlock>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        
+                        <Button Content="🔄 刷新字段" Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding RefreshProtocolFieldsCommand}" 
+                                HorizontalAlignment="Left" Margin="0,4,0,0"/>
+                    </StackPanel>
                     
-                    <!-- 方案编辑区 -->
-                    <Border Grid.Row="2" Padding="10" Background="{DynamicResource CardBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
-                            Visibility="{Binding SelectedProtocolScheme, Converter={StaticResource NullToVisibilityConverter}}">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="300">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="70"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                            
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="名称:" 
-                                           VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource TechTextBoxStyle}"
-                                         Text="{Binding SelectedProtocolScheme.Name, UpdateSourceTrigger=PropertyChanged}"
-                                         Margin="0,2"/>
-                            
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="协议:" 
-                                           VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <ComboBox Grid.Row="1" Grid.Column="1" Style="{StaticResource TechComboBoxStyle}"
-                                          ItemsSource="{Binding AvailableProtocols}"
-                                          DisplayMemberPath="Name"
-                                          SelectedValuePath="Name"
-                                          SelectedValue="{Binding SelectedProtocolScheme.ProtocolName, UpdateSourceTrigger=PropertyChanged}"
-                                          Margin="0,2"/>
-                            
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="描述:" 
-                                           VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource ExpandableTextBoxStyle}"
-                                         Text="{Binding SelectedProtocolScheme.Description, UpdateSourceTrigger=PropertyChanged}"
-                                         Margin="0,2"/>
-                            
-                                <!-- 动态字段输入区 -->
-                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" 
-                                           Text="数据字段" FontWeight="SemiBold" Margin="0,8,0,4"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <ItemsControl Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,24,0,0"
-                                              ItemsSource="{Binding ProtocolFieldInputs}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,3">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="70"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                </Grid.RowDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding DisplayName, StringFormat={}{0}:}" 
-                                                           VerticalAlignment="Center" FontSize="11"
-                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <TextBox Grid.Column="1" 
-                                                         Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                                         Background="{DynamicResource CardBrush}"
-                                                         Foreground="{DynamicResource TextPrimaryBrush}"
-                                                         BorderBrush="{DynamicResource BorderBrush}"
-                                                         CaretBrush="{DynamicResource PrimaryBrush}"
-                                                         pu:TextBoxHelper.Watermark="{Binding DefaultValue}"
-                                                         pu:TextBoxHelper.CornerRadius="4"/>
-                                                <CheckBox Grid.Column="2" Content="Hex" Margin="6,0,0,0"
-                                                          IsChecked="{Binding IsHexMode}"
-                                                          VerticalAlignment="Center" FontSize="11"/>
-                                                <TextBlock Grid.Row="1" Grid.ColumnSpan="3"
-                                                           FontSize="10" Margin="0,1,0,0"
-                                                           Foreground="{DynamicResource TextMutedBrush}"
-                                                           TextTrimming="CharacterEllipsis">
-                                                    <TextBlock.Text>
-                                                        <MultiBinding StringFormat="{}{0} | {1}">
-                                                            <Binding Path="DataTypeDisplay"/>
-                                                            <Binding Path="Description"/>
-                                                        </MultiBinding>
-                                                    </TextBlock.Text>
-                                                </TextBlock>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            
-                                <!-- 保存/取消按钮 -->
-                                <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" 
-                                            Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
-                                    <Button Content="🔄 刷新字段" Style="{StaticResource ActionButtonStyle}"
-                                            Command="{Binding RefreshProtocolFieldsCommand}" Margin="0,0,8,0"/>
-                                    <Button Content="❌ 取消" Style="{StaticResource ActionButtonStyle}"
-                                            Command="{Binding CancelProtocolSchemeCommand}" Margin="0,0,8,0"/>
-                                    <Button Content="💾 保存" Style="{StaticResource SaveButtonStyle}"
-                                            Command="{Binding SaveProtocolSchemeFieldsCommand}"/>
-                                </StackPanel>
-                            </Grid>
-                        </ScrollViewer>
-                    </Border>
-                </Grid>
-            </TabItem>
-        </TabControl>
+                    <!-- 保存/取消按钮 -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                        <Button Content="取消" Style="{StaticResource CancelButtonStyle}"
+                                Command="{Binding CancelRuleCommand}" Margin="0,0,8,0"/>
+                        <Button Content="💾 保存" Style="{StaticResource SaveButtonStyle}"
+                                Command="{Binding SaveRuleCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
         
         <!-- 状态栏 -->
-        <Border Grid.Row="3" Padding="10,6" Background="{DynamicResource CardBrush}"
+        <Border Grid.Row="5" Padding="10,6" Background="{DynamicResource CardBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <StackPanel Orientation="Horizontal">
                 <Ellipse Width="8" Height="8" Margin="0,0,6,0">

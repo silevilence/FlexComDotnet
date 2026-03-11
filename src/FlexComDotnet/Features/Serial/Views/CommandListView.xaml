@@ -6,6 +6,9 @@
              xmlns:local="clr-namespace:FlexComDotnet.Features.Serial.Views"
              xmlns:converters="clr-namespace:FlexComDotnet.Converters"
              xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+             xmlns:emojiBehavior="clr-namespace:FlexComDotnet.Features.EmojiSupport.Behaviors"
+             xmlns:emojiControls="clr-namespace:FlexComDotnet.Features.EmojiSupport.Controls"
+             xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              mc:Ignorable="d" 
              d:DesignHeight="400" d:DesignWidth="300"
              Background="{DynamicResource SurfaceBrush}">
@@ -172,11 +175,10 @@
                                   Margin="0,0,10,0"/>
                         
                         <!-- 名称 -->
-                        <TextBlock Grid.Column="1" Grid.Row="0"
+                        <emoji:TextBlock Grid.Column="1" Grid.Row="0"
                                    Text="{Binding Name}"
                                    FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   TextTrimming="CharacterEllipsis"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         
                         <!-- 内容预览 -->
                         <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal">
@@ -290,9 +292,9 @@
                     <TextBlock Text="名称:" 
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <TextBox Grid.Column="1" 
+                    <emojiControls:EmojiTextBox Grid.Column="1" 
                              Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource TechTextBoxStyle}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
                              Padding="8,6"/>
                 </Grid>
                 

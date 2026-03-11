@@ -19,32 +19,26 @@ public class MatchReplyHandler : IReplyHandler
     public string Description => "检测接收数据中的特定特征码，匹配成功后自动发送预设响应";
 
     /// <inheritdoc/>
-    public ReplyResult Process(byte[] receivedData, AutoReplyConfig config)
+    public ReplyResult Process(byte[] receivedData, AutoReplyRule rule)
     {
-        if (receivedData.Length == 0)
+        if (receivedData.Length == 0 || rule.MatchConfig == null)
         {
             return ReplyResult.NoReply;
         }
 
-        var rules = config.MatchConfig.Rules
-            .Where(r => r.IsEnabled)
-            .OrderBy(r => r.SortOrder)
-            .ToList();
+        var matchConfig = rule.MatchConfig;
 
-        if (rules.Count == 0)
+        if (string.IsNullOrEmpty(matchConfig.TriggerPattern))
         {
             return ReplyResult.NoReply;
         }
 
-        foreach (var rule in rules)
+        if (IsMatch(receivedData, matchConfig))
         {
-            if (IsMatch(receivedData, rule))
+            var responseData = GetResponseData(matchConfig);
+            if (responseData.Length > 0)
             {
-                var responseData = GetResponseData(rule);
-                if (responseData.Length > 0)
-                {
-                    return ReplyResult.Reply(responseData, rule.Name);
-                }
+                return ReplyResult.Reply(responseData, rule.Name);
             }
         }
 
@@ -52,7 +46,7 @@ public class MatchReplyHandler : IReplyHandler
     }
 
     /// <inheritdoc/>
-    public void Reset(AutoReplyConfig config)
+    public void Reset(AutoReplyRule rule)
     {
         // 匹配模式无状态需要重置
     }
@@ -60,14 +54,14 @@ public class MatchReplyHandler : IReplyHandler
     /// <summary>
     /// 检查接收数据是否匹配规则
     /// </summary>
-    private static bool IsMatch(byte[] receivedData, MatchRule rule)
+    private static bool IsMatch(byte[] receivedData, MatchRuleConfig config)
     {
-        return rule.MatchType switch
+        return config.MatchType switch
         {
-            Models.MatchType.HexContains => IsHexContainsMatch(receivedData, rule.TriggerPattern),
-            Models.MatchType.HexExact => IsHexExactMatch(receivedData, rule.TriggerPattern),
-            Models.MatchType.AsciiContains => IsAsciiContainsMatch(receivedData, rule.TriggerPattern),
-            Models.MatchType.AsciiExact => IsAsciiExactMatch(receivedData, rule.TriggerPattern),
+            Models.MatchType.HexContains => IsHexContainsMatch(receivedData, config.TriggerPattern),
+            Models.MatchType.HexExact => IsHexExactMatch(receivedData, config.TriggerPattern),
+            Models.MatchType.AsciiContains => IsAsciiContainsMatch(receivedData, config.TriggerPattern),
+            Models.MatchType.AsciiExact => IsAsciiExactMatch(receivedData, config.TriggerPattern),
             _ => false
         };
     }
@@ -162,20 +156,20 @@ public class MatchReplyHandler : IReplyHandler
     /// <summary>
     /// 获取响应数据
     /// </summary>
-    private static byte[] GetResponseData(MatchRule rule)
+    private static byte[] GetResponseData(MatchRuleConfig config)
     {
-        if (string.IsNullOrEmpty(rule.ResponseContent))
+        if (string.IsNullOrEmpty(config.ResponseContent))
         {
             return [];
         }
 
-        if (rule.IsResponseHex)
+        if (config.IsResponseHex)
         {
-            return HexHelper.HexStringToBytes(rule.ResponseContent);
+            return HexHelper.HexStringToBytes(config.ResponseContent);
         }
         else
         {
-            return Encoding.ASCII.GetBytes(rule.ResponseContent);
+            return Encoding.ASCII.GetBytes(config.ResponseContent);
         }
     }
 }

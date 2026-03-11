@@ -26,13 +26,13 @@ public interface IReplyHandler
     /// 处理接收到的数据并返回回复结果
     /// </summary>
     /// <param name="receivedData">接收到的数据</param>
-    /// <param name="config">自动回复配置</param>
+    /// <param name="rule">要处理的规则</param>
     /// <returns>回复结果</returns>
-    ReplyResult Process(byte[] receivedData, AutoReplyConfig config);
+    ReplyResult Process(byte[] receivedData, AutoReplyRule rule);
 
     /// <summary>
     /// 重置处理器状态（如顺序回复的索引）
     /// </summary>
-    /// <param name="config">自动回复配置</param>
-    void Reset(AutoReplyConfig config);
+    /// <param name="rule">要重置的规则</param>
+    void Reset(AutoReplyRule rule);
 }

@@ -19,14 +19,14 @@ public class SequentialReplyHandler : IReplyHandler
     public string Description => "每次收到数据后，按预设顺序发送列表中的下一帧，支持循环";
 
     /// <inheritdoc/>
-    public ReplyResult Process(byte[] receivedData, AutoReplyConfig config)
+    public ReplyResult Process(byte[] receivedData, AutoReplyRule rule)
     {
-        if (receivedData.Length == 0)
+        if (receivedData.Length == 0 || rule.SequentialConfig == null)
         {
             return ReplyResult.NoReply;
         }
 
-        var seqConfig = config.SequentialConfig;
+        var seqConfig = rule.SequentialConfig;
         var enabledFrames = seqConfig.Frames
             .Where(f => f.IsEnabled)
             .OrderBy(f => f.SortOrder)
@@ -67,7 +67,7 @@ public class SequentialReplyHandler : IReplyHandler
             {
                 // 更新索引到下一个位置
                 seqConfig.CurrentIndex = currentIndex + 1;
-                return ReplyResult.Reply(responseData, frame.Name);
+                return ReplyResult.Reply(responseData, $"{rule.Name}: {frame.Name}");
             }
 
             // 帧内容为空，跳到下一个
@@ -97,9 +97,12 @@ public class SequentialReplyHandler : IReplyHandler
     }
 
     /// <inheritdoc/>
-    public void Reset(AutoReplyConfig config)
+    public void Reset(AutoReplyRule rule)
     {
-        config.SequentialConfig.CurrentIndex = 0;
+        if (rule.SequentialConfig != null)
+        {
+            rule.SequentialConfig.CurrentIndex = 0;
+        }
     }
 
     /// <summary>

@@ -34,6 +34,12 @@ public partial class ScriptingView : UserControl
 
         // 订阅打开编辑器请求
         viewModel.OpenEditorRequested += OnOpenEditorRequested;
+
+        // 注入确认删除回调
+        viewModel.ConfirmAction = message =>
+            System.Windows.MessageBox.Show(message, "确认删除",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes;
     }
 
     private void InitializeCodePreviewEditor()

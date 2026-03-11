@@ -1,6 +1,8 @@
 using FlexComDotnet.Core.Features.Scripting.Models;
 using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
+using FlexComDotnet.Core.Features.Serial.Models;
+using FlexComDotnet.Core.Features.Serial.Services;
 using FluentAssertions;
 using Moq;
 
@@ -245,4 +247,195 @@ public class ScriptingViewModelTests : IDisposable
     }
 
     #endregion
+}
+
+/// <summary>
+/// 脚本 Hook 配置持久化测试
+/// </summary>
+public class ScriptingViewModelHookPersistenceTests : IDisposable
+{
+    private readonly Mock<IScriptEngine> _mockEngine;
+    private readonly Mock<IScriptManager> _mockManager;
+    private readonly Mock<IScriptApiBridge> _mockBridge;
+    private readonly Mock<IScriptHookService> _mockHookService;
+    private readonly Mock<IConfigurationService> _mockConfigService;
+    private readonly ScriptingViewModel _viewModel;
+
+    public ScriptingViewModelHookPersistenceTests()
+    {
+        _mockEngine = new Mock<IScriptEngine>();
+        _mockManager = new Mock<IScriptManager>();
+        _mockBridge = new Mock<IScriptApiBridge>();
+        _mockHookService = new Mock<IScriptHookService>();
+        _mockConfigService = new Mock<IConfigurationService>();
+
+        _mockEngine.Setup(e => e.State).Returns(ScriptState.Idle);
+        _mockManager.Setup(m => m.GetAllScripts()).Returns([]);
+
+        var defaultSettings = new ScriptHookSettings();
+        _mockHookService.Setup(h => h.Settings).Returns(defaultSettings);
+        _mockConfigService.Setup(c => c.Load()).Returns(new AppConfig());
+
+        _viewModel = new ScriptingViewModel(
+            _mockEngine.Object,
+            _mockManager.Object,
+            _mockBridge.Object,
+            _mockHookService.Object,
+            null,
+            _mockConfigService.Object);
+    }
+
+    public void Dispose()
+    {
+        _viewModel.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    [Fact]
+    public void Constructor_ShouldLoadHookSettingsFromConfig()
+    {
+        // Arrange
+        var config = new AppConfig
+        {
+            ScriptHookConfig = new ScriptHookConfig
+            {
+                RxPreProcessorScriptId = "script-rx",
+                TxPostProcessorScriptId = "script-tx",
+                ReplyScriptId = "script-reply"
+            }
+        };
+        _mockConfigService.Setup(c => c.Load()).Returns(config);
+
+        var settings = new ScriptHookSettings
+        {
+            RxPreProcessor = new HookConfig { ScriptId = "script-rx" },
+            TxPostProcessor = new HookConfig { ScriptId = "script-tx" },
+            Reply = new HookConfig { ScriptId = "script-reply" }
+        };
+        _mockHookService.Setup(h => h.Settings).Returns(settings);
+
+        // Act
+        var vm = new ScriptingViewModel(
+            _mockEngine.Object, _mockManager.Object, _mockBridge.Object,
+            _mockHookService.Object, null, _mockConfigService.Object);
+
+        // Assert
+        vm.RxHookScriptId.Should().Be("script-rx");
+        vm.TxHookScriptId.Should().Be("script-tx");
+        vm.ReplyHookScriptId.Should().Be("script-reply");
+        vm.RxHookEnabled.Should().BeFalse();
+        vm.TxHookEnabled.Should().BeFalse();
+        vm.ReplyHookEnabled.Should().BeFalse();
+
+        vm.Dispose();
+    }
+
+    [Fact]
+    public void SetRxHookScriptId_ShouldPersistToConfig()
+    {
+        _viewModel.RxHookScriptId = "new-script";
+
+        _mockConfigService.Verify(c => c.Save(It.Is<AppConfig>(
+            a => a.ScriptHookConfig.RxPreProcessorScriptId == "new-script")), Times.Once);
+    }
+
+    [Fact]
+    public void SetTxHookScriptId_ShouldPersistToConfig()
+    {
+        _viewModel.TxHookScriptId = "new-tx-script";
+
+        _mockConfigService.Verify(c => c.Save(It.Is<AppConfig>(
+            a => a.ScriptHookConfig.TxPostProcessorScriptId == "new-tx-script")), Times.Once);
+    }
+
+    [Fact]
+    public void SetReplyHookScriptId_ShouldPersistToConfig()
+    {
+        _viewModel.ReplyHookScriptId = "new-reply-script";
+
+        _mockConfigService.Verify(c => c.Save(It.Is<AppConfig>(
+            a => a.ScriptHookConfig.ReplyScriptId == "new-reply-script")), Times.Once);
+    }
+
+    [Fact]
+    public void SetHookEnabled_ShouldNotPersist()
+    {
+        _viewModel.RxHookEnabled = true;
+        _viewModel.TxHookEnabled = true;
+        _viewModel.ReplyHookEnabled = true;
+
+        // 启用状态不应触发 Save
+        _mockConfigService.Verify(c => c.Save(It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public void DeleteScript_WithHookBinding_UserConfirms_ShouldClearBinding()
+    {
+        var script = new ScriptFileInfo { Id = "bound-script", Name = "test" };
+        _mockManager.Setup(m => m.DeleteScript("bound-script")).Returns(true);
+        _viewModel.RxHookScriptId = "bound-script";
+        _viewModel.RxHookEnabled = true;
+        _viewModel.SelectedScript = script;
+
+        // 用户确认删除
+        _viewModel.ConfirmAction = _ => true;
+        _viewModel.DeleteScriptCommand.Execute(null);
+
+        _viewModel.RxHookScriptId.Should().BeNull();
+        _viewModel.RxHookEnabled.Should().BeFalse();
+        _mockManager.Verify(m => m.DeleteScript("bound-script"), Times.Once);
+    }
+
+    [Fact]
+    public void DeleteScript_WithHookBinding_UserCancels_ShouldNotDelete()
+    {
+        var script = new ScriptFileInfo { Id = "bound-script", Name = "test" };
+        _viewModel.RxHookScriptId = "bound-script";
+        _viewModel.SelectedScript = script;
+
+        // 用户取消删除
+        _viewModel.ConfirmAction = _ => false;
+        _viewModel.DeleteScriptCommand.Execute(null);
+
+        _viewModel.RxHookScriptId.Should().Be("bound-script");
+        _mockManager.Verify(m => m.DeleteScript(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public void DeleteScript_WithMultipleHookBindings_ShouldClearAll()
+    {
+        var script = new ScriptFileInfo { Id = "multi-hook", Name = "multi" };
+        _mockManager.Setup(m => m.DeleteScript("multi-hook")).Returns(true);
+        _viewModel.RxHookScriptId = "multi-hook";
+        _viewModel.TxHookScriptId = "multi-hook";
+        _viewModel.ReplyHookScriptId = "multi-hook";
+        _viewModel.RxHookEnabled = true;
+        _viewModel.TxHookEnabled = true;
+        _viewModel.SelectedScript = script;
+
+        _viewModel.ConfirmAction = _ => true;
+        _viewModel.DeleteScriptCommand.Execute(null);
+
+        _viewModel.RxHookScriptId.Should().BeNull();
+        _viewModel.TxHookScriptId.Should().BeNull();
+        _viewModel.ReplyHookScriptId.Should().BeNull();
+        _viewModel.RxHookEnabled.Should().BeFalse();
+        _viewModel.TxHookEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void DeleteScript_WithoutHookBinding_ShouldDeleteDirectly()
+    {
+        var script = new ScriptFileInfo { Id = "unbound", Name = "unbound" };
+        _mockManager.Setup(m => m.DeleteScript("unbound")).Returns(true);
+        _viewModel.SelectedScript = script;
+
+        // 无 hook 绑定时不应询问确认
+        var confirmCalled = false;
+        _viewModel.ConfirmAction = _ => { confirmCalled = true; return true; };
+        _viewModel.DeleteScriptCommand.Execute(null);
+
+        confirmCalled.Should().BeFalse();
+        _mockManager.Verify(m => m.DeleteScript("unbound"), Times.Once);
+    }
 }

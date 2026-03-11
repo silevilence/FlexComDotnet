@@ -25,18 +25,14 @@ public class ScriptReplyHandler : IReplyHandler
     }
 
     /// <inheritdoc/>
-    public ReplyResult Process(byte[] receivedData, AutoReplyConfig config)
+    public ReplyResult Process(byte[] receivedData, AutoReplyRule rule)
     {
         if (receivedData.Length == 0)
         {
             return ReplyResult.NoReply;
         }
 
-        if (string.IsNullOrEmpty(config.ScriptConfig.ScriptId))
-        {
-            return ReplyResult.NoReply;
-        }
-
+        // Script handler delegates to the hook service which manages its own script binding
         var result = _hookService.ExecuteReplyHookAsync(receivedData).GetAwaiter().GetResult();
 
         if (!result.Success)
@@ -46,14 +42,14 @@ public class ScriptReplyHandler : IReplyHandler
 
         if (result.ShouldReply && result.ReplyData != null && result.ReplyData.Length > 0)
         {
-            return ReplyResult.Reply(result.ReplyData, "脚本回复");
+            return ReplyResult.Reply(result.ReplyData, rule.Name);
         }
 
         return ReplyResult.NoReply;
     }
 
     /// <inheritdoc/>
-    public void Reset(AutoReplyConfig config)
+    public void Reset(AutoReplyRule rule)
     {
     }
 }

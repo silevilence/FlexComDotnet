@@ -7,6 +7,7 @@
              xmlns:converters="clr-namespace:FlexComDotnet.Converters"
              xmlns:models="clr-namespace:FlexComDotnet.Core.Features.Serial.Models;assembly=FlexComDotnet.Core"
              xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+             xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800"
              Background="{DynamicResource BackgroundBrush}">
@@ -191,21 +192,42 @@
                 </Border>
                 
                 <!-- 接收数据显示区 -->
-                <TextBox Grid.Row="1"
-                         Text="{Binding ReceivedData, Mode=OneWay}"
-                         IsReadOnly="True"
-                         TextWrapping="Wrap"
-                         VerticalAlignment="Stretch"
-                         VerticalContentAlignment="Top"
-                         VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Auto"
-                         FontFamily="pack://application:,,,/Fonts/#Maple Mono NF CN"
-                         FontSize="12"
-                         Padding="12"
-                         BorderThickness="0"
-                         Background="{DynamicResource CardBrush}"
-                         Foreground="{DynamicResource TextPrimaryBrush}"
-                         CaretBrush="{DynamicResource PrimaryBrush}"/>
+                <Border Grid.Row="1" 
+                        Background="{DynamicResource CardBrush}"
+                        Padding="0">
+                    <ListBox x:Name="ReceivedDataListBox"
+                             ItemsSource="{Binding DisplayRecords}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             FontFamily="pack://application:,,,/Fonts/#Maple Mono NF CN"
+                             FontSize="12"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             SelectionMode="Extended"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="复制" Click="CopyReceived_Click" InputGestureText="Ctrl+C"/>
+                                <MenuItem Header="全选" Click="SelectAllReceived_Click" InputGestureText="Ctrl+A"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="12,2"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <emoji:TextBlock Text="{Binding}"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                                 TextWrapping="Wrap"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
             </Grid>
         </Border>
         

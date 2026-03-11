@@ -14,38 +14,47 @@ public class AutoReplyConfigTests
         // Assert
         config.IsEnabled.Should().BeFalse();
         config.GlobalDelayMs.Should().Be(100);
-        config.ActiveMode.Should().Be(ReplyMode.Match);
-        config.MatchConfig.Should().NotBeNull();
-        config.SequentialConfig.Should().NotBeNull();
+        config.Rules.Should().NotBeNull();
+        config.Rules.Should().BeEmpty();
     }
 
     [Fact]
-    public void MatchConfig_ShouldHaveEmptyRulesByDefault()
+    public void Rules_ShouldSupportMultipleTypes()
     {
         // Act
-        var config = new AutoReplyConfig();
+        var config = new AutoReplyConfig
+        {
+            Rules =
+            [
+                new AutoReplyRule { Name = "Match1", Type = ReplyMode.Match, MatchConfig = new MatchRuleConfig() },
+                new AutoReplyRule { Name = "Seq1", Type = ReplyMode.Sequential, SequentialConfig = new SequentialRuleConfig() },
+                new AutoReplyRule { Name = "Proto1", Type = ReplyMode.Protocol, ProtocolConfig = new ProtocolRuleConfig() }
+            ]
+        };
 
         // Assert
-        config.MatchConfig.Rules.Should().BeEmpty();
+        config.Rules.Should().HaveCount(3);
+        config.Rules[0].Type.Should().Be(ReplyMode.Match);
+        config.Rules[1].Type.Should().Be(ReplyMode.Sequential);
+        config.Rules[2].Type.Should().Be(ReplyMode.Protocol);
     }
 
     [Fact]
-    public void SequentialConfig_ShouldHaveDefaultValues()
+    public void SequentialRuleConfig_ShouldHaveDefaultValues()
     {
         // Act
-        var config = new AutoReplyConfig();
+        var seqConfig = new SequentialRuleConfig();
 
         // Assert
-        config.SequentialConfig.Frames.Should().BeEmpty();
-        config.SequentialConfig.EnableLoop.Should().BeTrue();
-        config.SequentialConfig.CurrentIndex.Should().Be(0);
+        seqConfig.Frames.Should().BeEmpty();
+        seqConfig.EnableLoop.Should().BeTrue();
+        seqConfig.CurrentIndex.Should().Be(0);
     }
 
     [Fact]
     public void Properties_ShouldBeSettable()
     {
         // Arrange
-        var matchRule = new MatchRule { Name = "Rule1" };
         var frame = new SequentialFrame { Name = "Frame1" };
 
         // Act
@@ -53,25 +62,36 @@ public class AutoReplyConfigTests
         {
             IsEnabled = true,
             GlobalDelayMs = 500,
-            ActiveMode = ReplyMode.Sequential,
-            MatchConfig = new MatchReplyConfig { Rules = [matchRule] },
-            SequentialConfig = new SequentialReplyConfig
-            {
-                Frames = [frame],
-                EnableLoop = false,
-                CurrentIndex = 2
-            }
+            Rules =
+            [
+                new AutoReplyRule
+                {
+                    Name = "Rule1",
+                    Type = ReplyMode.Match,
+                    MatchConfig = new MatchRuleConfig { TriggerPattern = "AA", ResponseContent = "BB" }
+                },
+                new AutoReplyRule
+                {
+                    Name = "SeqRule1",
+                    Type = ReplyMode.Sequential,
+                    SequentialConfig = new SequentialRuleConfig
+                    {
+                        Frames = [frame],
+                        EnableLoop = false,
+                        CurrentIndex = 2
+                    }
+                }
+            ]
         };
 
         // Assert
         config.IsEnabled.Should().BeTrue();
         config.GlobalDelayMs.Should().Be(500);
-        config.ActiveMode.Should().Be(ReplyMode.Sequential);
-        config.MatchConfig.Rules.Should().HaveCount(1);
-        config.MatchConfig.Rules[0].Name.Should().Be("Rule1");
-        config.SequentialConfig.Frames.Should().HaveCount(1);
-        config.SequentialConfig.Frames[0].Name.Should().Be("Frame1");
-        config.SequentialConfig.EnableLoop.Should().BeFalse();
-        config.SequentialConfig.CurrentIndex.Should().Be(2);
+        config.Rules.Should().HaveCount(2);
+        config.Rules[0].Name.Should().Be("Rule1");
+        config.Rules[1].SequentialConfig!.Frames.Should().HaveCount(1);
+        config.Rules[1].SequentialConfig!.Frames[0].Name.Should().Be("Frame1");
+        config.Rules[1].SequentialConfig!.EnableLoop.Should().BeFalse();
+        config.Rules[1].SequentialConfig!.CurrentIndex.Should().Be(2);
     }
 }

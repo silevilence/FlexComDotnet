@@ -6,6 +6,9 @@
              xmlns:local="clr-namespace:FlexComDotnet.Features.Scripting.Views"
              xmlns:converters="clr-namespace:FlexComDotnet.Converters"
              xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+             xmlns:emojiBehavior="clr-namespace:FlexComDotnet.Features.EmojiSupport.Behaviors"
+             xmlns:emojiControls="clr-namespace:FlexComDotnet.Features.EmojiSupport.Controls"
+             xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="300"
@@ -128,6 +131,7 @@
                              Background="{DynamicResource CardBrush}"
                              Foreground="{DynamicResource TextPrimaryBrush}"
                              BorderBrush="{DynamicResource BorderBrush}"
+                             emojiBehavior:EmojiCompletionBehavior.IsEnabled="True"
                              pu:TextBoxHelper.Watermark="脚本名称..."
                              pu:TextBoxHelper.CornerRadius="4">
                         <TextBox.InputBindings>
@@ -167,12 +171,10 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="{Binding Name}" FontSize="12"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                       TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding Description}" FontSize="10"
+                            <emoji:TextBlock Text="{Binding Name}" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <emoji:TextBlock Text="{Binding Description}" FontSize="10"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
-                                       TextTrimming="CharacterEllipsis"
                                        Margin="0,2,0,0"/>
                         </StackPanel>
                     </Grid>

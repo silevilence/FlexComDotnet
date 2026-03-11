@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:converters="clr-namespace:FlexComDotnet.Converters"
              xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+             xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="800"
              Background="{DynamicResource SurfaceBrush}">
@@ -216,9 +217,9 @@
             <TextBlock Text="{Binding Timestamp, StringFormat='HH:mm:ss.fff'}"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        Margin="0,0,6,0"/>
-            <!-- Emoji 图标 -->
-            <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelToEmojiConverter}}"
-                       Margin="0,0,4,0"/>
+            <!-- Emoji 图标 (彩色渲染) -->
+            <emoji:TextBlock Text="{Binding Level, Converter={StaticResource LogLevelToEmojiConverter}}"
+                             Margin="0,0,4,0"/>
             <!-- 等级标签 -->
             <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelToLabelConverter}}"
                        Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
@@ -232,10 +233,8 @@
                          FontSize="10"/>
             </Border>
             <!-- 消息内容 -->
-            <TextBlock Text="{Binding Message}"
-                       Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
-                       TextWrapping="NoWrap"
-                       TextTrimming="CharacterEllipsis"/>
+            <emoji:TextBlock Text="{Binding Message}"
+                       Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"/>
           </StackPanel>
         </DataTemplate>
       </ListBox.ItemTemplate>

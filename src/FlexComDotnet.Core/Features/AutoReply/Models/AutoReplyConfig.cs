@@ -6,7 +6,7 @@ namespace FlexComDotnet.Core.Features.AutoReply.Models;
 public class AutoReplyConfig
 {
     /// <summary>
-    /// 是否启用自动回复
+    /// 是否启用自动回复（全局开关）
     /// </summary>
     public bool IsEnabled { get; set; }
 
@@ -16,27 +16,8 @@ public class AutoReplyConfig
     public int GlobalDelayMs { get; set; } = 100;
 
     /// <summary>
-    /// 当前激活的回复模式
+    /// 统一规则池 - 所有类型的规则均在此列表中管理
+    /// 支持多选激活，按 SortOrder 优先级顺序执行
     /// </summary>
-    public ReplyMode ActiveMode { get; set; } = ReplyMode.Match;
-
-    /// <summary>
-    /// 匹配回复配置
-    /// </summary>
-    public MatchReplyConfig MatchConfig { get; set; } = new();
-
-    /// <summary>
-    /// 顺序回复配置
-    /// </summary>
-    public SequentialReplyConfig SequentialConfig { get; set; } = new();
-
-    /// <summary>
-    /// 脚本回复配置
-    /// </summary>
-    public ScriptReplyConfig ScriptConfig { get; set; } = new();
-
-    /// <summary>
-    /// 协议回复配置
-    /// </summary>
-    public ProtocolReplyConfig ProtocolConfig { get; set; } = new();
+    public List<AutoReplyRule> Rules { get; set; } = [];
 }

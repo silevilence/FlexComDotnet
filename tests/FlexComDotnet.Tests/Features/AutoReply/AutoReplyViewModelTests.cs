@@ -30,12 +30,10 @@ public class AutoReplyViewModelTests
     public void Constructor_ShouldInitializeWithDefaultValues()
     {
         _viewModel.GlobalDelayMs.Should().Be(100);
-        _viewModel.ActiveMode.Should().Be(ReplyMode.Match);
         _viewModel.IsRunning.Should().BeFalse();
         _viewModel.ReceiveCount.Should().Be(0);
         _viewModel.ReplyCount.Should().Be(0);
-        _viewModel.MatchRules.Should().BeEmpty();
-        _viewModel.SequentialFrames.Should().BeEmpty();
+        _viewModel.Rules.Should().BeEmpty();
     }
 
     [Fact]
@@ -77,106 +75,122 @@ public class AutoReplyViewModelTests
     }
 
     [Fact]
-    public void ResetSequenceIndex_ShouldResetIndex()
-    {
-        // Act
-        _viewModel.ResetSequenceIndexCommand.Execute(null);
-
-        // Assert
-        _mockAutoReplyService.Verify(s => s.ResetHandlerState(), Times.Once);
-        _viewModel.CurrentFrameIndex.Should().Be(0);
-    }
-
-    [Fact]
     public void AddMatchRule_ShouldAddNewRule()
     {
         // Act
         _viewModel.AddMatchRuleCommand.Execute(null);
 
         // Assert
-        _viewModel.MatchRules.Should().HaveCount(1);
-        _viewModel.SelectedMatchRule.Should().NotBeNull();
-        _viewModel.SelectedMatchRule!.Name.Should().Be("规则 1");
+        _viewModel.Rules.Should().HaveCount(1);
+        _viewModel.SelectedRule.Should().NotBeNull();
+        _viewModel.SelectedRule!.Type.Should().Be(ReplyMode.Match);
     }
 
     [Fact]
-    public void RemoveMatchRule_WhenSelected_ShouldRemoveRule()
+    public void AddSequentialRule_ShouldAddNewRule()
+    {
+        // Act
+        _viewModel.AddSequentialRuleCommand.Execute(null);
+
+        // Assert
+        _viewModel.Rules.Should().HaveCount(1);
+        _viewModel.SelectedRule.Should().NotBeNull();
+        _viewModel.SelectedRule!.Type.Should().Be(ReplyMode.Sequential);
+    }
+
+    [Fact]
+    public void AddProtocolRule_ShouldAddNewRule()
+    {
+        // Act
+        _viewModel.AddProtocolRuleCommand.Execute(null);
+
+        // Assert
+        _viewModel.Rules.Should().HaveCount(1);
+        _viewModel.SelectedRule.Should().NotBeNull();
+        _viewModel.SelectedRule!.Type.Should().Be(ReplyMode.Protocol);
+    }
+
+    [Fact]
+    public void RemoveRule_WhenSelected_ShouldRemoveRule()
     {
         // Arrange
         _viewModel.AddMatchRuleCommand.Execute(null);
-        var ruleToRemove = _viewModel.SelectedMatchRule;
 
         // Act
-        _viewModel.RemoveMatchRuleCommand.Execute(null);
+        _viewModel.RemoveRuleCommand.Execute(null);
 
         // Assert
-        _viewModel.MatchRules.Should().BeEmpty();
+        _viewModel.Rules.Should().BeEmpty();
     }
 
     [Fact]
-    public void RemoveMatchRule_WhenNotSelected_ShouldNotExecute()
+    public void RemoveRule_WhenNotSelected_ShouldNotExecute()
     {
         // Arrange
-        _viewModel.SelectedMatchRule = null;
+        _viewModel.SelectedRule = null;
 
         // Assert
-        _viewModel.RemoveMatchRuleCommand.CanExecute(null).Should().BeFalse();
+        _viewModel.RemoveRuleCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
-    public void MoveMatchRuleUp_ShouldMoveRule()
-    {
-        // Arrange
-        _viewModel.AddMatchRuleCommand.Execute(null);
-        _viewModel.AddMatchRuleCommand.Execute(null);
-        var secondRule = _viewModel.SelectedMatchRule;
-
-        // Act
-        _viewModel.MoveMatchRuleUpCommand.Execute(null);
-
-        // Assert
-        _viewModel.MatchRules[0].Should().Be(secondRule);
-    }
-
-    [Fact]
-    public void MoveMatchRuleDown_ShouldMoveRule()
+    public void MoveRuleUp_ShouldMoveRule()
     {
         // Arrange
         _viewModel.AddMatchRuleCommand.Execute(null);
-        var firstRule = _viewModel.SelectedMatchRule;
-        _viewModel.AddMatchRuleCommand.Execute(null);
-        _viewModel.SelectedMatchRule = firstRule;
+        _viewModel.AddSequentialRuleCommand.Execute(null);
+        var secondRule = _viewModel.SelectedRule;
 
         // Act
-        _viewModel.MoveMatchRuleDownCommand.Execute(null);
+        _viewModel.MoveRuleUpCommand.Execute(null);
 
         // Assert
-        _viewModel.MatchRules[1].Should().Be(firstRule);
+        _viewModel.Rules[0].Should().Be(secondRule);
     }
 
     [Fact]
-    public void AddSequentialFrame_ShouldAddNewFrame()
-    {
-        // Act
-        _viewModel.AddSequentialFrameCommand.Execute(null);
-
-        // Assert
-        _viewModel.SequentialFrames.Should().HaveCount(1);
-        _viewModel.SelectedSequentialFrame.Should().NotBeNull();
-        _viewModel.SelectedSequentialFrame!.Name.Should().Be("帧 1");
-    }
-
-    [Fact]
-    public void RemoveSequentialFrame_WhenSelected_ShouldRemoveFrame()
+    public void MoveRuleDown_ShouldMoveRule()
     {
         // Arrange
-        _viewModel.AddSequentialFrameCommand.Execute(null);
+        _viewModel.AddMatchRuleCommand.Execute(null);
+        var firstRule = _viewModel.SelectedRule;
+        _viewModel.AddSequentialRuleCommand.Execute(null);
+        _viewModel.SelectedRule = firstRule;
 
         // Act
-        _viewModel.RemoveSequentialFrameCommand.Execute(null);
+        _viewModel.MoveRuleDownCommand.Execute(null);
 
         // Assert
-        _viewModel.SequentialFrames.Should().BeEmpty();
+        _viewModel.Rules[1].Should().Be(firstRule);
+    }
+
+    [Fact]
+    public void AddFrame_ShouldAddNewFrameToEditingFrames()
+    {
+        // Arrange - 先添加一个顺序规则并选中
+        _viewModel.AddSequentialRuleCommand.Execute(null);
+
+        // Act
+        _viewModel.AddFrameCommand.Execute(null);
+
+        // Assert
+        _viewModel.EditingFrames.Should().HaveCount(1);
+        _viewModel.SelectedEditingFrame.Should().NotBeNull();
+        _viewModel.SelectedEditingFrame!.Name.Should().Be("帧 1");
+    }
+
+    [Fact]
+    public void RemoveFrame_WhenSelected_ShouldRemoveFrame()
+    {
+        // Arrange
+        _viewModel.AddSequentialRuleCommand.Execute(null);
+        _viewModel.AddFrameCommand.Execute(null);
+
+        // Act
+        _viewModel.RemoveFrameCommand.Execute(null);
+
+        // Assert
+        _viewModel.EditingFrames.Should().BeEmpty();
     }
 
     [Fact]
@@ -210,25 +224,35 @@ public class AutoReplyViewModelTests
         {
             AutoReplyConfig = new AutoReplyConfig
             {
-                IsEnabled = true,  // This is saved but IsRunning starts as false
+                IsEnabled = true,
                 GlobalDelayMs = 250,
-                ActiveMode = ReplyMode.Sequential,
-                MatchConfig = new MatchReplyConfig
-                {
-                    Rules =
-                    [
-                        new MatchRule { Name = "Rule1", SortOrder = 0 }
-                    ]
-                },
-                SequentialConfig = new SequentialReplyConfig
-                {
-                    Frames =
-                    [
-                        new SequentialFrame { Name = "Frame1", SortOrder = 0 }
-                    ],
-                    EnableLoop = false,
-                    CurrentIndex = 2
-                }
+                Rules =
+                [
+                    new AutoReplyRule
+                    {
+                        Name = "Rule1",
+                        Type = ReplyMode.Match,
+                        SortOrder = 0,
+                        IsEnabled = true,
+                        MatchConfig = new MatchRuleConfig()
+                    },
+                    new AutoReplyRule
+                    {
+                        Name = "SeqRule1",
+                        Type = ReplyMode.Sequential,
+                        SortOrder = 1,
+                        IsEnabled = true,
+                        SequentialConfig = new SequentialRuleConfig
+                        {
+                            Frames =
+                            [
+                                new SequentialFrame { Name = "Frame1", SortOrder = 0 }
+                            ],
+                            EnableLoop = false,
+                            CurrentIndex = 2
+                        }
+                    }
+                ]
             }
         };
 
@@ -240,13 +264,11 @@ public class AutoReplyViewModelTests
         // Assert
         newViewModel.IsRunning.Should().BeFalse();  // Always starts stopped
         newViewModel.GlobalDelayMs.Should().Be(250);
-        newViewModel.ActiveMode.Should().Be(ReplyMode.Sequential);
-        newViewModel.MatchRules.Should().HaveCount(1);
-        newViewModel.MatchRules[0].Name.Should().Be("Rule1");
-        newViewModel.SequentialFrames.Should().HaveCount(1);
-        newViewModel.SequentialFrames[0].Name.Should().Be("Frame1");
-        newViewModel.EnableLoop.Should().BeFalse();
-        newViewModel.CurrentFrameIndex.Should().Be(2);
+        newViewModel.Rules.Should().HaveCount(2);
+        newViewModel.Rules[0].Name.Should().Be("Rule1");
+        newViewModel.Rules[0].Type.Should().Be(ReplyMode.Match);
+        newViewModel.Rules[1].Name.Should().Be("SeqRule1");
+        newViewModel.Rules[1].Type.Should().Be(ReplyMode.Sequential);
     }
 
     [Fact]
@@ -258,30 +280,40 @@ public class AutoReplyViewModelTests
     }
 
     [Fact]
-    public void LoadConfig_ShouldNotTriggerAutoSave_WhenActiveModeChanges()
+    public void LoadConfig_ShouldNotTriggerAutoSave()
     {
-        // Arrange - 配置中 ActiveMode 与默认值不同，且包含规则数据
+        // Arrange - 配置中包含规则数据
         var config = new AppConfig
         {
             AutoReplyConfig = new AutoReplyConfig
             {
                 GlobalDelayMs = 200,
-                ActiveMode = ReplyMode.Sequential, // 默认是 Match
-                MatchConfig = new MatchReplyConfig
-                {
-                    Rules =
-                    [
-                        new MatchRule { Name = "TestRule", SortOrder = 0, TriggerPattern = "AA BB" }
-                    ]
-                },
-                SequentialConfig = new SequentialReplyConfig
-                {
-                    Frames =
-                    [
-                        new SequentialFrame { Name = "TestFrame", SortOrder = 0, Content = "CC DD" }
-                    ],
-                    EnableLoop = false
-                }
+                Rules =
+                [
+                    new AutoReplyRule
+                    {
+                        Name = "TestRule",
+                        Type = ReplyMode.Match,
+                        SortOrder = 0,
+                        IsEnabled = true,
+                        MatchConfig = new MatchRuleConfig { TriggerPattern = "AA BB" }
+                    },
+                    new AutoReplyRule
+                    {
+                        Name = "TestSeqRule",
+                        Type = ReplyMode.Sequential,
+                        SortOrder = 1,
+                        IsEnabled = true,
+                        SequentialConfig = new SequentialRuleConfig
+                        {
+                            Frames =
+                            [
+                                new SequentialFrame { Name = "TestFrame", SortOrder = 0, Content = "CC DD" }
+                            ],
+                            EnableLoop = false
+                        }
+                    }
+                ]
             }
         };
 
@@ -299,10 +331,10 @@ public class AutoReplyViewModelTests
             "LoadConfig 期间不应触发 AutoSave，否则会用空集合覆盖已保存的规则");
 
         // 规则应正确加载
-        vm.MatchRules.Should().HaveCount(1);
-        vm.MatchRules[0].Name.Should().Be("TestRule");
-        vm.SequentialFrames.Should().HaveCount(1);
-        vm.SequentialFrames[0].Name.Should().Be("TestFrame");
-        vm.ActiveMode.Should().Be(ReplyMode.Sequential);
+        vm.Rules.Should().HaveCount(2);
+        vm.Rules[0].Name.Should().Be("TestRule");
+        vm.Rules[0].Type.Should().Be(ReplyMode.Match);
+        vm.Rules[1].Name.Should().Be("TestSeqRule");
+        vm.Rules[1].Type.Should().Be(ReplyMode.Sequential);
     }
 }

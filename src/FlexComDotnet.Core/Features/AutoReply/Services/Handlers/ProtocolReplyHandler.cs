@@ -19,32 +19,25 @@ public class ProtocolReplyHandler : IReplyHandler
         _parserService = parserService ?? throw new ArgumentNullException(nameof(parserService));
     }
 
-    public ReplyResult Process(byte[] receivedData, AutoReplyConfig config)
+    public ReplyResult Process(byte[] receivedData, AutoReplyRule rule)
     {
-        var protocolConfig = config.ProtocolConfig;
-        if (protocolConfig.Schemes.Count == 0 || protocolConfig.ActiveSchemeIndex < 0)
+        if (rule.ProtocolConfig == null)
             return ReplyResult.NoReply;
 
-        if (protocolConfig.ActiveSchemeIndex >= protocolConfig.Schemes.Count)
+        var protocolConfig = rule.ProtocolConfig;
+
+        if (string.IsNullOrEmpty(protocolConfig.ProtocolName))
             return ReplyResult.NoReply;
 
-        var activeScheme = protocolConfig.Schemes[protocolConfig.ActiveSchemeIndex];
-        if (!activeScheme.IsEnabled)
-            return ReplyResult.NoReply;
-
-        var parser = _parserService.GetParser(activeScheme.ProtocolName);
+        var parser = _parserService.GetParser(protocolConfig.ProtocolName);
         if (parser == null)
             return ReplyResult.NoReply;
 
         try
         {
-            // Evaluate field values (resolve expressions)
-            var fieldValues = EvaluateFieldValues(activeScheme.FieldValues, receivedData, parser);
-
-            // Build frame using protocol parser
+            var fieldValues = EvaluateFieldValues(protocolConfig.FieldValues, receivedData, parser);
             var frameData = parser.BuildFrame(fieldValues);
-
-            return ReplyResult.Reply(frameData, $"协议回复: {activeScheme.Name}");
+            return ReplyResult.Reply(frameData, $"协议回复: {rule.Name}");
         }
         catch
         {
@@ -52,9 +45,8 @@ public class ProtocolReplyHandler : IReplyHandler
         }
     }
 
-    public void Reset(AutoReplyConfig config)
+    public void Reset(AutoReplyRule rule)
     {
-        // Protocol reply handler is stateless, no reset needed
     }
 
     /// <summary>

@@ -4,6 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+        xmlns:emojiBehavior="clr-namespace:FlexComDotnet.Features.EmojiSupport.Behaviors"
+        xmlns:emojiControls="clr-namespace:FlexComDotnet.Features.EmojiSupport.Controls"
+        xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         xmlns:converters="clr-namespace:FlexComDotnet.Converters"
         xmlns:models="clr-namespace:FlexComDotnet.Core.Features.Protocol.Models;assembly=FlexComDotnet.Core"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
@@ -128,7 +131,7 @@
                         <DataTemplate>
                             <StackPanel Margin="4">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Name}" 
+                                    <emoji:TextBlock Text="{Binding Name}" 
                                                FontWeight="Medium"
                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <TextBlock Text="{Binding ProtocolType, Converter={StaticResource ProtocolTypeDisplayConverter}, StringFormat=' [{0}]'}" 
@@ -167,13 +170,14 @@
                             </Grid.RowDefinitions>
                             
                             <TextBlock Text="名称" Style="{StaticResource FieldLabel}"/>
-                            <TextBox Grid.Column="1" Text="{Binding EditingDefinition.Name, UpdateSourceTrigger=PropertyChanged}"
-                                     pu:TextBoxHelper.CornerRadius="4" Margin="0,0,0,8"/>
-                            
-                            <TextBlock Grid.Row="1" Text="描述" Style="{StaticResource FieldLabel}"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditingDefinition.Description, UpdateSourceTrigger=PropertyChanged}"
-                                     pu:TextBoxHelper.CornerRadius="4" Margin="0,0,0,8"/>
-                            
+                        <emojiControls:EmojiTextBox Grid.Column="1" Text="{Binding EditingDefinition.Name, UpdateSourceTrigger=PropertyChanged}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 Margin="0,0,0,8"/>
+                        
+                        <TextBlock Grid.Row="1" Text="描述" Style="{StaticResource FieldLabel}"/>
+                        <emojiControls:EmojiTextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditingDefinition.Description, UpdateSourceTrigger=PropertyChanged}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 Margin="0,0,0,8"/>
                             <TextBlock Grid.Row="2" Text="帧头 (Hex)" Style="{StaticResource FieldLabel}"
                                        Visibility="{Binding IsGenericProtocol, Converter={StaticResource BoolToVisibilityConverter}}"/>
                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EditingDefinition.Header, UpdateSourceTrigger=PropertyChanged}"

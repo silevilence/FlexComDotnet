@@ -5,6 +5,7 @@ using FlexComDotnet.Core.Features.Logging.Models;
 using FlexComDotnet.Core.Features.Logging.Services;
 using FlexComDotnet.Core.Features.Scripting.Models;
 using FlexComDotnet.Core.Features.Scripting.Services;
+using FlexComDotnet.Core.Features.Serial.Services;
 
 namespace FlexComDotnet.Core.Features.Scripting.ViewModels;
 
@@ -18,7 +19,9 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     private readonly IScriptApiBridge _bridge;
     private readonly IScriptHookService? _hookService;
     private readonly ILoggingService? _loggingService;
+    private readonly IConfigurationService? _configurationService;
     private bool _disposed;
+    private bool _isLoadingHooks;
 
     #region Observable Properties
 
@@ -75,6 +78,11 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     /// </summary>
     public event EventHandler? OpenEditorRequested;
 
+    /// <summary>
+    /// 确认删除回调（由 View 层注入，参数为提示消息，返回是否确认）
+    /// </summary>
+    public Func<string, bool>? ConfirmAction { get; set; }
+
     #region Hook 相关属性
 
     /// <summary>
@@ -127,13 +135,15 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
         IScriptManager manager,
         IScriptApiBridge bridge,
         IScriptHookService? hookService = null,
-        ILoggingService? loggingService = null)
+        ILoggingService? loggingService = null,
+        IConfigurationService? configurationService = null)
     {
         _engine = engine;
         _manager = manager;
         _bridge = bridge;
         _hookService = hookService;
         _loggingService = loggingService;
+        _configurationService = configurationService;
 
         // 订阅引擎事件
         _engine.StateChanged += OnEngineStateChanged;
@@ -196,9 +206,62 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     {
         if (SelectedScript == null) return;
 
-        _manager.DeleteScript(SelectedScript.Id);
+        var scriptId = SelectedScript.Id;
+        var scriptName = SelectedScript.Name;
+
+        // 检查是否被 Hook 引用
+        var boundHooks = GetBoundHookNames(scriptId);
+        if (boundHooks.Count > 0)
+        {
+            var hookNames = string.Join("、", boundHooks);
+            var message = $"脚本 \"{scriptName}\" 正被以下 Hook 引用：{hookNames}。\n删除后将自动解除绑定，是否继续？";
+
+            if (ConfirmAction != null && !ConfirmAction(message))
+            {
+                return;
+            }
+
+            // 级联清理 Hook 绑定
+            ClearHookBindingsForScript(scriptId);
+        }
+
+        _manager.DeleteScript(scriptId);
         SelectedScript = null;
         RefreshScriptList();
+    }
+
+    /// <summary>
+    /// 获取引用指定脚本的 Hook 名称列表
+    /// </summary>
+    private List<string> GetBoundHookNames(string scriptId)
+    {
+        var hooks = new List<string>();
+        if (RxHookScriptId == scriptId) hooks.Add("Rx预处理");
+        if (TxHookScriptId == scriptId) hooks.Add("Tx后处理");
+        if (ReplyHookScriptId == scriptId) hooks.Add("Reply应答");
+        return hooks;
+    }
+
+    /// <summary>
+    /// 清除引用指定脚本的所有 Hook 绑定
+    /// </summary>
+    private void ClearHookBindingsForScript(string scriptId)
+    {
+        if (RxHookScriptId == scriptId)
+        {
+            RxHookEnabled = false;
+            RxHookScriptId = null;
+        }
+        if (TxHookScriptId == scriptId)
+        {
+            TxHookEnabled = false;
+            TxHookScriptId = null;
+        }
+        if (ReplyHookScriptId == scriptId)
+        {
+            ReplyHookEnabled = false;
+            ReplyHookScriptId = null;
+        }
     }
 
     /// <summary>
@@ -391,6 +454,7 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     partial void OnRxHookScriptIdChanged(string? value)
     {
         _hookService?.SetHookScript(HookType.RxPreProcessor, value);
+        SaveHookConfig();
     }
 
     partial void OnTxHookEnabledChanged(bool value)
@@ -401,6 +465,7 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     partial void OnTxHookScriptIdChanged(string? value)
     {
         _hookService?.SetHookScript(HookType.TxPostProcessor, value);
+        SaveHookConfig();
     }
 
     partial void OnReplyHookEnabledChanged(bool value)
@@ -411,6 +476,7 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     partial void OnReplyHookScriptIdChanged(string? value)
     {
         _hookService?.SetHookScript(HookType.Reply, value);
+        SaveHookConfig();
     }
 
     #endregion
@@ -431,13 +497,51 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     {
         if (_hookService == null) return;
 
-        var settings = _hookService.Settings;
-        RxHookEnabled = settings.RxPreProcessor.IsEnabled;
-        RxHookScriptId = settings.RxPreProcessor.ScriptId;
-        TxHookEnabled = settings.TxPostProcessor.IsEnabled;
-        TxHookScriptId = settings.TxPostProcessor.ScriptId;
-        ReplyHookEnabled = settings.Reply.IsEnabled;
-        ReplyHookScriptId = settings.Reply.ScriptId;
+        _isLoadingHooks = true;
+        try
+        {
+            // 从持久化配置恢复脚本绑定
+            if (_configurationService != null)
+            {
+                var appConfig = _configurationService.Load();
+                var hookConfig = appConfig.ScriptHookConfig;
+
+                // 恢复脚本绑定到服务（不恢复启用状态）
+                _hookService.SetHookScript(HookType.RxPreProcessor, hookConfig.RxPreProcessorScriptId);
+                _hookService.SetHookScript(HookType.TxPostProcessor, hookConfig.TxPostProcessorScriptId);
+                _hookService.SetHookScript(HookType.Reply, hookConfig.ReplyScriptId);
+            }
+
+            // 从服务读取最新状态到 ViewModel
+            var settings = _hookService.Settings;
+            RxHookEnabled = settings.RxPreProcessor.IsEnabled;
+            RxHookScriptId = settings.RxPreProcessor.ScriptId;
+            TxHookEnabled = settings.TxPostProcessor.IsEnabled;
+            TxHookScriptId = settings.TxPostProcessor.ScriptId;
+            ReplyHookEnabled = settings.Reply.IsEnabled;
+            ReplyHookScriptId = settings.Reply.ScriptId;
+        }
+        finally
+        {
+            _isLoadingHooks = false;
+        }
+    }
+
+    /// <summary>
+    /// 保存 Hook 脚本绑定到配置文件（不保存启用状态）
+    /// </summary>
+    private void SaveHookConfig()
+    {
+        if (_configurationService == null || _isLoadingHooks) return;
+
+        var appConfig = _configurationService.Load();
+        appConfig.ScriptHookConfig = new ScriptHookConfig
+        {
+            RxPreProcessorScriptId = RxHookScriptId,
+            TxPostProcessorScriptId = TxHookScriptId,
+            ReplyScriptId = ReplyHookScriptId
+        };
+        _configurationService.Save(appConfig);
     }
 
     #endregion

@@ -21,6 +21,16 @@ public class ScriptReplyHandlerTests
         _handler = new ScriptReplyHandler(_mockHookService.Object);
     }
 
+    private static AutoReplyRule CreateScriptRule(string name = "脚本回复")
+    {
+        return new AutoReplyRule
+        {
+            Name = name,
+            Type = ReplyMode.Script,
+            IsEnabled = true
+        };
+    }
+
     #region 基本属性测试
 
     [Fact]
@@ -48,22 +58,9 @@ public class ScriptReplyHandlerTests
     [Fact]
     public void Process_WithEmptyData_ShouldReturnNoReply()
     {
-        var config = new AutoReplyConfig();
+        var rule = CreateScriptRule();
 
-        var result = _handler.Process([], config);
-
-        result.ShouldReply.Should().BeFalse();
-    }
-
-    [Fact]
-    public void Process_WithNoScriptId_ShouldReturnNoReply()
-    {
-        var config = new AutoReplyConfig
-        {
-            ScriptConfig = new ScriptReplyConfig { ScriptId = null }
-        };
-
-        var result = _handler.Process([0x01, 0x02], config);
+        var result = _handler.Process([], rule);
 
         result.ShouldReply.Should().BeFalse();
     }
@@ -71,14 +68,11 @@ public class ScriptReplyHandlerTests
     [Fact]
     public void Process_WhenHookFails_ShouldReturnNoReply()
     {
-        var config = new AutoReplyConfig
-        {
-            ScriptConfig = new ScriptReplyConfig { ScriptId = "test_script" }
-        };
+        var rule = CreateScriptRule();
         _mockHookService.Setup(m => m.ExecuteReplyHookAsync(It.IsAny<byte[]>()))
             .ReturnsAsync(HookExecutionResult.Failed("Error"));
 
-        var result = _handler.Process([0x01, 0x02], config);
+        var result = _handler.Process([0x01, 0x02], rule);
 
         result.ShouldReply.Should().BeFalse();
     }
@@ -86,14 +80,11 @@ public class ScriptReplyHandlerTests
     [Fact]
     public void Process_WhenHookReturnsNoReply_ShouldReturnNoReply()
     {
-        var config = new AutoReplyConfig
-        {
-            ScriptConfig = new ScriptReplyConfig { ScriptId = "test_script" }
-        };
+        var rule = CreateScriptRule();
         _mockHookService.Setup(m => m.ExecuteReplyHookAsync(It.IsAny<byte[]>()))
             .ReturnsAsync(HookExecutionResult.SuccessNoReply());
 
-        var result = _handler.Process([0x01, 0x02], config);
+        var result = _handler.Process([0x01, 0x02], rule);
 
         result.ShouldReply.Should().BeFalse();
     }
@@ -101,15 +92,12 @@ public class ScriptReplyHandlerTests
     [Fact]
     public void Process_WhenHookReturnsReply_ShouldReturnReplyData()
     {
-        var config = new AutoReplyConfig
-        {
-            ScriptConfig = new ScriptReplyConfig { ScriptId = "test_script" }
-        };
+        var rule = CreateScriptRule();
         var replyData = new byte[] { 0xAA, 0xBB, 0xCC };
         _mockHookService.Setup(m => m.ExecuteReplyHookAsync(It.IsAny<byte[]>()))
             .ReturnsAsync(HookExecutionResult.SuccessWithReply(replyData));
 
-        var result = _handler.Process([0x01, 0x02], config);
+        var result = _handler.Process([0x01, 0x02], rule);
 
         result.ShouldReply.Should().BeTrue();
         result.ResponseData.Should().BeEquivalentTo(replyData);
@@ -119,14 +107,11 @@ public class ScriptReplyHandlerTests
     [Fact]
     public void Process_WhenHookReturnsEmptyReply_ShouldReturnNoReply()
     {
-        var config = new AutoReplyConfig
-        {
-            ScriptConfig = new ScriptReplyConfig { ScriptId = "test_script" }
-        };
+        var rule = CreateScriptRule();
         _mockHookService.Setup(m => m.ExecuteReplyHookAsync(It.IsAny<byte[]>()))
             .ReturnsAsync(HookExecutionResult.SuccessWithReply([]));
 
-        var result = _handler.Process([0x01, 0x02], config);
+        var result = _handler.Process([0x01, 0x02], rule);
 
         result.ShouldReply.Should().BeFalse();
     }
@@ -138,9 +123,9 @@ public class ScriptReplyHandlerTests
     [Fact]
     public void Reset_ShouldNotThrow()
     {
-        var config = new AutoReplyConfig();
+        var rule = CreateScriptRule();
 
-        var action = () => _handler.Reset(config);
+        var action = () => _handler.Reset(rule);
 
         action.Should().NotThrow();
     }

@@ -17,6 +17,7 @@ using FlexComDotnet.Core.Features.Protocol.ViewModels;
 using FlexComDotnet.Core.Features.Visualization.Services;
 using FlexComDotnet.Core.Features.Visualization.ViewModels;
 using FlexComDotnet.Core.Features.Logging.Services;
+using FlexComDotnet.Core.Features.EmojiSupport.Services;
 
 namespace FlexComDotnet.Services;
 
@@ -30,6 +31,9 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAppServices(this IServiceCollection services)
     {
+        // Emoji 服务 (单例)
+        services.AddSingleton<IEmojiService, EmojiService>();
+
         // 主题服务 (单例)
         services.AddSingleton<IThemeService, ThemeService>();
 
@@ -142,7 +146,8 @@ public static class ServiceCollectionExtensions
             var bridge = sp.GetRequiredService<IScriptApiBridge>();
             var hookService = sp.GetRequiredService<IScriptHookService>();
             var loggingService = sp.GetRequiredService<ILoggingService>();
-            return new ScriptingViewModel(engine, manager, bridge, hookService, loggingService);
+            var configService = sp.GetRequiredService<IConfigurationService>();
+            return new ScriptingViewModel(engine, manager, bridge, hookService, loggingService, configService);
         });
         services.AddTransient<ProtocolParserViewModel>();
         services.AddTransient<DataVisualizationViewModel>();

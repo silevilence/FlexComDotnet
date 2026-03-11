@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text;
 using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -89,6 +90,11 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// </summary>
     [ObservableProperty]
     private string _receivedData = string.Empty;
+
+    /// <summary>
+    /// 按条显示的数据记录（供 ListBox 绑定）
+    /// </summary>
+    public ObservableCollection<string> DisplayRecords { get; } = [];
 
     /// <summary>
     /// 待发送的文本
@@ -469,6 +475,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         _dataRecords.Clear();
         _pausedRecords.Clear();
         ReceivedData = string.Empty;
+        DisplayRecords.Clear();
     }
 
     /// <summary>
@@ -596,15 +603,15 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     {
         var prefix = record.IsTx ? "[TX] " : "[RX] ";
 
-        // 脚本自动应答特殊标记 (nf-fa-code \uF121)
+        // 脚本自动应答特殊标记
         if (record.RecordType == DataRecordType.ScriptAutoReply)
         {
-            prefix = "[\uF121]";
+            prefix = "[⚡]";
         }
-        // 规则自动回复特殊标记 (nf-fa-reply \uF112)
+        // 规则自动回复特殊标记
         else if (record.RecordType == DataRecordType.AutoReply)
         {
-            prefix = "[\uF112]";
+            prefix = "[↩️]";
         }
 
         // 添加时间戳
@@ -640,7 +647,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
                 originalStr = HexHelper.BytesToAsciiString(record.OriginalData, '.');
             }
 
-            return prefix + $"\uF019 {originalStr} \uF061 \uF093 {dataStr}";
+            return prefix + $"⬇ {originalStr} ➡ ⬆ {dataStr}";
         }
 
         return prefix + dataStr;
@@ -654,14 +661,17 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         if (_dataRecords.Count == 0)
         {
             ReceivedData = string.Empty;
+            DisplayRecords.Clear();
             return;
         }
 
         var sb = new StringBuilder();
+        DisplayRecords.Clear();
         
         foreach (var record in _dataRecords)
         {
             var formatted = FormatRecord(record);
+            DisplayRecords.Add(formatted);
             if (AutoLineBreak)
             {
                 sb.AppendLine(formatted);
@@ -816,7 +826,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
             Format = LogSaveFormat,
             IncludeTx = LogIncludeTx,
             IncludeRx = LogIncludeRx,
-            UseHexFormat = LogUseHexFormat
+            UseHexFormat = IsHexDisplayMode
         };
 
         var records = _dataRecords.Select(r => new LogRecord(r.Data, r.IsTx, r.Timestamp));

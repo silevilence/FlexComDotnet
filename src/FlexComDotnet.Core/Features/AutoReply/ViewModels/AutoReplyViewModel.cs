@@ -12,7 +12,7 @@ using FlexComDotnet.Core.Features.Serial.Services;
 namespace FlexComDotnet.Core.Features.AutoReply.ViewModels;
 
 /// <summary>
-/// 自动回复功能 ViewModel
+/// 自动回复功能 ViewModel - 统一规则池架构
 /// </summary>
 public partial class AutoReplyViewModel : ObservableObject, IDisposable
 {
@@ -33,12 +33,6 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     private int _globalDelayMs = 100;
 
     /// <summary>
-    /// 当前激活的回复模式
-    /// </summary>
-    [ObservableProperty]
-    private ReplyMode _activeMode = ReplyMode.Match;
-
-    /// <summary>
     /// 是否正在运行
     /// </summary>
     [ObservableProperty]
@@ -57,26 +51,21 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     private int _replyCount;
 
     /// <summary>
-    /// 匹配规则列表
+    /// 统一规则池列表
     /// </summary>
-    public ObservableCollection<MatchRuleViewModel> MatchRules { get; } = [];
+    public ObservableCollection<AutoReplyRuleViewModel> Rules { get; } = [];
 
     /// <summary>
-    /// 顺序帧列表
-    /// </summary>
-    public ObservableCollection<SequentialFrameViewModel> SequentialFrames { get; } = [];
-
-    /// <summary>
-    /// 是否启用循环
+    /// 当前选中的规则
     /// </summary>
     [ObservableProperty]
-    private bool _enableLoop = true;
-
-    /// <summary>
-    /// 当前顺序帧索引
-    /// </summary>
-    [ObservableProperty]
-    private int _currentFrameIndex;
+    [NotifyCanExecuteChangedFor(nameof(RemoveRuleCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveRuleUpCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveRuleDownCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveRuleCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelRuleCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ResetRuleStateCommand))]
+    private AutoReplyRuleViewModel? _selectedRule;
 
     /// <summary>
     /// 回复日志
@@ -84,65 +73,33 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     public ObservableCollection<ReplyLogEntry> ReplyLogs { get; } = [];
 
     /// <summary>
-    /// 当前选中的匹配规则
-    /// </summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveMatchRuleCommand))]
-    [NotifyCanExecuteChangedFor(nameof(MoveMatchRuleUpCommand))]
-    [NotifyCanExecuteChangedFor(nameof(MoveMatchRuleDownCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SaveMatchRuleCommand))]
-    [NotifyCanExecuteChangedFor(nameof(CancelMatchRuleCommand))]
-    private MatchRuleViewModel? _selectedMatchRule;
-
-    /// <summary>
-    /// 当前选中的顺序帧
-    /// </summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveSequentialFrameCommand))]
-    [NotifyCanExecuteChangedFor(nameof(MoveSequentialFrameUpCommand))]
-    [NotifyCanExecuteChangedFor(nameof(MoveSequentialFrameDownCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SaveSequentialFrameCommand))]
-    [NotifyCanExecuteChangedFor(nameof(CancelSequentialFrameCommand))]
-    private SequentialFrameViewModel? _selectedSequentialFrame;
-
-    /// <summary>
-    /// 匹配规则编辑前的备份（用于取消编辑）
-    /// </summary>
-    private MatchRule? _matchRuleBackup;
-
-    /// <summary>
-    /// 顺序帧编辑前的备份（用于取消编辑）
-    /// </summary>
-    private SequentialFrame? _sequentialFrameBackup;
-
-    /// <summary>
-    /// 协议回复方案编辑前的备份（用于取消编辑）
-    /// </summary>
-    private ProtocolReplyScheme? _protocolSchemeBackup;
-
-    /// <summary>
-    /// 协议回复方案列表
-    /// </summary>
-    public ObservableCollection<ProtocolReplySchemeViewModel> ProtocolSchemes { get; } = [];
-
-    /// <summary>
-    /// 当前选中的协议回复方案
-    /// </summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveProtocolSchemeCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SaveProtocolSchemeFieldsCommand))]
-    [NotifyCanExecuteChangedFor(nameof(CancelProtocolSchemeCommand))]
-    private ProtocolReplySchemeViewModel? _selectedProtocolScheme;
-
-    /// <summary>
     /// 可用的协议定义列表
     /// </summary>
     public ObservableCollection<FrameDefinition> AvailableProtocols { get; } = [];
 
     /// <summary>
-    /// 协议回复方案的字段输入项
+    /// 当前编辑的协议字段输入项（协议回复规则专用）
     /// </summary>
     public ObservableCollection<FieldInputItem> ProtocolFieldInputs { get; } = [];
+
+    /// <summary>
+    /// 当前编辑的顺序帧列表（顺序回复规则专用）
+    /// </summary>
+    public ObservableCollection<SequentialFrameViewModel> EditingFrames { get; } = [];
+
+    /// <summary>
+    /// 当前编辑中选中的顺序帧
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RemoveFrameCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveFrameUpCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveFrameDownCommand))]
+    private SequentialFrameViewModel? _selectedEditingFrame;
+
+    /// <summary>
+    /// 规则编辑前的备份（用于取消编辑）
+    /// </summary>
+    private AutoReplyRule? _ruleBackup;
 
     #endregion
 
@@ -180,269 +137,293 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 重置顺序索引命令
+    /// 重置指定规则的处理器状态（如顺序回复索引）
     /// </summary>
-    [RelayCommand]
-    private void ResetSequenceIndex()
+    [RelayCommand(CanExecute = nameof(CanModifyRule))]
+    private void ResetRuleState()
     {
-        _autoReplyService.ResetHandlerState();
-        CurrentFrameIndex = 0;
+        if (SelectedRule == null) return;
+        _autoReplyService.ResetRuleState(SelectedRule.Id);
+        if (SelectedRule.Type == ReplyMode.Sequential)
+        {
+            SelectedRule.CurrentFrameIndex = 0;
+        }
     }
 
+    #region Rule CRUD
+
     /// <summary>
-    /// 添加匹配规则命令
+    /// 添加匹配回复规则
     /// </summary>
     [RelayCommand]
     private void AddMatchRule()
     {
-        var rule = new MatchRuleViewModel
+        var rule = new AutoReplyRuleViewModel
         {
-            Id = GetNextMatchRuleId(),
-            Name = $"规则 {MatchRules.Count + 1}",
-            SortOrder = MatchRules.Count,
-            IsEnabled = true
+            Id = Guid.NewGuid().ToString(),
+            Name = $"匹配规则 {Rules.Count(r => r.Type == ReplyMode.Match) + 1}",
+            Type = ReplyMode.Match,
+            SortOrder = Rules.Count,
+            IsEnabled = true,
+            MatchConfig = new MatchRuleConfig(),
+            IsEnabledChangedCallback = OnRuleIsEnabledChanged
         };
-        MatchRules.Add(rule);
-        SelectedMatchRule = rule;
+        Rules.Add(rule);
+        SelectedRule = rule;
         AutoSave();
     }
 
     /// <summary>
-    /// 移除匹配规则命令
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifyMatchRule))]
-    private void RemoveMatchRule()
-    {
-        if (SelectedMatchRule != null)
-        {
-            MatchRules.Remove(SelectedMatchRule);
-            UpdateMatchRuleSortOrders();
-            AutoSave();
-        }
-    }
-
-    private bool CanModifyMatchRule() => SelectedMatchRule != null;
-
-    /// <summary>
-    /// 保存匹配规则编辑
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifyMatchRule))]
-    private void SaveMatchRule()
-    {
-        _matchRuleBackup = null;
-        AutoSave();
-        SelectedMatchRule = null;
-    }
-
-    /// <summary>
-    /// 取消匹配规则编辑，恢复到编辑前状态
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifyMatchRule))]
-    private void CancelMatchRule()
-    {
-        if (SelectedMatchRule != null && _matchRuleBackup != null)
-        {
-            SelectedMatchRule.Name = _matchRuleBackup.Name;
-            SelectedMatchRule.TriggerPattern = _matchRuleBackup.TriggerPattern;
-            SelectedMatchRule.MatchType = _matchRuleBackup.MatchType;
-            SelectedMatchRule.ResponseContent = _matchRuleBackup.ResponseContent;
-            SelectedMatchRule.IsResponseHex = _matchRuleBackup.IsResponseHex;
-            SelectedMatchRule.Description = _matchRuleBackup.Description;
-            _matchRuleBackup = null;
-        }
-        SelectedMatchRule = null;
-    }
-
-    /// <summary>
-    /// 上移匹配规则命令
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanMoveMatchRuleUp))]
-    private void MoveMatchRuleUp()
-    {
-        if (SelectedMatchRule == null) return;
-        var index = MatchRules.IndexOf(SelectedMatchRule);
-        if (index > 0)
-        {
-            MatchRules.Move(index, index - 1);
-            UpdateMatchRuleSortOrders();
-            AutoSave();
-        }
-    }
-
-    private bool CanMoveMatchRuleUp() => SelectedMatchRule != null && MatchRules.IndexOf(SelectedMatchRule) > 0;
-
-    /// <summary>
-    /// 下移匹配规则命令
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanMoveMatchRuleDown))]
-    private void MoveMatchRuleDown()
-    {
-        if (SelectedMatchRule == null) return;
-        var index = MatchRules.IndexOf(SelectedMatchRule);
-        if (index >= 0 && index < MatchRules.Count - 1)
-        {
-            MatchRules.Move(index, index + 1);
-            UpdateMatchRuleSortOrders();
-            AutoSave();
-        }
-    }
-
-    private bool CanMoveMatchRuleDown() => SelectedMatchRule != null && MatchRules.IndexOf(SelectedMatchRule) < MatchRules.Count - 1;
-
-    /// <summary>
-    /// 添加顺序帧命令
+    /// 添加顺序回复规则
     /// </summary>
     [RelayCommand]
-    private void AddSequentialFrame()
+    private void AddSequentialRule()
+    {
+        var rule = new AutoReplyRuleViewModel
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = $"顺序规则 {Rules.Count(r => r.Type == ReplyMode.Sequential) + 1}",
+            Type = ReplyMode.Sequential,
+            SortOrder = Rules.Count,
+            IsEnabled = true,
+            SequentialConfig = new SequentialRuleConfig(),
+            IsEnabledChangedCallback = OnRuleIsEnabledChanged
+        };
+        Rules.Add(rule);
+        SelectedRule = rule;
+        AutoSave();
+    }
+
+    /// <summary>
+    /// 添加协议回复规则
+    /// </summary>
+    [RelayCommand]
+    private void AddProtocolRule()
+    {
+        var rule = new AutoReplyRuleViewModel
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = $"协议规则 {Rules.Count(r => r.Type == ReplyMode.Protocol) + 1}",
+            Type = ReplyMode.Protocol,
+            SortOrder = Rules.Count,
+            IsEnabled = true,
+            ProtocolConfig = new ProtocolRuleConfig(),
+            IsEnabledChangedCallback = OnRuleIsEnabledChanged
+        };
+        Rules.Add(rule);
+        SelectedRule = rule;
+        RefreshAvailableProtocols();
+        AutoSave();
+    }
+
+    /// <summary>
+    /// 移除规则命令
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifyRule))]
+    private void RemoveRule()
+    {
+        if (SelectedRule != null)
+        {
+            Rules.Remove(SelectedRule);
+            UpdateRuleSortOrders();
+            AutoSave();
+        }
+    }
+
+    private bool CanModifyRule() => SelectedRule != null;
+
+    /// <summary>
+    /// 保存规则编辑
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifyRule))]
+    private void SaveRule()
+    {
+        if (SelectedRule == null) return;
+
+        // 对于顺序回复规则，同步编辑中的帧列表
+        if (SelectedRule.Type == ReplyMode.Sequential && SelectedRule.SequentialConfig != null)
+        {
+            SelectedRule.SequentialConfig.Frames = EditingFrames.Select(f => f.ToModel()).ToList();
+        }
+
+        // 对于协议回复规则，同步字段值
+        if (SelectedRule.Type == ReplyMode.Protocol && SelectedRule.ProtocolConfig != null)
+        {
+            SelectedRule.ProtocolConfig.FieldValues.Clear();
+            foreach (var input in ProtocolFieldInputs)
+            {
+                if (!string.IsNullOrEmpty(input.Value))
+                {
+                    SelectedRule.ProtocolConfig.FieldValues[input.FieldName] = input.Value;
+                }
+            }
+        }
+
+        _ruleBackup = null;
+        AutoSave();
+        SelectedRule = null;
+    }
+
+    /// <summary>
+    /// 取消规则编辑，恢复到编辑前状态
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanModifyRule))]
+    private void CancelRule()
+    {
+        if (SelectedRule != null && _ruleBackup != null)
+        {
+            SelectedRule.Name = _ruleBackup.Name;
+            SelectedRule.Description = _ruleBackup.Description;
+            SelectedRule.IsEnabled = _ruleBackup.IsEnabled;
+
+            if (_ruleBackup.MatchConfig != null)
+            {
+                SelectedRule.MatchConfig = new MatchRuleConfig
+                {
+                    TriggerPattern = _ruleBackup.MatchConfig.TriggerPattern,
+                    MatchType = _ruleBackup.MatchConfig.MatchType,
+                    ResponseContent = _ruleBackup.MatchConfig.ResponseContent,
+                    IsResponseHex = _ruleBackup.MatchConfig.IsResponseHex
+                };
+            }
+
+            if (_ruleBackup.SequentialConfig != null)
+            {
+                SelectedRule.SequentialConfig = new SequentialRuleConfig
+                {
+                    Frames = _ruleBackup.SequentialConfig.Frames.Select(f => new SequentialFrame
+                    {
+                        Id = f.Id, Name = f.Name, Content = f.Content,
+                        IsHexMode = f.IsHexMode, IsEnabled = f.IsEnabled, SortOrder = f.SortOrder,
+                        Description = f.Description
+                    }).ToList(),
+                    EnableLoop = _ruleBackup.SequentialConfig.EnableLoop,
+                    CurrentIndex = _ruleBackup.SequentialConfig.CurrentIndex
+                };
+            }
+
+            if (_ruleBackup.ProtocolConfig != null)
+            {
+                SelectedRule.ProtocolConfig = new ProtocolRuleConfig
+                {
+                    ProtocolName = _ruleBackup.ProtocolConfig.ProtocolName,
+                    FieldValues = new Dictionary<string, string>(_ruleBackup.ProtocolConfig.FieldValues)
+                };
+            }
+            _ruleBackup = null;
+        }
+        SelectedRule = null;
+    }
+
+    /// <summary>
+    /// 上移规则命令
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanMoveRuleUp))]
+    private void MoveRuleUp()
+    {
+        if (SelectedRule == null) return;
+        var index = Rules.IndexOf(SelectedRule);
+        if (index > 0)
+        {
+            Rules.Move(index, index - 1);
+            UpdateRuleSortOrders();
+            AutoSave();
+        }
+    }
+
+    private bool CanMoveRuleUp() => SelectedRule != null && Rules.IndexOf(SelectedRule) > 0;
+
+    /// <summary>
+    /// 下移规则命令
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanMoveRuleDown))]
+    private void MoveRuleDown()
+    {
+        if (SelectedRule == null) return;
+        var index = Rules.IndexOf(SelectedRule);
+        if (index >= 0 && index < Rules.Count - 1)
+        {
+            Rules.Move(index, index + 1);
+            UpdateRuleSortOrders();
+            AutoSave();
+        }
+    }
+
+    private bool CanMoveRuleDown() => SelectedRule != null && Rules.IndexOf(SelectedRule) < Rules.Count - 1;
+
+    #endregion
+
+    #region Sequential Frame Management (editing context)
+
+    /// <summary>
+    /// 添加顺序帧到当前编辑的规则
+    /// </summary>
+    [RelayCommand]
+    private void AddFrame()
     {
         var frame = new SequentialFrameViewModel
         {
-            Id = GetNextSequentialFrameId(),
-            Name = $"帧 {SequentialFrames.Count + 1}",
-            SortOrder = SequentialFrames.Count,
+            Id = EditingFrames.Count > 0 ? EditingFrames.Max(f => f.Id) + 1 : 1,
+            Name = $"帧 {EditingFrames.Count + 1}",
+            SortOrder = EditingFrames.Count,
             IsEnabled = true
         };
-        SequentialFrames.Add(frame);
-        SelectedSequentialFrame = frame;
-        AutoSave();
+        EditingFrames.Add(frame);
+        SelectedEditingFrame = frame;
     }
 
     /// <summary>
-    /// 移除顺序帧命令
+    /// 移除顺序帧
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifySequentialFrame))]
-    private void RemoveSequentialFrame()
+    [RelayCommand(CanExecute = nameof(CanModifyFrame))]
+    private void RemoveFrame()
     {
-        if (SelectedSequentialFrame != null)
+        if (SelectedEditingFrame != null)
         {
-            SequentialFrames.Remove(SelectedSequentialFrame);
-            UpdateSequentialFrameSortOrders();
-            AutoSave();
+            EditingFrames.Remove(SelectedEditingFrame);
+            UpdateFrameSortOrders();
         }
     }
 
-    private bool CanModifySequentialFrame() => SelectedSequentialFrame != null;
+    private bool CanModifyFrame() => SelectedEditingFrame != null;
 
     /// <summary>
-    /// 保存顺序帧编辑
+    /// 上移顺序帧
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifySequentialFrame))]
-    private void SaveSequentialFrame()
+    [RelayCommand(CanExecute = nameof(CanMoveFrameUp))]
+    private void MoveFrameUp()
     {
-        _sequentialFrameBackup = null;
-        AutoSave();
-        SelectedSequentialFrame = null;
-    }
-
-    /// <summary>
-    /// 取消顺序帧编辑，恢复到编辑前状态
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifySequentialFrame))]
-    private void CancelSequentialFrame()
-    {
-        if (SelectedSequentialFrame != null && _sequentialFrameBackup != null)
-        {
-            SelectedSequentialFrame.Name = _sequentialFrameBackup.Name;
-            SelectedSequentialFrame.Content = _sequentialFrameBackup.Content;
-            SelectedSequentialFrame.IsHexMode = _sequentialFrameBackup.IsHexMode;
-            SelectedSequentialFrame.Description = _sequentialFrameBackup.Description;
-            _sequentialFrameBackup = null;
-        }
-        SelectedSequentialFrame = null;
-    }
-
-    /// <summary>
-    /// 上移顺序帧命令
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanMoveSequentialFrameUp))]
-    private void MoveSequentialFrameUp()
-    {
-        if (SelectedSequentialFrame == null) return;
-        var index = SequentialFrames.IndexOf(SelectedSequentialFrame);
+        if (SelectedEditingFrame == null) return;
+        var index = EditingFrames.IndexOf(SelectedEditingFrame);
         if (index > 0)
         {
-            SequentialFrames.Move(index, index - 1);
-            UpdateSequentialFrameSortOrders();
-            AutoSave();
+            EditingFrames.Move(index, index - 1);
+            UpdateFrameSortOrders();
         }
     }
 
-    private bool CanMoveSequentialFrameUp() => SelectedSequentialFrame != null && SequentialFrames.IndexOf(SelectedSequentialFrame) > 0;
+    private bool CanMoveFrameUp() => SelectedEditingFrame != null && EditingFrames.IndexOf(SelectedEditingFrame) > 0;
 
     /// <summary>
-    /// 下移顺序帧命令
+    /// 下移顺序帧
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanMoveSequentialFrameDown))]
-    private void MoveSequentialFrameDown()
+    [RelayCommand(CanExecute = nameof(CanMoveFrameDown))]
+    private void MoveFrameDown()
     {
-        if (SelectedSequentialFrame == null) return;
-        var index = SequentialFrames.IndexOf(SelectedSequentialFrame);
-        if (index >= 0 && index < SequentialFrames.Count - 1)
+        if (SelectedEditingFrame == null) return;
+        var index = EditingFrames.IndexOf(SelectedEditingFrame);
+        if (index >= 0 && index < EditingFrames.Count - 1)
         {
-            SequentialFrames.Move(index, index + 1);
-            UpdateSequentialFrameSortOrders();
-            AutoSave();
+            EditingFrames.Move(index, index + 1);
+            UpdateFrameSortOrders();
         }
     }
 
-    private bool CanMoveSequentialFrameDown() => SelectedSequentialFrame != null && SequentialFrames.IndexOf(SelectedSequentialFrame) < SequentialFrames.Count - 1;
+    private bool CanMoveFrameDown() => SelectedEditingFrame != null && EditingFrames.IndexOf(SelectedEditingFrame) < EditingFrames.Count - 1;
 
-    /// <summary>
-    /// 清空日志命令
-    /// </summary>
-    [RelayCommand]
-    private void ClearLogs()
-    {
-        ReplyLogs.Clear();
-    }
+    #endregion
 
-    #region Protocol Reply Commands
-
-    /// <summary>
-    /// 添加协议回复方案
-    /// </summary>
-    [RelayCommand]
-    private void AddProtocolScheme()
-    {
-        var scheme = new ProtocolReplySchemeViewModel
-        {
-            Id = ProtocolSchemes.Count > 0 ? ProtocolSchemes.Max(s => s.Id) + 1 : 1,
-            Name = $"方案 {ProtocolSchemes.Count + 1}",
-            SortOrder = ProtocolSchemes.Count,
-            IsEnabled = true
-        };
-        ProtocolSchemes.Add(scheme);
-        SelectedProtocolScheme = scheme;
-        AutoSave();
-    }
-
-    /// <summary>
-    /// 移除协议回复方案
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifyProtocolScheme))]
-    private void RemoveProtocolScheme()
-    {
-        if (SelectedProtocolScheme == null) return;
-        ProtocolSchemes.Remove(SelectedProtocolScheme);
-        for (int i = 0; i < ProtocolSchemes.Count; i++)
-            ProtocolSchemes[i].SortOrder = i;
-        AutoSave();
-    }
-
-    private bool CanModifyProtocolScheme() => SelectedProtocolScheme != null;
-
-    /// <summary>
-    /// 设置激活的协议回复方案（单选互斥）
-    /// </summary>
-    [RelayCommand]
-    private void SetActiveProtocolScheme(ProtocolReplySchemeViewModel? scheme)
-    {
-        foreach (var s in ProtocolSchemes)
-        {
-            s.IsActive = s == scheme;
-        }
-        AutoSave();
-    }
+    #region Protocol helpers
 
     /// <summary>
     /// 刷新可用协议列表
@@ -450,34 +431,25 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void RefreshAvailableProtocols()
     {
-        // 保存当前正在编辑的协议名，防止刷新列表时清空选择
-        var currentProtocolName = SelectedProtocolScheme?.ProtocolName;
-
         AvailableProtocols.Clear();
         if (_protocolParserService == null) return;
         foreach (var def in _protocolParserService.GetAllDefinitions())
         {
             AvailableProtocols.Add(def);
         }
-
-        // 恢复编辑中的协议选择
-        if (SelectedProtocolScheme != null && !string.IsNullOrEmpty(currentProtocolName))
-        {
-            SelectedProtocolScheme.ProtocolName = currentProtocolName;
-        }
     }
 
     /// <summary>
-    /// 当选中方案的协议变化时，刷新字段输入
+    /// 当选中规则的协议变化时，刷新字段输入
     /// </summary>
     [RelayCommand]
     private void RefreshProtocolFields()
     {
         ProtocolFieldInputs.Clear();
-        if (SelectedProtocolScheme == null || _protocolParserService == null)
+        if (SelectedRule?.ProtocolConfig == null || _protocolParserService == null)
             return;
 
-        var protocolName = SelectedProtocolScheme.ProtocolName;
+        var protocolName = SelectedRule.ProtocolConfig.ProtocolName;
         if (string.IsNullOrEmpty(protocolName))
             return;
 
@@ -529,11 +501,11 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         }
 
         // 恢复已保存的值
-        if (SelectedProtocolScheme.FieldValues.Count > 0)
+        if (SelectedRule.ProtocolConfig.FieldValues.Count > 0)
         {
             foreach (var input in ProtocolFieldInputs)
             {
-                if (SelectedProtocolScheme.FieldValues.TryGetValue(input.FieldName, out var savedValue))
+                if (SelectedRule.ProtocolConfig.FieldValues.TryGetValue(input.FieldName, out var savedValue))
                 {
                     input.Value = savedValue;
                 }
@@ -541,45 +513,16 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>
-    /// 保存当前方案的字段值
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifyProtocolScheme))]
-    private void SaveProtocolSchemeFields()
-    {
-        if (SelectedProtocolScheme == null) return;
-
-        SelectedProtocolScheme.FieldValues.Clear();
-        foreach (var input in ProtocolFieldInputs)
-        {
-            if (!string.IsNullOrEmpty(input.Value))
-            {
-                SelectedProtocolScheme.FieldValues[input.FieldName] = input.Value;
-            }
-        }
-        _protocolSchemeBackup = null;
-        AutoSave();
-        SelectedProtocolScheme = null;
-    }
-
-    /// <summary>
-    /// 取消协议回复方案编辑，恢复到编辑前状态
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanModifyProtocolScheme))]
-    private void CancelProtocolScheme()
-    {
-        if (SelectedProtocolScheme != null && _protocolSchemeBackup != null)
-        {
-            SelectedProtocolScheme.Name = _protocolSchemeBackup.Name;
-            SelectedProtocolScheme.Description = _protocolSchemeBackup.Description;
-            SelectedProtocolScheme.ProtocolName = _protocolSchemeBackup.ProtocolName;
-            SelectedProtocolScheme.FieldValues = new Dictionary<string, string>(_protocolSchemeBackup.FieldValues);
-            _protocolSchemeBackup = null;
-        }
-        SelectedProtocolScheme = null;
-    }
-
     #endregion
+
+    /// <summary>
+    /// 清空日志命令
+    /// </summary>
+    [RelayCommand]
+    private void ClearLogs()
+    {
+        ReplyLogs.Clear();
+    }
 
     #endregion
 
@@ -608,45 +551,27 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         _isLoading = true;
         try
         {
-        var appConfig = _configurationService.Load();
-        var config = appConfig.AutoReplyConfig;
+            var appConfig = _configurationService.Load();
+            var config = appConfig.AutoReplyConfig;
 
-        // IsRunning 不从配置恢复，始终从停止状态开始
-        IsRunning = false;
-        GlobalDelayMs = config.GlobalDelayMs;
-        ActiveMode = config.ActiveMode;
-        EnableLoop = config.SequentialConfig.EnableLoop;
-        CurrentFrameIndex = config.SequentialConfig.CurrentIndex;
+            // IsRunning 不从配置恢复，始终从停止状态开始
+            IsRunning = false;
+            GlobalDelayMs = config.GlobalDelayMs;
 
-        // 加载匹配规则
-        MatchRules.Clear();
-        foreach (var rule in config.MatchConfig.Rules.OrderBy(r => r.SortOrder))
-        {
-            MatchRules.Add(MatchRuleViewModel.FromModel(rule));
-        }
+            // 加载统一规则池
+            Rules.Clear();
+            foreach (var rule in config.Rules.OrderBy(r => r.SortOrder))
+            {
+                var ruleVm = AutoReplyRuleViewModel.FromModel(rule);
+                ruleVm.IsEnabledChangedCallback = OnRuleIsEnabledChanged;
+                Rules.Add(ruleVm);
+            }
 
-        // 加载顺序帧
-        SequentialFrames.Clear();
-        foreach (var frame in config.SequentialConfig.Frames.OrderBy(f => f.SortOrder))
-        {
-            SequentialFrames.Add(SequentialFrameViewModel.FromModel(frame));
-        }
+            // 刷新可用协议列表
+            RefreshAvailableProtocols();
 
-        // 加载协议回复方案
-        ProtocolSchemes.Clear();
-        foreach (var scheme in config.ProtocolConfig.Schemes.OrderBy(s => s.SortOrder))
-        {
-            var vm = ProtocolReplySchemeViewModel.FromModel(scheme);
-            vm.IsActive = config.ProtocolConfig.ActiveSchemeIndex >= 0
-                && config.ProtocolConfig.Schemes.IndexOf(scheme) == config.ProtocolConfig.ActiveSchemeIndex;
-            ProtocolSchemes.Add(vm);
-        }
-
-        // 刷新可用协议列表
-        RefreshAvailableProtocols();
-
-        // 同步到服务
-        _autoReplyService.UpdateConfig(config);
+            // 同步到服务
+            _autoReplyService.UpdateConfig(config);
         }
         finally
         {
@@ -659,31 +584,25 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// </summary>
     private void SyncToService()
     {
-        var protocolConfig = new ProtocolReplyConfig
-        {
-            Schemes = ProtocolSchemes.Select(s => s.ToModel()).ToList(),
-            ActiveSchemeIndex = ProtocolSchemes.ToList().FindIndex(s => s.IsActive)
-        };
-
         var config = new AutoReplyConfig
         {
             IsEnabled = IsRunning,
             GlobalDelayMs = GlobalDelayMs,
-            ActiveMode = ActiveMode,
-            MatchConfig = new MatchReplyConfig
-            {
-                Rules = MatchRules.Select(r => r.ToModel()).ToList()
-            },
-            SequentialConfig = new SequentialReplyConfig
-            {
-                Frames = SequentialFrames.Select(f => f.ToModel()).ToList(),
-                EnableLoop = EnableLoop,
-                CurrentIndex = CurrentFrameIndex
-            },
-            ProtocolConfig = protocolConfig
+            Rules = Rules.Select(r => r.ToModel()).ToList()
         };
 
         _autoReplyService.UpdateConfig(config);
+    }
+
+    /// <summary>
+    /// 规则启用状态变更回调（运行中立即同步到服务）
+    /// </summary>
+    private void OnRuleIsEnabledChanged()
+    {
+        if (!_isLoading)
+        {
+            AutoSave();
+        }
     }
 
     /// <summary>
@@ -704,7 +623,6 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// </summary>
     private void OnReplyTriggered(object? sender, ReplyEventArgs e)
     {
-        // 预先构建日志条目（可在后台线程执行）
         var logEntry = new ReplyLogEntry
         {
             Timestamp = e.Timestamp,
@@ -713,11 +631,9 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
             ReplyDataHex = BitConverter.ToString(e.ReplyData).Replace("-", " ")
         };
 
-        // 转发到统一日志服务
         _loggingService?.Info(LogSource.AutoReply,
             $"触发回复 [{logEntry.RuleName}] Rx: {logEntry.ReceivedDataHex} → Tx: {logEntry.ReplyDataHex}");
 
-        // 确保在 UI 线程上操作 ObservableCollection 和属性更新
         if (_syncContext != null)
         {
             _syncContext.Post(_ => UpdateUIOnReply(logEntry), null);
@@ -733,10 +649,8 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// </summary>
     private void UpdateUIOnReply(ReplyLogEntry logEntry)
     {
-        // 更新计数
         ReceiveCount = _autoReplyService.ReceiveCount;
         ReplyCount = _autoReplyService.ReplyCount;
-        CurrentFrameIndex = _autoReplyService.Config.SequentialConfig.CurrentIndex;
 
         // 添加日志
         ReplyLogs.Insert(0, logEntry);
@@ -748,29 +662,19 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         }
     }
 
-    private int GetNextMatchRuleId()
+    private void UpdateRuleSortOrders()
     {
-        return MatchRules.Count > 0 ? MatchRules.Max(r => r.Id) + 1 : 1;
-    }
-
-    private int GetNextSequentialFrameId()
-    {
-        return SequentialFrames.Count > 0 ? SequentialFrames.Max(f => f.Id) + 1 : 1;
-    }
-
-    private void UpdateMatchRuleSortOrders()
-    {
-        for (int i = 0; i < MatchRules.Count; i++)
+        for (int i = 0; i < Rules.Count; i++)
         {
-            MatchRules[i].SortOrder = i;
+            Rules[i].SortOrder = i;
         }
     }
 
-    private void UpdateSequentialFrameSortOrders()
+    private void UpdateFrameSortOrders()
     {
-        for (int i = 0; i < SequentialFrames.Count; i++)
+        for (int i = 0; i < EditingFrames.Count; i++)
         {
-            SequentialFrames[i].SortOrder = i;
+            EditingFrames[i].SortOrder = i;
         }
     }
 
@@ -778,32 +682,32 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// 当属性变化时自动保存
     /// </summary>
     partial void OnGlobalDelayMsChanged(int value) => AutoSave();
-    partial void OnActiveModeChanged(ReplyMode value) => AutoSave();
-    partial void OnEnableLoopChanged(bool value) => AutoSave();
 
     /// <summary>
-    /// 选中匹配规则变更时备份数据
+    /// 选中规则变更时备份数据并加载编辑上下文
     /// </summary>
-    partial void OnSelectedMatchRuleChanged(MatchRuleViewModel? value)
+    partial void OnSelectedRuleChanged(AutoReplyRuleViewModel? value)
     {
-        _matchRuleBackup = value?.ToModel();
-    }
+        _ruleBackup = value?.ToModel();
 
-    /// <summary>
-    /// 选中顺序帧变更时备份数据
-    /// </summary>
-    partial void OnSelectedSequentialFrameChanged(SequentialFrameViewModel? value)
-    {
-        _sequentialFrameBackup = value?.ToModel();
-    }
+        // 加载顺序帧编辑上下文
+        EditingFrames.Clear();
+        SelectedEditingFrame = null;
+        if (value?.Type == ReplyMode.Sequential && value.SequentialConfig != null)
+        {
+            foreach (var frame in value.SequentialConfig.Frames.OrderBy(f => f.SortOrder))
+            {
+                EditingFrames.Add(SequentialFrameViewModel.FromModel(frame));
+            }
+        }
 
-    /// <summary>
-    /// 选中协议回复方案变更时刷新字段
-    /// </summary>
-    partial void OnSelectedProtocolSchemeChanged(ProtocolReplySchemeViewModel? value)
-    {
-        _protocolSchemeBackup = value?.ToModel();
-        RefreshProtocolFields();
+        // 加载协议字段编辑上下文
+        ProtocolFieldInputs.Clear();
+        if (value?.Type == ReplyMode.Protocol)
+        {
+            RefreshAvailableProtocols();
+            RefreshProtocolFields();
+        }
     }
 
     public void Dispose()
@@ -826,44 +730,120 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
 }
 
 /// <summary>
-/// 匹配规则 ViewModel
+/// 统一规则 ViewModel
 /// </summary>
-public partial class MatchRuleViewModel : ObservableObject
+public partial class AutoReplyRuleViewModel : ObservableObject
 {
-    [ObservableProperty] private int _id;
+    [ObservableProperty] private string _id = Guid.NewGuid().ToString();
     [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private string _triggerPattern = string.Empty;
-    [ObservableProperty] private Models.MatchType _matchType = Models.MatchType.HexContains;
-    [ObservableProperty] private string _responseContent = string.Empty;
-    [ObservableProperty] private bool _isResponseHex = true;
+    [ObservableProperty] private string _description = string.Empty;
+    [ObservableProperty] private ReplyMode _type = ReplyMode.Match;
     [ObservableProperty] private bool _isEnabled = true;
     [ObservableProperty] private int _sortOrder;
-    [ObservableProperty] private string _description = string.Empty;
+    [ObservableProperty] private int _currentFrameIndex;
 
-    public MatchRule ToModel() => new()
+    /// <summary>
+    /// 启用状态变更回调（供父 ViewModel 订阅）
+    /// </summary>
+    public Action? IsEnabledChangedCallback { get; set; }
+
+    partial void OnIsEnabledChanged(bool value) => IsEnabledChangedCallback?.Invoke();
+
+    /// <summary>
+    /// 匹配回复配置
+    /// </summary>
+    [ObservableProperty]
+    private MatchRuleConfig? _matchConfig;
+
+    /// <summary>
+    /// 顺序回复配置
+    /// </summary>
+    [ObservableProperty]
+    private SequentialRuleConfig? _sequentialConfig;
+
+    /// <summary>
+    /// 协议回复配置
+    /// </summary>
+    [ObservableProperty]
+    private ProtocolRuleConfig? _protocolConfig;
+
+    /// <summary>
+    /// 类型显示名称
+    /// </summary>
+    public string TypeDisplayName => Type switch
+    {
+        ReplyMode.Match => "匹配",
+        ReplyMode.Sequential => "顺序",
+        ReplyMode.Protocol => "协议",
+        ReplyMode.Script => "脚本",
+        _ => "未知"
+    };
+
+    public AutoReplyRule ToModel() => new()
     {
         Id = Id,
         Name = Name,
-        TriggerPattern = TriggerPattern,
-        MatchType = MatchType,
-        ResponseContent = ResponseContent,
-        IsResponseHex = IsResponseHex,
+        Description = Description,
+        Type = Type,
         IsEnabled = IsEnabled,
         SortOrder = SortOrder,
-        Description = Description
+        MatchConfig = MatchConfig != null ? new MatchRuleConfig
+        {
+            TriggerPattern = MatchConfig.TriggerPattern,
+            MatchType = MatchConfig.MatchType,
+            ResponseContent = MatchConfig.ResponseContent,
+            IsResponseHex = MatchConfig.IsResponseHex
+        } : null,
+        SequentialConfig = SequentialConfig != null ? new SequentialRuleConfig
+        {
+            Frames = SequentialConfig.Frames.Select(f => new SequentialFrame
+            {
+                Id = f.Id, Name = f.Name, Content = f.Content,
+                IsHexMode = f.IsHexMode, IsEnabled = f.IsEnabled,
+                SortOrder = f.SortOrder, Description = f.Description
+            }).ToList(),
+            EnableLoop = SequentialConfig.EnableLoop,
+            CurrentIndex = SequentialConfig.CurrentIndex
+        } : null,
+        ProtocolConfig = ProtocolConfig != null ? new ProtocolRuleConfig
+        {
+            ProtocolName = ProtocolConfig.ProtocolName,
+            FieldValues = new Dictionary<string, string>(ProtocolConfig.FieldValues)
+        } : null
     };
 
-    public static MatchRuleViewModel FromModel(MatchRule model) => new()
+    public static AutoReplyRuleViewModel FromModel(AutoReplyRule model) => new()
     {
         Id = model.Id,
         Name = model.Name,
-        TriggerPattern = model.TriggerPattern,
-        MatchType = model.MatchType,
-        ResponseContent = model.ResponseContent,
-        IsResponseHex = model.IsResponseHex,
+        Description = model.Description,
+        Type = model.Type,
         IsEnabled = model.IsEnabled,
         SortOrder = model.SortOrder,
-        Description = model.Description
+        MatchConfig = model.MatchConfig != null ? new MatchRuleConfig
+        {
+            TriggerPattern = model.MatchConfig.TriggerPattern,
+            MatchType = model.MatchConfig.MatchType,
+            ResponseContent = model.MatchConfig.ResponseContent,
+            IsResponseHex = model.MatchConfig.IsResponseHex
+        } : null,
+        SequentialConfig = model.SequentialConfig != null ? new SequentialRuleConfig
+        {
+            Frames = model.SequentialConfig.Frames.Select(f => new SequentialFrame
+            {
+                Id = f.Id, Name = f.Name, Content = f.Content,
+                IsHexMode = f.IsHexMode, IsEnabled = f.IsEnabled,
+                SortOrder = f.SortOrder, Description = f.Description
+            }).ToList(),
+            EnableLoop = model.SequentialConfig.EnableLoop,
+            CurrentIndex = model.SequentialConfig.CurrentIndex
+        } : null,
+        ProtocolConfig = model.ProtocolConfig != null ? new ProtocolRuleConfig
+        {
+            ProtocolName = model.ProtocolConfig.ProtocolName,
+            FieldValues = new Dictionary<string, string>(model.ProtocolConfig.FieldValues)
+        } : null,
+        CurrentFrameIndex = model.SequentialConfig?.CurrentIndex ?? 0
     };
 }
 
@@ -914,45 +894,4 @@ public class ReplyLogEntry
     public string ReplyDataHex { get; init; } = string.Empty;
 
     public string TimestampString => Timestamp.ToString("HH:mm:ss.fff");
-}
-
-/// <summary>
-/// 协议回复方案 ViewModel
-/// </summary>
-public partial class ProtocolReplySchemeViewModel : ObservableObject
-{
-    [ObservableProperty] private int _id;
-    [ObservableProperty] private string _name = string.Empty;
-    [ObservableProperty] private string _description = string.Empty;
-    [ObservableProperty] private string _protocolName = string.Empty;
-    [ObservableProperty] private bool _isEnabled = true;
-    [ObservableProperty] private int _sortOrder;
-    [ObservableProperty] private bool _isActive;
-
-    /// <summary>
-    /// 字段值配置（字段名 -> 值表达式）
-    /// </summary>
-    public Dictionary<string, string> FieldValues { get; set; } = [];
-
-    public ProtocolReplyScheme ToModel() => new()
-    {
-        Id = Id,
-        Name = Name,
-        Description = Description,
-        ProtocolName = ProtocolName,
-        FieldValues = new Dictionary<string, string>(FieldValues),
-        IsEnabled = IsEnabled,
-        SortOrder = SortOrder
-    };
-
-    public static ProtocolReplySchemeViewModel FromModel(ProtocolReplyScheme model) => new()
-    {
-        Id = model.Id,
-        Name = model.Name,
-        Description = model.Description,
-        ProtocolName = model.ProtocolName,
-        FieldValues = new Dictionary<string, string>(model.FieldValues),
-        IsEnabled = model.IsEnabled,
-        SortOrder = model.SortOrder
-    };
 }
