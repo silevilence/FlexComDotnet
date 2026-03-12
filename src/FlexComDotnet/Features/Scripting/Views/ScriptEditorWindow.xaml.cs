@@ -1,8 +1,10 @@
 using System.ComponentModel;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Xml;
+using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
 using FlexComDotnet.Features.Scripting.Completion;
 using ICSharpCode.AvalonEdit.CodeCompletion;
@@ -17,14 +19,39 @@ namespace FlexComDotnet.Features.Scripting.Views;
 public partial class ScriptEditorWindow : Window
 {
     private readonly ScriptingViewModel _viewModel;
+    private readonly IProtocolParserService? _protocolParserService;
     private bool _isUpdatingFromViewModel;
     private bool _isUpdatingFromEditor;
     private CompletionWindow? _completionWindow;
 
-    public ScriptEditorWindow(ScriptingViewModel viewModel)
+    /// <summary>
+    /// 匹配 FCom.parse/build/getProtocolFields 调用中协议名参数位置的正则
+    /// 例如: FCom.parse("  或 FCom.build("  或 FCom.getProtocolFields("
+    /// </summary>
+    private static readonly Regex s_protocolNameContextRegex = new(
+        @"FCom\.(parse|build|getProtocolFields)\(\s*""([^""]*)$",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// 匹配 FCom.build 调用中字段名位置的正则
+    /// 例如: FCom.build("Proto", { ["  或 , ["
+    /// </summary>
+    private static readonly Regex s_buildFieldContextRegex = new(
+        @"FCom\.build\(\s*""([^""]+)""\s*,\s*\{.*\[\s*""([^""]*)$",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// 匹配 .fields["  或 ["字段名" 访问模式（解析结果字段访问）
+    /// </summary>
+    private static readonly Regex s_fieldsAccessRegex = new(
+        @"\.fields\[\s*""([^""]*)$",
+        RegexOptions.Compiled);
+
+    public ScriptEditorWindow(ScriptingViewModel viewModel, IProtocolParserService? protocolParserService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
+        _protocolParserService = protocolParserService;
         DataContext = viewModel;
 
         // 加载 Lua 语法高亮
@@ -43,6 +70,13 @@ public partial class ScriptEditorWindow : Window
         // 设置智能补全
         CodeEditor.TextArea.TextEntering += OnTextEntering;
         CodeEditor.TextArea.TextEntered += OnTextEntered;
+
+        // 设置协议引用静态检查（红色下划线标记不存在的协议）
+        if (_protocolParserService != null)
+        {
+            CodeEditor.TextArea.TextView.LineTransformers.Add(
+                new ProtocolReferenceColorizer(_protocolParserService));
+        }
 
         Closed += OnWindowClosed;
     }
@@ -112,9 +146,26 @@ public partial class ScriptEditorWindow : Window
             }
         }
 
+        // 输入引号时检查是否在协议名参数位置
+        if (e.Text == "\"" && _protocolParserService != null)
+        {
+            if (TryShowProtocolNameCompletion())
+                return;
+            if (TryShowProtocolFieldCompletion())
+                return;
+        }
+
         // 输入字母时显示关键字补全
         if (char.IsLetter(e.Text[0]))
         {
+            // 先检查是否在协议名字符串中输入（继续补全）
+            if (_protocolParserService != null && TryShowProtocolNameCompletion())
+                return;
+
+            // 检查是否在字段名字符串中输入（继续补全）
+            if (_protocolParserService != null && TryShowProtocolFieldCompletion())
+                return;
+
             var word = GetCurrentWord();
             if (word.Length >= 2)
             {
@@ -191,6 +242,199 @@ public partial class ScriptEditorWindow : Window
 
         // 动态获取当前输入的前缀
         Func<string> getCurrentPrefix = () => GetCurrentWord();
+
+        var data = _completionWindow.CompletionList.CompletionData;
+        foreach (var item in matchingItems)
+        {
+            item.GetCurrentPrefix = getCurrentPrefix;
+            data.Add(item);
+        }
+
+        _completionWindow.Show();
+        _completionWindow.Closed += (_, _) => _completionWindow = null;
+    }
+
+    /// <summary>
+    /// 尝试检测光标是否在 FCom.parse/build/getProtocolFields 的协议名参数位置，
+    /// 如果是则显示协议名称补全
+    /// </summary>
+    private bool TryShowProtocolNameCompletion()
+    {
+        if (_completionWindow != null) return false;
+        if (_protocolParserService == null) return false;
+
+        var offset = CodeEditor.CaretOffset;
+        var line = CodeEditor.Document.GetLineByOffset(offset);
+        var lineText = CodeEditor.Document.GetText(line.Offset, offset - line.Offset);
+
+        var match = s_protocolNameContextRegex.Match(lineText);
+        if (!match.Success) return false;
+
+        var typedPrefix = match.Groups[2].Value; // 引号后已输入的部分
+        ShowProtocolNameCompletion(typedPrefix);
+        return true;
+    }
+
+    /// <summary>
+    /// 显示协议名称补全列表
+    /// </summary>
+    private void ShowProtocolNameCompletion(string typedPrefix)
+    {
+        var definitions = _protocolParserService!.GetAllDefinitions();
+
+        // 检查是否在 FCom.build 上下文中 - 提供模板补全
+        var offset = CodeEditor.CaretOffset;
+        var line = CodeEditor.Document.GetLineByOffset(offset);
+        var lineText = CodeEditor.Document.GetText(line.Offset, offset - line.Offset);
+        var isBuildContext = lineText.Contains("FCom.build(", StringComparison.Ordinal);
+
+        List<FComCompletionData> matchingItems;
+
+        if (isBuildContext)
+        {
+            var protocols = definitions.Select(d => (
+                d.Name,
+                Description: d.Description ?? string.Empty,
+                FieldNames: d.Fields.Where(f => f.IsEnabled).Select(f => f.Name)
+            ));
+            matchingItems = FComCompletionData.GetBuildProtocolCompletions(protocols)
+                .Where(item => item.Text.StartsWith(typedPrefix, StringComparison.OrdinalIgnoreCase))
+                .Cast<FComCompletionData>()
+                .ToList();
+        }
+        else
+        {
+            var protocols = definitions.Select(d => (d.Name, Description: d.Description ?? string.Empty));
+            matchingItems = FComCompletionData.GetProtocolNameCompletions(protocols)
+                .Where(item => item.Text.StartsWith(typedPrefix, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        if (matchingItems.Count == 0) return;
+
+        _completionWindow = new CompletionWindow(CodeEditor.TextArea)
+        {
+            StartOffset = CodeEditor.CaretOffset - typedPrefix.Length
+        };
+        ApplyCompletionWindowStyle(_completionWindow);
+
+        Func<string> getCurrentPrefix = () =>
+        {
+            var currentOffset = CodeEditor.CaretOffset;
+            var currentLine = CodeEditor.Document.GetLineByOffset(currentOffset);
+            var currentLineText = CodeEditor.Document.GetText(currentLine.Offset, currentOffset - currentLine.Offset);
+            var m = s_protocolNameContextRegex.Match(currentLineText);
+            return m.Success ? m.Groups[2].Value : string.Empty;
+        };
+
+        var data = _completionWindow.CompletionList.CompletionData;
+        foreach (var item in matchingItems)
+        {
+            item.GetCurrentPrefix = getCurrentPrefix;
+            data.Add(item);
+        }
+
+        _completionWindow.Show();
+        _completionWindow.Closed += (_, _) => _completionWindow = null;
+    }
+
+    /// <summary>
+    /// 尝试检测光标是否在字段名位置（FCom.build 的字段参数 或 .fields["xxx"] 访问），
+    /// 如果是则显示字段名补全
+    /// </summary>
+    private bool TryShowProtocolFieldCompletion()
+    {
+        if (_completionWindow != null) return false;
+        if (_protocolParserService == null) return false;
+
+        var offset = CodeEditor.CaretOffset;
+        var line = CodeEditor.Document.GetLineByOffset(offset);
+        var lineText = CodeEditor.Document.GetText(line.Offset, offset - line.Offset);
+
+        // 检查 FCom.build("Proto", { ["fieldPrefix 模式
+        var buildMatch = s_buildFieldContextRegex.Match(lineText);
+        if (buildMatch.Success)
+        {
+            var protocolName = buildMatch.Groups[1].Value;
+            var typedPrefix = buildMatch.Groups[2].Value;
+            ShowProtocolFieldCompletion(protocolName, typedPrefix);
+            return true;
+        }
+
+        // 检查 .fields["fieldPrefix 模式 - 需要从上下文推断协议名
+        var fieldsMatch = s_fieldsAccessRegex.Match(lineText);
+        if (fieldsMatch.Success)
+        {
+            var typedPrefix = fieldsMatch.Groups[1].Value;
+            var protocolName = FindProtocolNameInContext();
+            if (protocolName != null)
+            {
+                ShowProtocolFieldCompletion(protocolName, typedPrefix);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 从当前文档上下文中查找最近使用的协议名（向上搜索 FCom.parse/build 调用）
+    /// </summary>
+    private string? FindProtocolNameInContext()
+    {
+        var offset = CodeEditor.CaretOffset;
+        var line = CodeEditor.Document.GetLineByOffset(offset);
+        var searchRegex = new Regex(@"FCom\.(parse|build)\(\s*""([^""]+)""", RegexOptions.Compiled);
+
+        // 从当前行向上搜索最近的协议引用（最多查找 20 行）
+        for (int i = 0; i < 20 && line != null; i++)
+        {
+            var lineText = CodeEditor.Document.GetText(line.Offset, line.Length);
+            var match = searchRegex.Match(lineText);
+            if (match.Success)
+            {
+                return match.Groups[2].Value;
+            }
+            line = line.PreviousLine;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 显示协议字段名补全列表
+    /// </summary>
+    private void ShowProtocolFieldCompletion(string protocolName, string typedPrefix)
+    {
+        var definition = _protocolParserService!.GetAllDefinitions()
+            .FirstOrDefault(d => d.Name == protocolName);
+        if (definition == null) return;
+
+        var fields = definition.Fields
+            .Where(f => f.IsEnabled)
+            .Select(f => (f.Name, Description: string.IsNullOrEmpty(f.Description) ? $"{f.DataType}" : f.Description));
+
+        var matchingItems = FComCompletionData.GetProtocolFieldCompletions(fields)
+            .Where(item => item.Text.StartsWith(typedPrefix, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (matchingItems.Count == 0) return;
+
+        _completionWindow = new CompletionWindow(CodeEditor.TextArea)
+        {
+            StartOffset = CodeEditor.CaretOffset - typedPrefix.Length
+        };
+        ApplyCompletionWindowStyle(_completionWindow);
+
+        Func<string> getCurrentPrefix = () =>
+        {
+            var currentOffset = CodeEditor.CaretOffset;
+            var currentLine = CodeEditor.Document.GetLineByOffset(currentOffset);
+            var currentLineText = CodeEditor.Document.GetText(currentLine.Offset, currentOffset - currentLine.Offset);
+            // 获取最后一个 [" 后的文本
+            var lastBracketQuote = currentLineText.LastIndexOf("[\"", StringComparison.Ordinal);
+            return lastBracketQuote >= 0 ? currentLineText[(lastBracketQuote + 2)..] : string.Empty;
+        };
 
         var data = _completionWindow.CompletionList.CompletionData;
         foreach (var item in matchingItems)

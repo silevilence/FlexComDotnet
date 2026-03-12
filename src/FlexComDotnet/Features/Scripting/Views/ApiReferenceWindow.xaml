@@ -40,6 +40,7 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="Margin" Value="12,0,0,0"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
     </Window.Resources>
 
@@ -131,6 +132,34 @@
                 <TextBlock Style="{StaticResource ApiDesc}">将字节数组转换为十六进制字符串</TextBlock>
                 <TextBlock Style="{StaticResource ApiParam}">data: byte[] → string</TextBlock>
 
+                <!-- 协议操作 -->
+                <TextBlock Text="📐 协议操作" Style="{StaticResource CategoryHeader}"/>
+
+                <TextBlock Style="{StaticResource ApiDesc}" Margin="0,0,0,8">
+                    协议 API 可用于在脚本中查询、解析和构建协议帧数据。操作的协议需先在「协议定义」面板中定义。
+                </TextBlock>
+
+                <TextBlock Style="{StaticResource ApiName}">FCom.getProtocols()</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">获取所有已注册的协议名称列表</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">返回: table (string[]) - 协议名称数组</TextBlock>
+
+                <TextBlock Style="{StaticResource ApiName}">FCom.getProtocolFields(protocolName)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">获取指定协议的所有数据项定义（名称、类型、长度等）</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">protocolName: string - 协议名称</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">返回: table[] - 每项包含 name, dataType, startIndex, length, description 字段</TextBlock>
+
+                <TextBlock Style="{StaticResource ApiName}">FCom.parse(protocolName, hexFrame)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">使用指定协议解析一帧十六进制数据，返回解析结果</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">protocolName: string - 协议名称</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">hexFrame: string - 十六进制帧数据，如 "68 01 00 00 ..."</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">返回: table - 包含 success(bool), fields(table, key=字段名, value=解析值), checksumValid(bool)</TextBlock>
+
+                <TextBlock Style="{StaticResource ApiName}">FCom.build(protocolName, fieldValues)</TextBlock>
+                <TextBlock Style="{StaticResource ApiDesc}">使用指定协议和给定的字段值构建一帧十六进制数据</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">protocolName: string - 协议名称</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">fieldValues: table - 字段名到值的映射 { 字段名 = "值", ... }</TextBlock>
+                <TextBlock Style="{StaticResource ApiParam}">返回: string - 构建好的十六进制帧字符串</TextBlock>
+
                 <!-- Hook 系统 -->
                 <TextBlock Text="🔗 Hook 系统" Style="{StaticResource CategoryHeader}"/>
                 
@@ -211,6 +240,31 @@
     <Run Foreground="#C586C0">end</Run><LineBreak/>
     <Run Foreground="#C586C0">return</Run> <Run Foreground="#569CD6">nil</Run>  <Run Foreground="#6A9955">-- 不回复</Run><LineBreak/>
 <Run Foreground="#C586C0">end</Run>
+                    </TextBlock>
+                </Border>
+
+                <TextBlock Style="{StaticResource ApiDesc}" Margin="0,12,0,4">协议操作示例 (解析与构建)：</TextBlock>
+                <Border Background="{DynamicResource CardBrush}" CornerRadius="4" Padding="12" Margin="0,4,0,0">
+                    <TextBlock FontFamily="Cascadia Code, Consolas, Courier New" FontSize="12"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap">
+<Run Foreground="#6A9955">-- 列出所有协议</Run><LineBreak/>
+<Run Foreground="#569CD6">local</Run> protocols = <Run Foreground="#4FC1FF">FCom</Run>.getProtocols()<LineBreak/>
+<Run Foreground="#C586C0">for</Run> _, name <Run Foreground="#C586C0">in</Run> ipairs(protocols) <Run Foreground="#C586C0">do</Run><LineBreak/>
+    <Run Foreground="#4FC1FF">FCom</Run>.log(<Run Foreground="#CE9178">"协议: "</Run> .. name)<LineBreak/>
+<Run Foreground="#C586C0">end</Run><LineBreak/>
+<LineBreak/>
+<Run Foreground="#6A9955">-- 解析接收到的帧</Run><LineBreak/>
+<Run Foreground="#569CD6">local</Run> result = <Run Foreground="#4FC1FF">FCom</Run>.parse(<Run Foreground="#CE9178">"MyProtocol"</Run>, <Run Foreground="#CE9178">"68 01 00 64 16"</Run>)<LineBreak/>
+<Run Foreground="#C586C0">if</Run> result.success <Run Foreground="#C586C0">then</Run><LineBreak/>
+    <Run Foreground="#4FC1FF">FCom</Run>.log(<Run Foreground="#CE9178">"温度="</Run> .. result.fields[<Run Foreground="#CE9178">"温度"</Run>])<LineBreak/>
+<Run Foreground="#C586C0">end</Run><LineBreak/>
+<LineBreak/>
+<Run Foreground="#6A9955">-- 构建并发送协议帧</Run><LineBreak/>
+<Run Foreground="#569CD6">local</Run> frame = <Run Foreground="#4FC1FF">FCom</Run>.build(<Run Foreground="#CE9178">"MyProtocol"</Run>, {<LineBreak/>
+    [<Run Foreground="#CE9178">"地址"</Run>] = <Run Foreground="#CE9178">"01"</Run>,<LineBreak/>
+    [<Run Foreground="#CE9178">"温度"</Run>] = <Run Foreground="#CE9178">"100"</Run><LineBreak/>
+})<LineBreak/>
+<Run Foreground="#4FC1FF">FCom</Run>.send(frame)
                     </TextBlock>
                 </Border>
 

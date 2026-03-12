@@ -1,5 +1,7 @@
 using FlexComDotnet.Core.Features.Checksum.Models;
 using FlexComDotnet.Core.Features.Checksum.Services;
+using FlexComDotnet.Core.Features.Protocol.Models;
+using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Scripting.Models;
 using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Serial.Services;
@@ -300,6 +302,113 @@ public class ScriptApiBridgeTests
         _bridge.Log("test");
 
         capturedEntry!.ScriptName.Should().Be("new_script");
+    }
+
+    #endregion
+
+    #region Protocol API 测试
+
+    [Fact]
+    public void GetProtocols_WithNoProtocolService_ShouldReturnEmpty()
+    {
+        // _bridge was created without IProtocolParserService
+        var result = _bridge.GetProtocols();
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GetProtocols_WithProtocolService_ShouldReturnNames()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        protocolService.RegisterDefinition(new FrameDefinition { Name = "TestProto" });
+
+        var bridge = new ScriptApiBridge(_mockSerialService.Object, _mockChecksumService.Object, protocolService);
+
+        var result = bridge.GetProtocols();
+
+        result.Should().Contain("TestProto");
+    }
+
+    [Fact]
+    public void GetProtocolFields_WithNoProtocolService_ShouldReturnEmpty()
+    {
+        var result = _bridge.GetProtocolFields("any");
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GetProtocolFields_WithUnknownProtocol_ShouldReturnEmpty()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        var bridge = new ScriptApiBridge(_mockSerialService.Object, _mockChecksumService.Object, protocolService);
+
+        var result = bridge.GetProtocolFields("nonexistent");
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GetProtocolFields_WithValidProtocol_ShouldReturnFieldInfo()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        protocolService.RegisterDefinition(new FrameDefinition
+        {
+            Name = "TestProto",
+            Fields =
+            [
+                new FieldDefinition { Name = "Addr", DataType = DataType.UInt8, Length = 1, StartIndex = 0, IsEnabled = true },
+                new FieldDefinition { Name = "Cmd", DataType = DataType.UInt8, Length = 1, StartIndex = 1, IsEnabled = true }
+            ]
+        });
+
+        var bridge = new ScriptApiBridge(_mockSerialService.Object, _mockChecksumService.Object, protocolService);
+        var result = bridge.GetProtocolFields("TestProto");
+
+        result.Should().HaveCount(2);
+        result[0]["name"].Should().Be("Addr");
+        result[1]["name"].Should().Be("Cmd");
+    }
+
+    [Fact]
+    public void Parse_WithNoProtocolService_ShouldReturnError()
+    {
+        var result = _bridge.Parse("any", "01 02");
+        result.Should().ContainKey("error");
+    }
+
+    [Fact]
+    public void Parse_WithEmptyProtocolName_ShouldReturnError()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        var bridge = new ScriptApiBridge(_mockSerialService.Object, _mockChecksumService.Object, protocolService);
+
+        var result = bridge.Parse("", "01 02");
+        result.Should().ContainKey("error");
+    }
+
+    [Fact]
+    public void Build_WithNoProtocolService_ShouldReturnEmpty()
+    {
+        using var lua = new NLua.Lua();
+        var table = (NLua.LuaTable)lua.DoString("return {}")[0];
+        var result = _bridge.Build("any", table);
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Build_WithEmptyProtocolName_ShouldReturnEmpty()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        var bridge = new ScriptApiBridge(_mockSerialService.Object, _mockChecksumService.Object, protocolService);
+
+        using var lua = new NLua.Lua();
+        var table = (NLua.LuaTable)lua.DoString("return {}")[0];
+        var result = bridge.Build("", table);
+        result.Should().BeEmpty();
     }
 
     #endregion

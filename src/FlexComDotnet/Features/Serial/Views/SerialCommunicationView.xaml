@@ -210,6 +210,8 @@
                             <ContextMenu>
                                 <MenuItem Header="复制" Click="CopyReceived_Click" InputGestureText="Ctrl+C"/>
                                 <MenuItem Header="全选" Click="SelectAllReceived_Click" InputGestureText="Ctrl+A"/>
+                                <Separator/>
+                                <MenuItem Header="协议解析" Click="ProtocolParse_Click" ToolTip="使用协议解析选中的数据帧"/>
                             </ContextMenu>
                         </ListBox.ContextMenu>
                         <ListBox.ItemContainerStyle>
@@ -286,6 +288,11 @@
                                           IsChecked="{Binding IsHexSendMode}"
                                           Style="{StaticResource SmallToggleStyle}"
                                           ToolTip="切换十六进制发送"/>
+                            <Button Content="协议组帧"
+                                    Click="ProtocolBuild_Click"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Padding="8,4"
+                                    ToolTip="打开协议组帧窗口"/>
                             <Button Content="清空"
                                     Command="{Binding ClearSendCommand}"
                                     Style="{StaticResource ActionButtonStyle}"

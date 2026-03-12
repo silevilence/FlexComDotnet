@@ -67,14 +67,34 @@ public class MatchRuleConfig
     public MatchType MatchType { get; set; } = MatchType.HexContains;
 
     /// <summary>
-    /// 响应内容（Hex 或 ASCII 字符串）
+    /// 协议触发 - 关联的协议名称（MatchType == ProtocolParse 时有效）
+    /// </summary>
+    public string TriggerProtocolName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 协议触发 - 字段断言列表（AND 逻辑，未配置默认放行）
+    /// </summary>
+    public List<FieldAssertion> FieldAssertions { get; set; } = [];
+
+    /// <summary>
+    /// 响应载荷构建模式
+    /// </summary>
+    public ResponseBuildMode ResponseMode { get; set; } = ResponseBuildMode.PlainText;
+
+    /// <summary>
+    /// 响应内容（纯文本模式：Hex 或 ASCII 字符串）
     /// </summary>
     public string ResponseContent { get; set; } = string.Empty;
 
     /// <summary>
-    /// 响应内容是否为 Hex 格式
+    /// 响应内容是否为 Hex 格式（纯文本模式）
     /// </summary>
     public bool IsResponseHex { get; set; } = true;
+
+    /// <summary>
+    /// 协议组帧响应配置（ResponseMode == ProtocolBuild 时有效）
+    /// </summary>
+    public ProtocolResponseConfig ProtocolResponse { get; set; } = new();
 }
 
 /// <summary>
@@ -113,4 +133,9 @@ public class ProtocolRuleConfig
     /// 字段值配置（字段名 -> 值表达式）
     /// </summary>
     public Dictionary<string, string> FieldValues { get; set; } = [];
+
+    /// <summary>
+    /// 字段 Hex 模式标记（true 表示对应字段值为 Hex 字符串）
+    /// </summary>
+    public Dictionary<string, bool> FieldHexModes { get; set; } = [];
 }

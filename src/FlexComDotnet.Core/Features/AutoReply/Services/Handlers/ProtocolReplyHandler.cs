@@ -1,4 +1,6 @@
+using System.Text.RegularExpressions;
 using FlexComDotnet.Core.Features.AutoReply.Models;
+using FlexComDotnet.Core.Features.Protocol.Models;
 using FlexComDotnet.Core.Features.Protocol.Services;
 
 namespace FlexComDotnet.Core.Features.AutoReply.Services.Handlers;
@@ -35,7 +37,21 @@ public class ProtocolReplyHandler : IReplyHandler
 
         try
         {
-            var fieldValues = EvaluateFieldValues(protocolConfig.FieldValues, receivedData, parser);
+            // 尝试解析接收到的数据以提取上下文变量
+            ParsedFrame? parsedReceived = null;
+            try
+            {
+                if (parser.Validate(receivedData))
+                {
+                    parsedReceived = parser.Parse(receivedData);
+                }
+            }
+            catch
+            {
+                // 忽略解析错误
+            }
+
+            var fieldValues = EvaluateFieldValues(protocolConfig.FieldValues, parsedReceived);
             var frameData = parser.BuildFrame(fieldValues);
             return ReplyResult.Reply(frameData, $"协议回复: {rule.Name}");
         }
@@ -50,35 +66,20 @@ public class ProtocolReplyHandler : IReplyHandler
     }
 
     /// <summary>
-    /// 评估字段值表达式
+    /// 评估字段值表达式 - 支持 {} 插值引用接收帧中的字段值
     /// </summary>
     private static Dictionary<string, object> EvaluateFieldValues(
         Dictionary<string, string> fieldExpressions,
-        byte[] receivedData,
-        IProtocolParser parser)
+        ParsedFrame? parsedReceived)
     {
         var result = new Dictionary<string, object>();
-
-        // Try to parse received data to extract context
-        Protocol.Models.ParsedFrame? parsedReceived = null;
-        try
-        {
-            if (parser.Validate(receivedData))
-            {
-                parsedReceived = parser.Parse(receivedData);
-            }
-        }
-        catch
-        {
-            // Ignore parse errors for received data
-        }
 
         foreach (var (fieldName, expression) in fieldExpressions)
         {
             if (string.IsNullOrEmpty(expression))
                 continue;
 
-            var evaluated = EvaluateExpression(expression, receivedData, parsedReceived);
+            var evaluated = InterpolateExpression(expression, parsedReceived);
             result[fieldName] = evaluated;
         }
 
@@ -86,12 +87,18 @@ public class ProtocolReplyHandler : IReplyHandler
     }
 
     /// <summary>
-    /// 评估单个表达式
-    /// 支持简单的插值语法: 纯值、十六进制字面量
+    /// 插值表达式处理 - 将 {fieldName} 替换为解析帧中对应字段的值
     /// </summary>
-    private static object EvaluateExpression(string expression, byte[] receivedData, Protocol.Models.ParsedFrame? parsedReceived)
+    private static string InterpolateExpression(string expression, ParsedFrame? parsedFrame)
     {
-        // Simple value - return as-is (string form, will be converted by BuildFrame)
-        return expression;
+        if (parsedFrame == null || !expression.Contains('{'))
+            return expression;
+
+        return Regex.Replace(expression, @"\{(\w+)\}", match =>
+        {
+            var fieldName = match.Groups[1].Value;
+            var field = parsedFrame.GetField(fieldName);
+            return field?.Value?.ToString() ?? match.Value;
+        });
     }
 }

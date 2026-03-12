@@ -136,7 +136,7 @@ public class FComCompletionData : ICompletionData
 
     public double Priority => 0;
 
-    public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
+    public virtual void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
     {
         textArea.Document.Replace(completionSegment, Text);
     }
@@ -169,6 +169,12 @@ public class FComCompletionData : ICompletionData
         yield return new FComCompletionData("getTimestamp", "获取 Unix 时间戳 (毫秒)", "number");
         yield return new FComCompletionData("hexToBytes", "十六进制字符串转字节数组", "byte[]", "hexString: string");
         yield return new FComCompletionData("bytesToHex", "字节数组转十六进制字符串", "string", "data: byte[]");
+
+        // 协议 API
+        yield return new FComCompletionData("getProtocols", "获取所有已注册的协议名称列表", "string[]");
+        yield return new FComCompletionData("getProtocolFields", "获取指定协议的所有数据项定义", "table[]", "protocolName: string");
+        yield return new FComCompletionData("parse", "使用指定协议解析帧数据", "table", "protocolName: string, hexFrame: string");
+        yield return new FComCompletionData("build", "使用指定协议构建帧数据", "string", "protocolName: string, fieldValues: table");
     }
 
     /// <summary>
@@ -214,5 +220,63 @@ public class FComCompletionData : ICompletionData
         yield return new FComCompletionData("string", "字符串库");
         yield return new FComCompletionData("table", "表操作库");
         yield return new FComCompletionData("math", "数学库");
+    }
+
+    /// <summary>
+    /// 获取协议名称补全项（上下文感知，含协议描述）
+    /// </summary>
+    public static IEnumerable<FComCompletionData> GetProtocolNameCompletions(IEnumerable<(string Name, string Description)> protocols)
+    {
+        foreach (var (name, description) in protocols)
+        {
+            var desc = string.IsNullOrEmpty(description) ? $"协议: {name}" : description;
+            yield return new FComCompletionData(name, desc, "protocol");
+        }
+    }
+
+    /// <summary>
+    /// 获取 FCom.build 上下文中的协议名称补全项 - 选中后自动插入字段模板
+    /// </summary>
+    public static IEnumerable<BuildTemplateCompletionData> GetBuildProtocolCompletions(
+        IEnumerable<(string Name, string Description, IEnumerable<string> FieldNames)> protocols)
+    {
+        foreach (var (name, description, fieldNames) in protocols)
+        {
+            var desc = string.IsNullOrEmpty(description) ? $"协议: {name}" : description;
+            yield return new BuildTemplateCompletionData(name, desc, fieldNames.ToList());
+        }
+    }
+
+    /// <summary>
+    /// 获取协议字段名补全项（上下文感知）
+    /// </summary>
+    public static IEnumerable<FComCompletionData> GetProtocolFieldCompletions(IEnumerable<(string Name, string Description)> fields)
+    {
+        foreach (var (name, description) in fields)
+        {
+            yield return new FComCompletionData(name, string.IsNullOrEmpty(description) ? $"字段: {name}" : description);
+        }
+    }
+}
+
+/// <summary>
+/// FCom.build 上下文中的协议名补全项 - 选中后自动插入字段模板代码
+/// </summary>
+public class BuildTemplateCompletionData : FComCompletionData
+{
+    private readonly List<string> _fieldNames;
+
+    public BuildTemplateCompletionData(string protocolName, string description, List<string> fieldNames)
+        : base(protocolName, description, "protocol")
+    {
+        _fieldNames = fieldNames;
+    }
+
+    public override void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
+    {
+        // 插入协议名 + 字段模板
+        var fieldEntries = _fieldNames.Select(f => $"[\"{f}\"] = \"\"");
+        var template = $"{Text}\", {{ {string.Join(", ", fieldEntries)} }}";
+        textArea.Document.Replace(completionSegment, template);
     }
 }

@@ -97,6 +97,11 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     private SequentialFrameViewModel? _selectedEditingFrame;
 
     /// <summary>
+    /// 当前顺序帧的协议字段输入项（协议组帧模式时使用）
+    /// </summary>
+    public ObservableCollection<FieldInputItem> SequentialFrameFieldInputs { get; } = [];
+
+    /// <summary>
     /// 规则编辑前的备份（用于取消编辑）
     /// </summary>
     private AutoReplyRule? _ruleBackup;
@@ -240,9 +245,35 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     {
         if (SelectedRule == null) return;
 
+        // 匹配规则：同步断言和响应协议字段
+        if (SelectedRule.Type == ReplyMode.Match && SelectedRule.MatchConfig != null)
+        {
+            SelectedRule.MatchConfig.FieldAssertions = EditingAssertions.Select(a => new FieldAssertion
+            {
+                FieldName = a.FieldName,
+                Operator = a.Operator,
+                ExpectedValue = a.ExpectedValue
+            }).ToList();
+
+            if (SelectedRule.MatchConfig.ResponseMode == ResponseBuildMode.ProtocolBuild)
+            {
+                SelectedRule.MatchConfig.ProtocolResponse.FieldValues.Clear();
+                SelectedRule.MatchConfig.ProtocolResponse.FieldHexModes.Clear();
+                foreach (var input in MatchResponseFieldInputs)
+                {
+                    if (!string.IsNullOrEmpty(input.Value))
+                    {
+                        SelectedRule.MatchConfig.ProtocolResponse.FieldValues[input.FieldName] = input.Value;
+                        SelectedRule.MatchConfig.ProtocolResponse.FieldHexModes[input.FieldName] = input.IsHexMode;
+                    }
+                }
+            }
+        }
+
         // 对于顺序回复规则，同步编辑中的帧列表
         if (SelectedRule.Type == ReplyMode.Sequential && SelectedRule.SequentialConfig != null)
         {
+            SyncSequentialFrameFieldsToModel();
             SelectedRule.SequentialConfig.Frames = EditingFrames.Select(f => f.ToModel()).ToList();
         }
 
@@ -250,11 +281,13 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         if (SelectedRule.Type == ReplyMode.Protocol && SelectedRule.ProtocolConfig != null)
         {
             SelectedRule.ProtocolConfig.FieldValues.Clear();
+            SelectedRule.ProtocolConfig.FieldHexModes.Clear();
             foreach (var input in ProtocolFieldInputs)
             {
                 if (!string.IsNullOrEmpty(input.Value))
                 {
                     SelectedRule.ProtocolConfig.FieldValues[input.FieldName] = input.Value;
+                    SelectedRule.ProtocolConfig.FieldHexModes[input.FieldName] = input.IsHexMode;
                 }
             }
         }
@@ -282,8 +315,23 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
                 {
                     TriggerPattern = _ruleBackup.MatchConfig.TriggerPattern,
                     MatchType = _ruleBackup.MatchConfig.MatchType,
+                    TriggerProtocolName = _ruleBackup.MatchConfig.TriggerProtocolName,
+                    FieldAssertions = _ruleBackup.MatchConfig.FieldAssertions
+                        .Select(a => new FieldAssertion
+                        {
+                            FieldName = a.FieldName,
+                            Operator = a.Operator,
+                            ExpectedValue = a.ExpectedValue
+                        }).ToList(),
+                    ResponseMode = _ruleBackup.MatchConfig.ResponseMode,
                     ResponseContent = _ruleBackup.MatchConfig.ResponseContent,
-                    IsResponseHex = _ruleBackup.MatchConfig.IsResponseHex
+                    IsResponseHex = _ruleBackup.MatchConfig.IsResponseHex,
+                    ProtocolResponse = new ProtocolResponseConfig
+                    {
+                        ProtocolName = _ruleBackup.MatchConfig.ProtocolResponse?.ProtocolName ?? string.Empty,
+                        FieldValues = new Dictionary<string, string>(_ruleBackup.MatchConfig.ProtocolResponse?.FieldValues ?? []),
+                        FieldHexModes = new Dictionary<string, bool>(_ruleBackup.MatchConfig.ProtocolResponse?.FieldHexModes ?? [])
+                    }
                 };
             }
 
@@ -295,7 +343,14 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
                     {
                         Id = f.Id, Name = f.Name, Content = f.Content,
                         IsHexMode = f.IsHexMode, IsEnabled = f.IsEnabled, SortOrder = f.SortOrder,
-                        Description = f.Description
+                        Description = f.Description,
+                        ResponseMode = f.ResponseMode,
+                        ProtocolResponse = new ProtocolResponseConfig
+                        {
+                            ProtocolName = f.ProtocolResponse?.ProtocolName ?? string.Empty,
+                            FieldValues = new Dictionary<string, string>(f.ProtocolResponse?.FieldValues ?? []),
+                            FieldHexModes = new Dictionary<string, bool>(f.ProtocolResponse?.FieldHexModes ?? [])
+                        }
                     }).ToList(),
                     EnableLoop = _ruleBackup.SequentialConfig.EnableLoop,
                     CurrentIndex = _ruleBackup.SequentialConfig.CurrentIndex
@@ -307,7 +362,8 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
                 SelectedRule.ProtocolConfig = new ProtocolRuleConfig
                 {
                     ProtocolName = _ruleBackup.ProtocolConfig.ProtocolName,
-                    FieldValues = new Dictionary<string, string>(_ruleBackup.ProtocolConfig.FieldValues)
+                    FieldValues = new Dictionary<string, string>(_ruleBackup.ProtocolConfig.FieldValues),
+                    FieldHexModes = new Dictionary<string, bool>(_ruleBackup.ProtocolConfig.FieldHexModes)
                 };
             }
             _ruleBackup = null;
@@ -496,11 +552,11 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
                 Description = field.Description,
                 DataType = field.DataType,
                 DefaultValue = string.Empty,
-                IsHexMode = field.DataType is Protocol.Models.DataType.Bytes or Protocol.Models.DataType.UInt8
+                IsHexMode = true
             });
         }
 
-        // 恢复已保存的值
+        // 恢复已保存的值和Hex模式
         if (SelectedRule.ProtocolConfig.FieldValues.Count > 0)
         {
             foreach (var input in ProtocolFieldInputs)
@@ -509,7 +565,248 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
                 {
                     input.Value = savedValue;
                 }
+                if (SelectedRule.ProtocolConfig.FieldHexModes.TryGetValue(input.FieldName, out var hexMode))
+                {
+                    input.IsHexMode = hexMode;
+                }
             }
+        }
+    }
+
+    #endregion
+
+    #region Match Rule Assertion Management
+
+    /// <summary>
+    /// 当前匹配规则的字段断言列表（编辑用）
+    /// </summary>
+    public ObservableCollection<FieldAssertion> EditingAssertions { get; } = [];
+
+    /// <summary>
+    /// 当前触发协议的可用字段名称列表（用于断言字段名下拉选择）
+    /// </summary>
+    public ObservableCollection<string> AssertionFieldNames { get; } = [];
+
+    /// <summary>
+    /// 匹配规则的响应协议字段输入项
+    /// </summary>
+    public ObservableCollection<FieldInputItem> MatchResponseFieldInputs { get; } = [];
+
+    /// <summary>
+    /// 添加字段断言
+    /// </summary>
+    [RelayCommand]
+    private void AddAssertion()
+    {
+        EditingAssertions.Add(new FieldAssertion());
+    }
+
+    /// <summary>
+    /// 移除字段断言
+    /// </summary>
+    [RelayCommand]
+    private void RemoveAssertion(FieldAssertion? assertion)
+    {
+        if (assertion != null)
+        {
+            EditingAssertions.Remove(assertion);
+        }
+    }
+
+    /// <summary>
+    /// 刷新匹配规则的响应协议字段
+    /// </summary>
+    [RelayCommand]
+    private void RefreshMatchResponseFields()
+    {
+        MatchResponseFieldInputs.Clear();
+        if (SelectedRule?.MatchConfig == null || _protocolParserService == null)
+            return;
+
+        var protocolName = SelectedRule.MatchConfig.ProtocolResponse.ProtocolName;
+        if (string.IsNullOrEmpty(protocolName))
+            return;
+
+        var definitions = _protocolParserService.GetAllDefinitions();
+        var definition = definitions.FirstOrDefault(d => d.Name == protocolName);
+        if (definition == null) return;
+
+        // 为 DL/T 645 协议添加固定字段
+        AddDlt645FixedFields(definition, MatchResponseFieldInputs,
+            SelectedRule.MatchConfig.ProtocolResponse.FieldValues,
+            SelectedRule.MatchConfig.ProtocolResponse.FieldHexModes);
+
+        foreach (var field in definition.Fields.Where(f => f.IsEnabled))
+        {
+            var input = new FieldInputItem
+            {
+                FieldName = field.Name,
+                DisplayName = field.Name,
+                Description = field.Description,
+                DataType = field.DataType,
+                DefaultValue = string.Empty,
+                IsHexMode = true
+            };
+
+            // 恢复已保存的值和Hex模式
+            if (SelectedRule.MatchConfig.ProtocolResponse.FieldValues.TryGetValue(field.Name, out var savedValue))
+            {
+                input.Value = savedValue;
+            }
+            if (SelectedRule.MatchConfig.ProtocolResponse.FieldHexModes.TryGetValue(field.Name, out var hexMode))
+            {
+                input.IsHexMode = hexMode;
+            }
+
+            MatchResponseFieldInputs.Add(input);
+        }
+    }
+
+    /// <summary>
+    /// 刷新断言可用字段名列表（基于触发协议）
+    /// </summary>
+    [RelayCommand]
+    private void RefreshAssertionFieldNames()
+    {
+        AssertionFieldNames.Clear();
+        if (SelectedRule?.MatchConfig == null || _protocolParserService == null)
+            return;
+
+        var protocolName = SelectedRule.MatchConfig.TriggerProtocolName;
+        if (string.IsNullOrEmpty(protocolName)) return;
+
+        var definition = _protocolParserService.GetAllDefinitions()
+            .FirstOrDefault(d => d.Name == protocolName);
+        if (definition == null) return;
+
+        // DL/T 645 协议的固定字段（解析结果中包含但不在 definition.Fields 中）
+        if (definition.ProtocolType == ProtocolType.Dlt645)
+        {
+            AssertionFieldNames.Add("电表地址");
+            AssertionFieldNames.Add("控制码");
+            AssertionFieldNames.Add("数据标识");
+        }
+
+        foreach (var field in definition.Fields)
+        {
+            AssertionFieldNames.Add(field.Name);
+        }
+    }
+
+    #endregion
+
+    #region Sequential Frame Protocol helpers
+
+    /// <summary>
+    /// 刷新顺序帧的协议字段输入项
+    /// </summary>
+    [RelayCommand]
+    private void RefreshSequentialFrameFields()
+    {
+        SyncSequentialFrameFieldsToModel();
+        SequentialFrameFieldInputs.Clear();
+        if (SelectedEditingFrame == null || _protocolParserService == null)
+            return;
+
+        if (SelectedEditingFrame.ResponseMode != ResponseBuildMode.ProtocolBuild)
+            return;
+
+        var protocolName = SelectedEditingFrame.ProtocolName;
+        if (string.IsNullOrEmpty(protocolName)) return;
+
+        var definition = _protocolParserService.GetAllDefinitions()
+            .FirstOrDefault(d => d.Name == protocolName);
+        if (definition == null) return;
+
+        // 为 DL/T 645 协议添加固定字段
+        AddDlt645FixedFields(definition, SequentialFrameFieldInputs,
+            SelectedEditingFrame.ProtocolFieldValues,
+            SelectedEditingFrame.ProtocolFieldHexModes);
+
+        foreach (var field in definition.Fields.Where(f => f.IsEnabled))
+        {
+            var input = new FieldInputItem
+            {
+                FieldName = field.Name,
+                DisplayName = field.Name,
+                Description = field.Description,
+                DataType = field.DataType,
+                DefaultValue = string.Empty,
+                IsHexMode = true
+            };
+
+            if (SelectedEditingFrame.ProtocolFieldValues.TryGetValue(field.Name, out var savedValue))
+            {
+                input.Value = savedValue;
+            }
+            if (SelectedEditingFrame.ProtocolFieldHexModes.TryGetValue(field.Name, out var hexMode))
+            {
+                input.IsHexMode = hexMode;
+            }
+
+            SequentialFrameFieldInputs.Add(input);
+        }
+    }
+
+    /// <summary>
+    /// 将当前顺序帧协议字段输入同步回 SelectedEditingFrame
+    /// </summary>
+    private void SyncSequentialFrameFieldsToModel()
+    {
+        if (SelectedEditingFrame == null || SequentialFrameFieldInputs.Count == 0)
+            return;
+
+        SelectedEditingFrame.ProtocolFieldValues.Clear();
+        SelectedEditingFrame.ProtocolFieldHexModes.Clear();
+        foreach (var input in SequentialFrameFieldInputs)
+        {
+            if (!string.IsNullOrEmpty(input.Value))
+            {
+                SelectedEditingFrame.ProtocolFieldValues[input.FieldName] = input.Value;
+                SelectedEditingFrame.ProtocolFieldHexModes[input.FieldName] = input.IsHexMode;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 为 DL/T 645 协议添加固定字段（电表地址、控制码、数据标识）
+    /// </summary>
+    private static void AddDlt645FixedFields(FrameDefinition definition,
+        ObservableCollection<FieldInputItem> fieldInputs, Dictionary<string, string> savedValues,
+        Dictionary<string, bool>? savedHexModes = null)
+    {
+        if (definition.ProtocolType != ProtocolType.Dlt645)
+            return;
+
+        var dlt645Fields = new (string Name, string Desc, DataType Type, string Default)[]
+        {
+            ("电表地址", "12位BCD码地址", DataType.AsciiString, "000000000000"),
+            ("控制码", "功能控制字节 (Hex)", DataType.UInt8, "11"),
+            ("数据标识", "4字节数据标识 (Hex)", DataType.UInt32, "00010000")
+        };
+
+        foreach (var (name, desc, dataType, defaultVal) in dlt645Fields)
+        {
+            var input = new FieldInputItem
+            {
+                FieldName = name,
+                DisplayName = name,
+                Description = desc,
+                DataType = dataType,
+                DefaultValue = defaultVal,
+                IsHexMode = true
+            };
+
+            if (savedValues.TryGetValue(name, out var savedValue))
+            {
+                input.Value = savedValue;
+            }
+            if (savedHexModes?.TryGetValue(name, out var hexMode) == true)
+            {
+                input.IsHexMode = hexMode;
+            }
+
+            fieldInputs.Add(input);
         }
     }
 
@@ -684,6 +981,25 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     partial void OnGlobalDelayMsChanged(int value) => AutoSave();
 
     /// <summary>
+    /// 选中顺序帧变更时同步协议字段
+    /// </summary>
+    partial void OnSelectedEditingFrameChanged(SequentialFrameViewModel? oldValue, SequentialFrameViewModel? newValue)
+    {
+        // 保存上一帧的协议字段
+        if (oldValue != null)
+        {
+            SyncSequentialFrameFieldsToModel();
+        }
+
+        // 加载新帧的协议字段
+        SequentialFrameFieldInputs.Clear();
+        if (newValue?.ResponseMode == ResponseBuildMode.ProtocolBuild)
+        {
+            RefreshSequentialFrameFields();
+        }
+    }
+
+    /// <summary>
     /// 选中规则变更时备份数据并加载编辑上下文
     /// </summary>
     partial void OnSelectedRuleChanged(AutoReplyRuleViewModel? value)
@@ -692,9 +1008,11 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
 
         // 加载顺序帧编辑上下文
         EditingFrames.Clear();
+        SequentialFrameFieldInputs.Clear();
         SelectedEditingFrame = null;
         if (value?.Type == ReplyMode.Sequential && value.SequentialConfig != null)
         {
+            RefreshAvailableProtocols();
             foreach (var frame in value.SequentialConfig.Frames.OrderBy(f => f.SortOrder))
             {
                 EditingFrames.Add(SequentialFrameViewModel.FromModel(frame));
@@ -707,6 +1025,31 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         {
             RefreshAvailableProtocols();
             RefreshProtocolFields();
+        }
+
+        // 加载匹配规则的断言和响应字段信息
+        EditingAssertions.Clear();
+        MatchResponseFieldInputs.Clear();
+        AssertionFieldNames.Clear();
+        if (value?.Type == ReplyMode.Match && value.MatchConfig != null)
+        {
+            RefreshAvailableProtocols();
+            RefreshAssertionFieldNames();
+
+            foreach (var assertion in value.MatchConfig.FieldAssertions)
+            {
+                EditingAssertions.Add(new FieldAssertion
+                {
+                    FieldName = assertion.FieldName,
+                    Operator = assertion.Operator,
+                    ExpectedValue = assertion.ExpectedValue
+                });
+            }
+
+            if (value.MatchConfig.ResponseMode == ResponseBuildMode.ProtocolBuild)
+            {
+                RefreshMatchResponseFields();
+            }
         }
     }
 
@@ -791,8 +1134,23 @@ public partial class AutoReplyRuleViewModel : ObservableObject
         {
             TriggerPattern = MatchConfig.TriggerPattern,
             MatchType = MatchConfig.MatchType,
+            TriggerProtocolName = MatchConfig.TriggerProtocolName,
+            FieldAssertions = MatchConfig.FieldAssertions
+                .Select(a => new FieldAssertion
+                {
+                    FieldName = a.FieldName,
+                    Operator = a.Operator,
+                    ExpectedValue = a.ExpectedValue
+                }).ToList(),
+            ResponseMode = MatchConfig.ResponseMode,
             ResponseContent = MatchConfig.ResponseContent,
-            IsResponseHex = MatchConfig.IsResponseHex
+            IsResponseHex = MatchConfig.IsResponseHex,
+            ProtocolResponse = new ProtocolResponseConfig
+            {
+                ProtocolName = MatchConfig.ProtocolResponse.ProtocolName,
+                FieldValues = new Dictionary<string, string>(MatchConfig.ProtocolResponse?.FieldValues ?? []),
+                FieldHexModes = new Dictionary<string, bool>(MatchConfig.ProtocolResponse?.FieldHexModes ?? [])
+            }
         } : null,
         SequentialConfig = SequentialConfig != null ? new SequentialRuleConfig
         {
@@ -800,7 +1158,14 @@ public partial class AutoReplyRuleViewModel : ObservableObject
             {
                 Id = f.Id, Name = f.Name, Content = f.Content,
                 IsHexMode = f.IsHexMode, IsEnabled = f.IsEnabled,
-                SortOrder = f.SortOrder, Description = f.Description
+                SortOrder = f.SortOrder, Description = f.Description,
+                ResponseMode = f.ResponseMode,
+                ProtocolResponse = new ProtocolResponseConfig
+                {
+                    ProtocolName = f.ProtocolResponse?.ProtocolName ?? string.Empty,
+                    FieldValues = new Dictionary<string, string>(f.ProtocolResponse?.FieldValues ?? []),
+                    FieldHexModes = new Dictionary<string, bool>(f.ProtocolResponse?.FieldHexModes ?? [])
+                }
             }).ToList(),
             EnableLoop = SequentialConfig.EnableLoop,
             CurrentIndex = SequentialConfig.CurrentIndex
@@ -808,7 +1173,8 @@ public partial class AutoReplyRuleViewModel : ObservableObject
         ProtocolConfig = ProtocolConfig != null ? new ProtocolRuleConfig
         {
             ProtocolName = ProtocolConfig.ProtocolName,
-            FieldValues = new Dictionary<string, string>(ProtocolConfig.FieldValues)
+            FieldValues = new Dictionary<string, string>(ProtocolConfig.FieldValues),
+            FieldHexModes = new Dictionary<string, bool>(ProtocolConfig.FieldHexModes)
         } : null
     };
 
@@ -824,8 +1190,23 @@ public partial class AutoReplyRuleViewModel : ObservableObject
         {
             TriggerPattern = model.MatchConfig.TriggerPattern,
             MatchType = model.MatchConfig.MatchType,
+            TriggerProtocolName = model.MatchConfig.TriggerProtocolName,
+            FieldAssertions = model.MatchConfig.FieldAssertions
+                .Select(a => new FieldAssertion
+                {
+                    FieldName = a.FieldName,
+                    Operator = a.Operator,
+                    ExpectedValue = a.ExpectedValue
+                }).ToList(),
+            ResponseMode = model.MatchConfig.ResponseMode,
             ResponseContent = model.MatchConfig.ResponseContent,
-            IsResponseHex = model.MatchConfig.IsResponseHex
+            IsResponseHex = model.MatchConfig.IsResponseHex,
+            ProtocolResponse = new ProtocolResponseConfig
+            {
+                ProtocolName = model.MatchConfig.ProtocolResponse?.ProtocolName ?? string.Empty,
+                FieldValues = new Dictionary<string, string>(model.MatchConfig.ProtocolResponse?.FieldValues ?? []),
+                FieldHexModes = new Dictionary<string, bool>(model.MatchConfig.ProtocolResponse?.FieldHexModes ?? [])
+            }
         } : null,
         SequentialConfig = model.SequentialConfig != null ? new SequentialRuleConfig
         {
@@ -833,7 +1214,14 @@ public partial class AutoReplyRuleViewModel : ObservableObject
             {
                 Id = f.Id, Name = f.Name, Content = f.Content,
                 IsHexMode = f.IsHexMode, IsEnabled = f.IsEnabled,
-                SortOrder = f.SortOrder, Description = f.Description
+                SortOrder = f.SortOrder, Description = f.Description,
+                ResponseMode = f.ResponseMode,
+                ProtocolResponse = new ProtocolResponseConfig
+                {
+                    ProtocolName = f.ProtocolResponse?.ProtocolName ?? string.Empty,
+                    FieldValues = new Dictionary<string, string>(f.ProtocolResponse?.FieldValues ?? []),
+                    FieldHexModes = new Dictionary<string, bool>(f.ProtocolResponse?.FieldHexModes ?? [])
+                }
             }).ToList(),
             EnableLoop = model.SequentialConfig.EnableLoop,
             CurrentIndex = model.SequentialConfig.CurrentIndex
@@ -841,7 +1229,8 @@ public partial class AutoReplyRuleViewModel : ObservableObject
         ProtocolConfig = model.ProtocolConfig != null ? new ProtocolRuleConfig
         {
             ProtocolName = model.ProtocolConfig.ProtocolName,
-            FieldValues = new Dictionary<string, string>(model.ProtocolConfig.FieldValues)
+            FieldValues = new Dictionary<string, string>(model.ProtocolConfig.FieldValues),
+            FieldHexModes = new Dictionary<string, bool>(model.ProtocolConfig.FieldHexModes)
         } : null,
         CurrentFrameIndex = model.SequentialConfig?.CurrentIndex ?? 0
     };
@@ -859,6 +1248,18 @@ public partial class SequentialFrameViewModel : ObservableObject
     [ObservableProperty] private bool _isEnabled = true;
     [ObservableProperty] private int _sortOrder;
     [ObservableProperty] private string _description = string.Empty;
+    [ObservableProperty] private ResponseBuildMode _responseMode = ResponseBuildMode.PlainText;
+    [ObservableProperty] private string _protocolName = string.Empty;
+
+    /// <summary>
+    /// 协议组帧时的字段值配置
+    /// </summary>
+    public Dictionary<string, string> ProtocolFieldValues { get; set; } = [];
+
+    /// <summary>
+    /// 协议组帧时的字段 Hex 模式标记
+    /// </summary>
+    public Dictionary<string, bool> ProtocolFieldHexModes { get; set; } = [];
 
     public SequentialFrame ToModel() => new()
     {
@@ -868,7 +1269,14 @@ public partial class SequentialFrameViewModel : ObservableObject
         IsHexMode = IsHexMode,
         IsEnabled = IsEnabled,
         SortOrder = SortOrder,
-        Description = Description
+        Description = Description,
+        ResponseMode = ResponseMode,
+        ProtocolResponse = new ProtocolResponseConfig
+        {
+            ProtocolName = ProtocolName,
+            FieldValues = new Dictionary<string, string>(ProtocolFieldValues),
+            FieldHexModes = new Dictionary<string, bool>(ProtocolFieldHexModes)
+        }
     };
 
     public static SequentialFrameViewModel FromModel(SequentialFrame model) => new()
@@ -879,7 +1287,11 @@ public partial class SequentialFrameViewModel : ObservableObject
         IsHexMode = model.IsHexMode,
         IsEnabled = model.IsEnabled,
         SortOrder = model.SortOrder,
-        Description = model.Description
+        Description = model.Description,
+        ResponseMode = model.ResponseMode,
+        ProtocolName = model.ProtocolResponse?.ProtocolName ?? string.Empty,
+        ProtocolFieldValues = new Dictionary<string, string>(model.ProtocolResponse?.FieldValues ?? []),
+        ProtocolFieldHexModes = new Dictionary<string, bool>(model.ProtocolResponse?.FieldHexModes ?? [])
     };
 }
 

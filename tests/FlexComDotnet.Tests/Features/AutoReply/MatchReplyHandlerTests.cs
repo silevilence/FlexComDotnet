@@ -1,5 +1,8 @@
 using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.AutoReply.Services.Handlers;
+using FlexComDotnet.Core.Features.Checksum.Services;
+using FlexComDotnet.Core.Features.Protocol.Models;
+using FlexComDotnet.Core.Features.Protocol.Services;
 using FluentAssertions;
 using MatchType = FlexComDotnet.Core.Features.AutoReply.Models.MatchType;
 
@@ -158,4 +161,171 @@ public class MatchReplyHandlerTests
         var action = () => _handler.Reset(rule);
         action.Should().NotThrow();
     }
+
+    #region 协议匹配测试
+
+    [Fact]
+    public void Process_WithProtocolParse_NoProtocolService_ShouldReturnNoReply()
+    {
+        // Handler created without protocol service
+        var rule = new AutoReplyRule
+        {
+            Name = "Proto Rule",
+            Type = ReplyMode.Match,
+            IsEnabled = true,
+            MatchConfig = new MatchRuleConfig
+            {
+                MatchType = MatchType.ProtocolParse,
+                TriggerProtocolName = "TestProto",
+                ResponseContent = "AA BB",
+                IsResponseHex = true
+            }
+        };
+
+        var result = _handler.Process([0x01, 0x02], rule);
+        result.ShouldReply.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Process_WithProtocolParse_UnknownProtocol_ShouldReturnNoReply()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        var handler = new MatchReplyHandler(protocolService);
+
+        var rule = new AutoReplyRule
+        {
+            Name = "Proto Rule",
+            Type = ReplyMode.Match,
+            IsEnabled = true,
+            MatchConfig = new MatchRuleConfig
+            {
+                MatchType = MatchType.ProtocolParse,
+                TriggerProtocolName = "NonExistent",
+                ResponseContent = "AA BB",
+                IsResponseHex = true
+            }
+        };
+
+        var result = handler.Process([0x01, 0x02], rule);
+        result.ShouldReply.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Process_WithProtocolParse_ValidMatch_ShouldReturnReply()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        protocolService.RegisterDefinition(new FrameDefinition
+        {
+            Name = "SimpleProto",
+            Header = "AA",
+            Trailer = "55",
+            Fields =
+            [
+                new FieldDefinition { Name = "Data", DataType = DataType.UInt8, Length = 1, StartIndex = 0, IsEnabled = true }
+            ]
+        });
+
+        var handler = new MatchReplyHandler(protocolService);
+
+        var rule = new AutoReplyRule
+        {
+            Name = "Proto Rule",
+            Type = ReplyMode.Match,
+            IsEnabled = true,
+            MatchConfig = new MatchRuleConfig
+            {
+                MatchType = MatchType.ProtocolParse,
+                TriggerProtocolName = "SimpleProto",
+                ResponseContent = "CC DD",
+                IsResponseHex = true
+            }
+        };
+
+        var result = handler.Process([0xAA, 0x01, 0x55], rule);
+        result.ShouldReply.Should().BeTrue();
+        result.ResponseData.Should().Equal([0xCC, 0xDD]);
+    }
+
+    [Fact]
+    public void Process_WithProtocolParse_FieldAssertion_Equal_ShouldMatch()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        protocolService.RegisterDefinition(new FrameDefinition
+        {
+            Name = "CmdProto",
+            Header = "AA",
+            Trailer = "55",
+            Fields =
+            [
+                new FieldDefinition { Name = "Cmd", DataType = DataType.UInt8, Length = 1, StartIndex = 0, IsEnabled = true }
+            ]
+        });
+
+        var handler = new MatchReplyHandler(protocolService);
+
+        var rule = new AutoReplyRule
+        {
+            Name = "Cmd Match",
+            Type = ReplyMode.Match,
+            IsEnabled = true,
+            MatchConfig = new MatchRuleConfig
+            {
+                MatchType = MatchType.ProtocolParse,
+                TriggerProtocolName = "CmdProto",
+                FieldAssertions = [new FieldAssertion { FieldName = "Cmd", Operator = AssertionOperator.Equal, ExpectedValue = "3" }],
+                ResponseContent = "OK",
+                IsResponseHex = false
+            }
+        };
+
+        // Cmd = 3
+        var result = handler.Process([0xAA, 0x03, 0x55], rule);
+        result.ShouldReply.Should().BeTrue();
+
+        // Cmd = 5 (should not match)
+        var result2 = handler.Process([0xAA, 0x05, 0x55], rule);
+        result2.ShouldReply.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Process_WithProtocolParse_ResponseBuildMode_ProtocolBuild_NoConfig_ShouldReturnNoReply()
+    {
+        var checksumService = new ChecksumService();
+        var protocolService = new ProtocolParserService(checksumService);
+        protocolService.RegisterDefinition(new FrameDefinition
+        {
+            Name = "TestProto",
+            Header = "AA",
+            Trailer = "55",
+            Fields =
+            [
+                new FieldDefinition { Name = "Data", DataType = DataType.UInt8, Length = 1, StartIndex = 0, IsEnabled = true }
+            ]
+        });
+
+        var handler = new MatchReplyHandler(protocolService);
+
+        var rule = new AutoReplyRule
+        {
+            Name = "Build Rule",
+            Type = ReplyMode.Match,
+            IsEnabled = true,
+            MatchConfig = new MatchRuleConfig
+            {
+                MatchType = MatchType.ProtocolParse,
+                TriggerProtocolName = "TestProto",
+                ResponseMode = ResponseBuildMode.ProtocolBuild,
+                ProtocolResponse = null, // no config
+                ResponseContent = ""
+            }
+        };
+
+        var result = handler.Process([0xAA, 0x01, 0x55], rule);
+        result.ShouldReply.Should().BeFalse();
+    }
+
+    #endregion
 }

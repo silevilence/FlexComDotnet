@@ -85,7 +85,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IUpdateService, UpdateService>();
 
         // 脚本服务 (单例)
-        services.AddSingleton<IScriptApiBridge, ScriptApiBridge>();
+        services.AddSingleton<IScriptApiBridge>(sp =>
+        {
+            var serialPortService = sp.GetRequiredService<ISerialPortService>();
+            var checksumService = sp.GetRequiredService<IChecksumService>();
+            var protocolParserService = sp.GetRequiredService<IProtocolParserService>();
+            return new ScriptApiBridge(serialPortService, checksumService, protocolParserService);
+        });
         services.AddSingleton<IScriptEngine>(sp =>
         {
             var engine = new ScriptEngine();
@@ -149,7 +155,13 @@ public static class ServiceCollectionExtensions
             var configService = sp.GetRequiredService<IConfigurationService>();
             return new ScriptingViewModel(engine, manager, bridge, hookService, loggingService, configService);
         });
-        services.AddTransient<ProtocolParserViewModel>();
+        services.AddTransient<ProtocolParserViewModel>(sp =>
+        {
+            var parserService = sp.GetRequiredService<IProtocolParserService>();
+            var configService = sp.GetRequiredService<IConfigurationService>();
+            var scriptManager = sp.GetService<IScriptManager>();
+            return new ProtocolParserViewModel(parserService, configService, scriptManager);
+        });
         services.AddTransient<DataVisualizationViewModel>();
 
         return services;

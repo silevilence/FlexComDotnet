@@ -815,6 +815,12 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     public IReadOnlyList<DataRecord> GetDataRecords() => _dataRecords.AsReadOnly();
 
     /// <summary>
+    /// 根据索引获取数据记录（用于协议解析等功能）
+    /// </summary>
+    public DataRecord? GetDataRecord(int index) =>
+        index >= 0 && index < _dataRecords.Count ? _dataRecords[index] : null;
+
+    /// <summary>
     /// 保存日志到指定路径
     /// </summary>
     /// <param name="filePath">保存路径</param>

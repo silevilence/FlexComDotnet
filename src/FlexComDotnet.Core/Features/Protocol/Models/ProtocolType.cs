@@ -15,3 +15,24 @@ public enum ProtocolType
     /// </summary>
     Dlt645
 }
+
+/// <summary>
+/// 协议保存拦截操作 - 用户在依赖冲突时选择的动作
+/// </summary>
+public enum ProtocolSaveAction
+{
+    /// <summary>
+    /// 强制保存（覆盖）
+    /// </summary>
+    ForceSave,
+
+    /// <summary>
+    /// 另存为新协议（克隆模式）
+    /// </summary>
+    CloneAsNew,
+
+    /// <summary>
+    /// 取消保存
+    /// </summary>
+    Cancel
+}

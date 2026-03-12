@@ -9,43 +9,58 @@
 
 ## 📋 项目状态
 
-**🚀 开发中 - Phase 11 (界面修改与调试增强)**
+**🚀 开发中 - Modbus-RTU 协议扩展**
 
-当前版本 v1.2.0 已完成串口基础功能、多区域布局、主题系统、独立校验计算器、CI/CD 自动发布、智能自动回复系统、网络扩展 (TCP/UDP)、自动更新功能、Lua 脚本系统（含语法高亮与智能补全）、通用帧协议解析引擎（含 DL/T 645-2007）、数据可视化实时示波器、VS Code 风格标签式面板交互、统一日志系统。当前正在开发界面修改与调试增强功能。
+当前版本 v1.3.0。已完成串口/网络通信、协议解析引擎（通用/DL/T 645-2007）、Lua 脚本系统、智能自动回复（规则池架构）、数据可视化、协议组帧与解析联动等核心功能。当前正在开发 Modbus-RTU 协议支持。
 
 ## ✨ 功能列表
 
 ### ✅ 已完成
-- [x] **项目初始化** - Feature-first 目录结构、代码检查规则
-- [x] **串口配置 UI** - 串口选择、波特率/数据位/停止位/校验位配置、流控支持 (RTS/CTS, XON/XOFF, DTR/DSR)
-- [x] **串口核心管理** - 后台串口服务、自动扫描、状态管理与错误处理
-- [x] **基础收发功能** - 实时数据接收显示、Hex/ASCII 模式切换、文本/Hex 发送
-- [x] **用户配置持久化** - JSON 配置文件自动保存/加载 (串口、网络配置均支持)
-- [x] **发送辅助工具** - 定时循环发送、自动追加换行符、自动追加校验位 (Checksum/CRC16-MODBUS)
-- [x] **视图交互与日志** - 通信日志保存、时间戳显示(支持日期切换)、暂停滚动/清空接收区
-- [x] **状态栏** - Rx/Tx 字节计数器、图标式重置按钮
-- [x] **多条指令列表** - 预设指令管理 (添加/编辑/删除/拖拽排序)、LiteDB 数据持久化、快速发送
-- [x] **多区域可折叠布局** - VS Code 风格三区架构 (Left/Right/Bottom)、标签式面板交互、面板可见性独立配置
-- [x] **主题系统** - 浅色/深色/跟随系统三种模式、科技风格 UI (Panuon.WPF.UI)、主题设置持久化
-- [x] **独立校验与摘要计算器** - 策略模式架构，支持 Sum8/16、CRC-8/16/32 多种变体、XOR、MD5、SHA-1/256；Hex 输入带 ASCII 预览，可导入/附加发送帧
-- [x] **CI/CD 自动发布** - GitHub Actions 自动构建、打包 (.zip/.msix)、发布 Release
-- [x] **智能自动回复系统** - 匹配回复 (Hex/Ascii 特征码触发)、顺序回复 (循环帧列表)、脚本回复、策略模式架构、配置自动保存
-- [x] **网络扩展** - 统一连接接口 (IConnection)、TCP Client/Server 模式、UDP 单播/广播收发、配置持久化
-- [x] **自动更新** - GitHub API 版本检测、语义版本号比对、下载进度显示、MSIX/ZIP 安装类型自动识别、应用内弹窗更新、启动时后台检查
-- [x] **Lua 脚本系统** - 脚本引擎 (NLua)、脚本管理器、FCom API 桥接 (send/log/delay/crc16/crc32/checksum/getTimestamp)、调试控制台
-- [x] **脚本 Hook 机制** - 接收预处理 (Rx Hook)、发送后处理 (Tx Hook)、脚本自动应答 (Reply Hook)、手动任务触发 (Task Hook)
-- [x] **脚本编辑器增强** - Lua 语法高亮 (AvalonEdit)、智能代码补全、API 参考文档窗口
-- [x] **通用帧协议解析引擎** - 策略模式架构 (IProtocolParser)、可配置字段 (字节提取/位域解析/端序)、帧结构定义 UI、JSON 配置持久化
-- [x] **DL/T 645-2007 协议解析器** - 粘包/半包处理、BCD 地址解析、控制码解析、数据域偏置还原、数据标识字典映射、异常应答翻译
-- [x] **数据可视化** - ScottPlot 实时示波器、多通道绘制、暂停/缩放/十字游标、通道管理 (添加/删除/颜色/可见性)、PNG/CSV 导出
-- [x] **UI 调整** - VS Code 风格标签式面板交互、面板可见性独立配置、左右竖排/底部横排标签
-- [x] **日志整合** - 统一日志面板 (多来源标注)、多等级记录 (Info/Warning/Error + emoji 前缀)、本地持久化存储 (按日期分文件)、多维度筛选 (等级/关键词/来源/时间)
+
+**通信核心**
+- [x] **串口通信** - 串口配置 (波特率/数据位/停止位/校验位/流控)、自动扫描、实时收发 (Hex/ASCII)、定时循环发送、自动追加换行/校验位
+- [x] **网络扩展** - 统一连接接口 (IConnection)、TCP Client/Server、UDP 单播/广播
+- [x] **多条指令列表** - 预设指令管理 (添加/编辑/删除/拖拽排序)、LiteDB 持久化、快速发送
+
+**协议解析**
+- [x] **通用帧协议引擎** - 策略模式架构 (IProtocolParser)、可配置字段提取 (字节/位域/端序)、帧结构定义 UI
+- [x] **DL/T 645-2007 解析器** - 粘包处理、BCD 地址解析、控制码解析、数据域偏置还原、数据标识字典映射、异常应答翻译
+- [x] **协议组帧** - 基于数据域值动态构建完整帧、发送区快捷组帧回填 (覆盖/追加)
+- [x] **Rx 协议逆向解析** - 接收区选中帧右键触发解析、独立非模态浮窗展示
+
+**自动回复**
+- [x] **统一规则池架构** - 匹配规则/顺序帧/协议回复三种类型统一管理、多选并发触发、优先级执行
+- [x] **匹配回复** - Hex/Ascii 特征码触发、协议级断言 (字段条件 + 关系运算符)、动态上下文变量提取
+- [x] **顺序回复** - 多套独立规则配置、循环控制
+- [x] **协议回复** - 协议选择器绑定、数据项插值表达式、动态表单渲染
+- [x] **响应载荷** - 纯文本手动输入 / 协议动态组帧双模式切换
+
+**脚本系统**
+- [x] **Lua 脚本引擎** - 脚本管理器、FCom API 桥接 (send/log/delay/crc/checksum/getTimestamp)
+- [x] **Hook 机制** - 接收预处理 (Rx)、发送后处理 (Tx)、自动应答 (Reply)、手动任务 (Task)
+- [x] **脚本编辑器增强** - 语法高亮 (AvalonEdit)、智能补全 (含协议名/数据项上下文感知)、API 参考文档
+- [x] **协议对象 API** - 脚本内检索/实例化协议、parse/build 编解码方法、静态语法/依赖检查
+- [x] **安全管理** - Hook 配置持久化 (启用状态不持久化)、脚本删除引用校验、协议修改/删除拦截
+
+**数据可视化**
+- [x] **实时示波器** - ScottPlot 多通道绘制、暂停/缩放/十字游标、通道管理、PNG/CSV 导出
+- [x] **数据源绑定** - 与协议解析引擎联动，从解析字段中选择 Y 轴数据
+
+**界面与交互**
+- [x] **多区域布局** - VS Code 风格三区架构 (Left/Right/Bottom)、标签式展开/折叠、面板可见性独立配置
+- [x] **主题系统** - 浅色/深色/跟随系统、Panuon.WPF.UI 科技风格
+- [x] **彩色 Emoji** - Emoji.Wpf 渲染引擎、`:shortcode:` 智能补全 (IntelliSense)
+- [x] **设置窗口** - 调试设置/面板管理/日志目录/关于信息、F12 调试工具窗口
+- [x] **统一日志** - 多来源标注、等级分类 (emoji 前缀)、按日期持久化、多维度筛选
+
+**工程基础**
+- [x] **校验与摘要计算器** - Sum8/16、CRC-8/16/32 多变体、XOR、MD5、SHA-1/256；Hex 输入带 ASCII 预览
+- [x] **CI/CD** - GitHub Actions 自动构建、打包 (.zip/.msix)、CHANGELOG 驱动发布
+- [x] **自动更新** - GitHub API 版本检测、语义版本号比对、下载进度显示、应用内更新
+- [x] **配置持久化** - JSON 配置自动保存/加载 (串口/网络/自动回复/Hook/面板布局)
 
 ### 🚧 开发中
-- [ ] **界面修改与调试增强** - 独立设置窗口 (调试设置/面板管理/日志目录/关于信息)、F12 调试工具窗口 (Tab 架构、日志调试模块)
-
-### 🔜 计划中
-- 暂无
+- [ ] **Modbus-RTU 协议支持** - 从站地址/功能码配置、基于功能码的动态表单、CRC-16 自动编解码、Lua 脚本无缝接入
 
 ## 🚀 快速开始
 
@@ -59,9 +74,6 @@
 # 克隆项目
 git clone https://github.com/silevilence/FlexComDotnet.git
 cd FlexComDotnet
-
-# 还原依赖
-dotnet restore
 
 # 构建项目
 dotnet build
@@ -79,99 +91,50 @@ dotnet test
 FlexComDotnet/
 ├── src/
 │   ├── FlexComDotnet/              # WPF UI 层
-│   │   ├── Converters/             # XAML 值转换器 (Serial/Network/Protocol/Script/Log)
+│   │   ├── Converters/             # XAML 值转换器
 │   │   ├── Features/
 │   │   │   ├── AutoReply/Views/    # 自动回复视图
-│   │   │   ├── Checksum/Views/     # 校验计算器视图
-│   │   │   ├── Layout/Controls/    # 布局控件 (ActivityBar, CollapsiblePanel 等)
-│   │   │   ├── Logging/Views/      # 日志面板视图 (LogPanelView)
+│   │   │   ├── Checksum/Views/     # 校验计算器窗口
+│   │   │   ├── EmojiSupport/       # Emoji 补全与渲染控件
+│   │   │   ├── Layout/Controls/    # 布局控件 (ActivityBar, CollapsiblePanel, MultiZoneLayout)
+│   │   │   ├── Logging/Views/      # 日志面板视图
 │   │   │   ├── Network/Views/      # 网络连接视图
-│   │   │   ├── Protocol/Views/     # 协议定义视图
-│   │   │   ├── Scripting/          # 脚本功能
-│   │   │   │   ├── Completion/     # 智能补全 (FComCompletionData)
-│   │   │   │   ├── Resources/      # 语法高亮定义 (LuaSyntax.xshd)
-│   │   │   │   └── Views/          # 脚本视图 (编辑器、API参考、对话框)
+│   │   │   ├── Protocol/Views/     # 协议视图 (定义/Rx解析/Tx组帧)
+│   │   │   ├── Scripting/          # 脚本 (补全/语法高亮/编辑器/API参考)
 │   │   │   ├── Serial/Views/       # 串口视图 (Config/Communication/CommandList)
-│   │   │   ├── Settings/Views/     # 设置视图 (SettingsWindow, DebugToolsWindow)
-│   │   │   ├── Update/Views/       # 更新视图
+│   │   │   ├── Settings/Views/     # 设置与调试窗口
+│   │   │   ├── Update/Views/       # 更新窗口
 │   │   │   └── Visualization/Views/# 数据可视化视图
 │   │   ├── Fonts/                  # 内嵌字体 (MapleMono-NF-CN)
 │   │   ├── Services/               # UI 层服务 (主题服务、DI 配置)
-│   │   ├── Themes/                 # 主题资源 (Light/Dark)
-│   │   ├── App.xaml                # 应用入口
-│   │   └── MainWindow.xaml         # 主窗口 (含状态栏)
+│   │   └── Themes/                 # 主题资源 (Light/Dark)
 │   │
 │   └── FlexComDotnet.Core/         # 核心业务层 (无 UI 依赖)
 │       └── Features/
-│           ├── AutoReply/          # 自动回复功能
-│           │   ├── Models/         # 配置模型 (MatchRule, SequentialFrame, ReplyMode)
-│           │   ├── Services/       # 策略模式处理器 (IReplyHandler, Handlers/)
-│           │   └── ViewModels/     # 自动回复 ViewModel
-│           ├── Checksum/           # 校验计算器功能
-│           │   ├── Models/         # 算法枚举
-│           │   ├── Services/       # 策略模式算法实现 (Algorithms/)
-│           │   └── ViewModels/     # 计算器 ViewModel
-│           ├── Layout/             # 布局功能
-│           │   ├── Models/         # 布局状态模型
-│           │   └── Services/       # 面板管理器
-│           ├── Logging/            # 日志功能
-│           │   ├── Models/         # 日志模型 (LogEntry, LogLevel, LogSource)
-│           │   ├── Services/       # 日志服务 (ILoggingService, ILogPersistenceService)
-│           │   └── ViewModels/     # 日志 ViewModel (LogPanelViewModel)
-│           ├── Network/            # 网络功能
-│           │   ├── Models/         # 连接模型 (ConnectionType, ConnectionState, NetworkConfig)
-│           │   ├── Services/       # 连接服务 (IConnection, ITcpClientService, ITcpServerService, IUdpService)
-│           │   └── ViewModels/     # 连接配置 ViewModel
-│           ├── Protocol/           # 协议解析功能
-│           │   ├── Models/         # 协议模型 (FrameDefinition, FieldDefinition, DataType, Endianness)
-│           │   │   └── Dlt645/     # DL/T 645 专用模型 (控制码、数据字典、错误码)
-│           │   ├── Services/       # 协议服务 (IProtocolParser, IProtocolParserService)
-│           │   │   └── Parsers/    # 策略模式解析器 (ConfigurableParser, Dlt645Parser)
-│           │   └── ViewModels/     # 协议 ViewModel
-│           ├── Scripting/          # 脚本功能
-│           │   ├── Models/         # 脚本模型 (HookType, ScriptState, ScriptFileInfo)
-│           │   ├── Services/       # 脚本服务 (IScriptEngine, IScriptManager, IScriptHookService)
-│           │   └── ViewModels/     # 脚本 ViewModel
-│           ├── Serial/             # 串口功能
-│           │   ├── Helpers/        # 工具类 (Hex/Checksum)
-│           │   ├── Models/         # 数据模型 & 枚举
-│           │   ├── Services/       # 串口/配置/存储服务
-│           │   └── ViewModels/     # MVVM ViewModel
-│           ├── Settings/           # 设置与调试功能
-│           │   ├── Models/         # 调试配置模型 (DebugConfig)
-│           │   └── ViewModels/     # 设置/调试 ViewModel (SettingsViewModel, DebugToolsViewModel)
-│           ├── Update/             # 自动更新功能
-│           │   ├── Models/         # 版本/发布信息 (VersionInfo, ReleaseInfo, InstallationType)
-│           │   ├── Services/       # 更新服务 (IUpdateService, IVersionService, IGitHubReleaseService)
-│           │   └── ViewModels/     # 更新 ViewModel
-│           └── Visualization/      # 数据可视化功能
-│               ├── Models/         # 可视化模型 (ChartDataPoint, ChannelConfig, VisualizationConfig)
-│               ├── Services/       # 可视化服务 (IVisualizationService)
-│               └── ViewModels/     # 可视化 ViewModel
+│           ├── AutoReply/          # Models / Services (Handlers/) / ViewModels
+│           ├── Checksum/           # Models / Services (Algorithms/) / ViewModels
+│           ├── EmojiSupport/       # Models / Services
+│           ├── Layout/             # Models / Services
+│           ├── Logging/            # Models / Services / ViewModels
+│           ├── Network/            # Models / Services / ViewModels
+│           ├── Protocol/           # Models (Dlt645/) / Services (Parsers/) / ViewModels
+│           ├── Scripting/          # Models / Services / ViewModels
+│           ├── Serial/             # Helpers / Models / Services / ViewModels
+│           ├── Settings/           # Models / ViewModels
+│           ├── Update/             # Models / Services / ViewModels
+│           └── Visualization/      # Models / Services / ViewModels
 │
 └── tests/
-    └── FlexComDotnet.Tests/        # 单元测试
-        └── Features/
-            ├── AutoReply/          # 自动回复测试
-            ├── Checksum/           # 校验计算器测试
-            ├── Layout/             # 布局功能测试
-            ├── Logging/            # 日志功能测试
-            ├── Network/            # 网络功能测试
-            ├── Protocol/           # 协议解析测试
-            ├── Scripting/          # 脚本功能测试
-            ├── Serial/             # 串口功能测试
-            ├── Settings/           # 设置与调试测试
-            ├── Update/             # 自动更新测试
-            └── Visualization/      # 数据可视化测试
+    └── FlexComDotnet.Tests/        # 单元测试 (xUnit + FluentAssertions + Moq)
+        └── Features/               # 按功能模块对应测试
 ```
 
 ### 架构模式
 
-- **MVVM**: 使用 CommunityToolkit.Mvvm 实现视图与业务逻辑分离
-- **依赖注入**: 通过 Microsoft.Extensions.DependencyInjection 管理服务生命周期
-- **Feature-first**: 按功能模块组织代码，便于扩展和维护
-- **策略模式**: 校验算法、自动回复处理器均采用策略模式，支持零耦合扩展
-- **TDD**: 测试驱动开发，确保代码质量
+- **MVVM**: CommunityToolkit.Mvvm 实现视图与业务逻辑分离
+- **依赖注入**: Microsoft.Extensions.DependencyInjection 管理服务生命周期
+- **Feature-first**: 按功能模块组织代码，Core 层无 UI 依赖
+- **策略模式**: 校验算法、协议解析器、自动回复处理器均可零耦合扩展
 - **主题系统**: DynamicResource 绑定实现运行时主题切换
 
 ## 🛠️ 技术栈
@@ -189,32 +152,20 @@ FlexComDotnet/
 | 脚本 | NLua | 1.7.8 |
 | 代码编辑器 | AvalonEdit | 6.3.1.120 |
 | 图表库 | ScottPlot.WPF | 5.1.57 |
+| Emoji | Emoji.Wpf | 0.3.4 |
 | 测试 | xUnit 2.9.3 + FluentAssertions 8.8.0 + Moq 4.20.72 | - |
 
 ## 📖 开发指南
 
 详见 [.github/copilot-instructions.md](.github/copilot-instructions.md)
 
-### TDD 开发流程
-
-1. **Red**: 先编写失败的测试
-2. **Green**: 编写最少代码让测试通过
-3. **Refactor**: 重构优化代码
-
 ### 常用命令
 
 ```bash
-# 构建
-dotnet build
-
-# 测试
-dotnet test
-
-# 运行特定测试
-dotnet test --filter "FullyQualifiedName~SerialPortServiceTests"
-
-# 添加 NuGet 包
-dotnet add src/FlexComDotnet.Core/FlexComDotnet.Core.csproj package [PackageName]
+dotnet build                    # 构建
+dotnet test                     # 运行所有测试
+dotnet test --filter "FullyQualifiedName~ClassName"  # 运行特定测试
+dotnet add src/FlexComDotnet.Core/FlexComDotnet.Core.csproj package [PackageName]  # 添加包
 ```
 
 ## 📜 License

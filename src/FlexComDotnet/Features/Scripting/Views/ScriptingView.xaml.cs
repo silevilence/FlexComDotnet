@@ -3,9 +3,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Xml;
+using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Scripting.ViewModels;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlexComDotnet.Features.Scripting.Views;
 
@@ -94,7 +96,8 @@ public partial class ScriptingView : UserControl
         }
 
         // 创建并显示编辑器窗口
-        _editorWindow = new ScriptEditorWindow(_viewModel)
+        var protocolService = App.Services.GetRequiredService<IProtocolParserService>();
+        _editorWindow = new ScriptEditorWindow(_viewModel, protocolService)
         {
             Owner = Window.GetWindow(this)
         };

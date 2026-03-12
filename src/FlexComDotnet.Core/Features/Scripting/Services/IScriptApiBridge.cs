@@ -115,4 +115,37 @@ public interface IScriptApiBridge
     /// </summary>
     /// <param name="cancellationToken">取消令牌</param>
     void SetCancellationToken(CancellationToken cancellationToken);
+
+    #region 协议 API
+
+    /// <summary>
+    /// 获取所有已注册的协议名称列表
+    /// </summary>
+    /// <returns>协议名称数组</returns>
+    string[] GetProtocols();
+
+    /// <summary>
+    /// 获取指定协议的所有数据项定义信息
+    /// </summary>
+    /// <param name="protocolName">协议名称</param>
+    /// <returns>数据项定义列表（名称、描述、数据类型），未找到返回空数组</returns>
+    Dictionary<string, object>[] GetProtocolFields(string protocolName);
+
+    /// <summary>
+    /// 使用指定协议解析帧数据
+    /// </summary>
+    /// <param name="protocolName">协议名称</param>
+    /// <param name="hexFrame">十六进制帧数据字符串</param>
+    /// <returns>解析结果字典（含各字段名、值），解析失败返回包含 error 键的字典</returns>
+    Dictionary<string, object> Parse(string protocolName, string hexFrame);
+
+    /// <summary>
+    /// 使用指定协议构建帧数据
+    /// </summary>
+    /// <param name="protocolName">协议名称</param>
+    /// <param name="fieldValues">字段名到值的映射</param>
+    /// <returns>构建的帧数据（十六进制字符串），失败返回空字符串</returns>
+    string Build(string protocolName, NLua.LuaTable fieldValues);
+
+    #endregion
 }

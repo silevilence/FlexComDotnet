@@ -277,7 +277,7 @@ public class Dlt645ParserTests
                 new FieldDefinition
                 {
                     Name = "Field1",
-                    StartIndex = 0,  // 数据域内第一个字节
+                    StartIndex = 0,  // 数据标识之后的第一个字节
                     Length = 1,
                     DataType = DataType.UInt8
                 }
@@ -285,9 +285,11 @@ public class Dlt645ParserTests
         };
         var parser = new Dlt645Parser(definition);
 
-        // 测试帧: 68 39 02 50 79 08 13 68 11 04 33 32 35 33 d1 16
+        // 数据域: 4字节数据标识 + 1字节 Field1
+        // 编码前: [0x00, 0x00, 0x01, 0x00, 0xAB]
+        // 编码后 (+0x33): [0x33, 0x33, 0x34, 0x33, 0xDE]
         byte[] address = [0x39, 0x02, 0x50, 0x79, 0x08, 0x13];
-        byte[] data = [0x33, 0x32, 0x35, 0x33];
+        byte[] data = [0x33, 0x33, 0x34, 0x33, 0xDE];
         var frame = BuildFrame(address, 0x11, data);
 
         // Act
@@ -297,17 +299,12 @@ public class Dlt645ParserTests
         result.Should().NotBeNull();
         result!.IsValid.Should().BeTrue();
 
-        // 应该有 Field1 字段
+        // 应该有 Field1 字段（数据标识后第一个字节）
         var field1 = result.Fields.FirstOrDefault(f => f.Name == "Field1");
         field1.Should().NotBeNull();
-        // Field1 解析的是解码后的数据（原始数据 0x33 - 0x33 = 0x00）
-        field1!.Value.Should().Be((byte)0x00);
-        field1.StartIndex.Should().Be(10); // 数据域起始位置
-
-        // 应该有剩余数据字段
-        var remainingField = result.Fields.FirstOrDefault(f => f.Name == "剩余数据");
-        remainingField.Should().NotBeNull();
-        remainingField!.Length.Should().Be(3); // 4字节数据域 - 1字节Field1 = 3字节剩余
+        // Field1 解析的是解码后数据标识之后的第一个字节 (0xDE - 0x33 = 0xAB)
+        field1!.Value.Should().Be((byte)0xAB);
+        field1.StartIndex.Should().Be(14); // 帧位置: 10(数据域起始) + 4(数据标识) + 0(Field1偏移)
     }
 
     [Fact]
@@ -323,14 +320,14 @@ public class Dlt645ParserTests
                 new FieldDefinition
                 {
                     Name = "Byte0",
-                    StartIndex = 0,
+                    StartIndex = 0, // 数据标识之后第0字节
                     Length = 1,
                     DataType = DataType.UInt8
                 },
                 new FieldDefinition
                 {
                     Name = "Byte2",
-                    StartIndex = 2,
+                    StartIndex = 2, // 数据标识之后第2字节
                     Length = 1,
                     DataType = DataType.UInt8
                 }
@@ -339,7 +336,10 @@ public class Dlt645ParserTests
         var parser = new Dlt645Parser(definition);
 
         byte[] address = [0x39, 0x02, 0x50, 0x79, 0x08, 0x13];
-        byte[] data = [0x33, 0x34, 0x35, 0x36]; // 解码后: 0x00, 0x01, 0x02, 0x03
+        // 数据域: 4字节数据标识 + 4字节自定义数据
+        // 编码前: [DI0, DI1, DI2, DI3, 0x00, 0x01, 0x02, 0x03]
+        // 编码后 (+0x33): [0x33, 0x34, 0x35, 0x36, 0x33, 0x34, 0x35, 0x36]
+        byte[] data = [0x33, 0x34, 0x35, 0x36, 0x33, 0x34, 0x35, 0x36];
         var frame = BuildFrame(address, 0x11, data);
 
         // Act
@@ -351,13 +351,13 @@ public class Dlt645ParserTests
 
         var byte0 = result.Fields.FirstOrDefault(f => f.Name == "Byte0");
         byte0.Should().NotBeNull();
-        byte0!.Value.Should().Be((byte)0x00);
+        byte0!.Value.Should().Be((byte)0x00); // 数据标识后第0字节 = 0x33 - 0x33 = 0x00
 
         var byte2 = result.Fields.FirstOrDefault(f => f.Name == "Byte2");
         byte2.Should().NotBeNull();
-        byte2!.Value.Should().Be((byte)0x02);
+        byte2!.Value.Should().Be((byte)0x02); // 数据标识后第2字节 = 0x35 - 0x33 = 0x02
 
-        // 剩余数据应包含索引1和3的字节
+        // 剩余数据应包含索引1和3的字节（数据标识后第1和第3字节）
         var remaining = result.Fields.FirstOrDefault(f => f.Name == "剩余数据");
         remaining.Should().NotBeNull();
         remaining!.Length.Should().Be(2);
@@ -406,6 +406,103 @@ public class Dlt645ParserTests
         var rebuilt = _parser.BuildFrame(fieldValues);
 
         rebuilt.Should().Equal(originalFrame);
+    }
+
+    [Fact]
+    public void BuildFrame_WithHexByteArrayInputs_ShouldBuildValidFrame()
+    {
+        // Simulate TxProtocolBuildWindow with IsHexMode=true
+        // Address: 111111111111 → bytes [0x11, 0x11, 0x11, 0x11, 0x11, 0x11]
+        // Control code: 04 → [0x04]
+        // Data identifier: 22222222 → [0x22, 0x22, 0x22, 0x22]
+        var fieldValues = new Dictionary<string, object>
+        {
+            ["电表地址"] = new byte[] { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11 },
+            ["控制码"] = new byte[] { 0x04 },
+            ["数据标识"] = new byte[] { 0x22, 0x22, 0x22, 0x22 }
+        };
+
+        var frame = _parser.BuildFrame(fieldValues);
+
+        frame.Should().NotBeNull();
+        frame[0].Should().Be(0x68);
+        frame[7].Should().Be(0x68);
+        frame[^1].Should().Be(0x16);
+        // Address bytes
+        frame[1..7].Should().Equal([0x11, 0x11, 0x11, 0x11, 0x11, 0x11]);
+        // Control code
+        frame[8].Should().Be(0x04);
+        // Data length = 4 (data identifier only)
+        frame[9].Should().Be(0x04);
+        // Encoded data identifier: 0x22 + 0x33 = 0x55 for each byte
+        frame[10].Should().Be(0x55);
+        frame[11].Should().Be(0x55);
+        frame[12].Should().Be(0x55);
+        frame[13].Should().Be(0x55);
+        _parser.Validate(frame).Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildFrame_HexMode_Roundtrip_ShouldPreserveDataIdentifier()
+    {
+        // Build with hex byte arrays
+        var fieldValues = new Dictionary<string, object>
+        {
+            ["电表地址"] = new byte[] { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11 },
+            ["控制码"] = new byte[] { 0x04 },
+            ["数据标识"] = new byte[] { 0x22, 0x22, 0x22, 0x22 }
+        };
+
+        var frame = _parser.BuildFrame(fieldValues);
+
+        // Parse back
+        var parsed = _parser.Parse(frame) as Dlt645ParsedFrame;
+        parsed.Should().NotBeNull();
+        parsed!.DataIdentifier.Should().Be(0x22222222u);
+        parsed.MeterAddress.Should().Be("111111111111");
+    }
+
+    [Fact]
+    public void BuildFrame_WithCustomFields_ShouldNotOverwriteDataIdentifier()
+    {
+        // Create parser with custom field definition
+        var definition = new FrameDefinition
+        {
+            Name = "TestDlt645",
+            ProtocolType = ProtocolType.Dlt645,
+            Fields =
+            [
+                new FieldDefinition
+                {
+                    Name = "Field1",
+                    DataType = DataType.Bytes,
+                    StartIndex = 0,
+                    Length = 1,
+                    IsEnabled = true
+                }
+            ]
+        };
+        var parserWithFields = new Dlt645Parser(definition);
+
+        var fieldValues = new Dictionary<string, object>
+        {
+            ["电表地址"] = new byte[] { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11 },
+            ["控制码"] = new byte[] { 0x04 },
+            ["数据标识"] = new byte[] { 0x22, 0x22, 0x22, 0x22 },
+            ["Field1"] = new byte[] { 0x33 }
+        };
+
+        var frame = parserWithFields.BuildFrame(fieldValues);
+
+        // Data length should be 5 (4 DI + 1 Field1)
+        frame[9].Should().Be(0x05);
+        // Data identifier should be intact (0x22+0x33=0x55 each)
+        frame[10].Should().Be(0x55);
+        frame[11].Should().Be(0x55);
+        frame[12].Should().Be(0x55);
+        frame[13].Should().Be(0x55);
+        // Field1 should be at position 14 (after DI, 0x33+0x33=0x66)
+        frame[14].Should().Be(0x66);
     }
 }
 

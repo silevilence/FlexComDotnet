@@ -39,8 +39,8 @@ public class AutoReplyService : IAutoReplyService, IDisposable
         // 注册所有处理器
         _handlerList =
         [
-            new MatchReplyHandler(),
-            new SequentialReplyHandler()
+            new MatchReplyHandler(protocolParserService),
+            new SequentialReplyHandler(protocolParserService)
         ];
 
         // 如果有脚本 Hook 服务，注册脚本回复处理器

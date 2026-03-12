@@ -165,6 +165,12 @@ public class ScriptEngine : IScriptEngine
         lua.RegisterFunction("FCom.getTimestamp", _bridge, typeof(IScriptApiBridge).GetMethod(nameof(IScriptApiBridge.GetTimestamp))!);
         lua.RegisterFunction("FCom.hexToBytes", _bridge, typeof(IScriptApiBridge).GetMethod(nameof(IScriptApiBridge.HexToBytes))!);
         lua.RegisterFunction("FCom.bytesToHex", _bridge, typeof(IScriptApiBridge).GetMethod(nameof(IScriptApiBridge.BytesToHex))!);
+
+        // 协议 API
+        lua.RegisterFunction("FCom.getProtocols", _bridge, typeof(IScriptApiBridge).GetMethod(nameof(IScriptApiBridge.GetProtocols))!);
+        lua.RegisterFunction("FCom.getProtocolFields", _bridge, typeof(IScriptApiBridge).GetMethod(nameof(IScriptApiBridge.GetProtocolFields))!);
+        lua.RegisterFunction("FCom.parse", _bridge, typeof(IScriptApiBridge).GetMethod(nameof(IScriptApiBridge.Parse))!);
+        lua.RegisterFunction("FCom.build", _bridge, typeof(IScriptApiBridge).GetMethod(nameof(IScriptApiBridge.Build))!);
     }
 
     private static void RegisterDebugHook(Lua lua, CancellationToken token)

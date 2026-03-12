@@ -1,5 +1,6 @@
 using System.Text;
 using FlexComDotnet.Core.Features.AutoReply.Models;
+using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Serial.Helpers;
 
 namespace FlexComDotnet.Core.Features.AutoReply.Services.Handlers;
@@ -9,6 +10,13 @@ namespace FlexComDotnet.Core.Features.AutoReply.Services.Handlers;
 /// </summary>
 public class SequentialReplyHandler : IReplyHandler
 {
+    private readonly IProtocolParserService? _protocolParserService;
+
+    public SequentialReplyHandler(IProtocolParserService? protocolParserService = null)
+    {
+        _protocolParserService = protocolParserService;
+    }
+
     /// <inheritdoc/>
     public ReplyMode Mode => ReplyMode.Sequential;
 
@@ -106,10 +114,17 @@ public class SequentialReplyHandler : IReplyHandler
     }
 
     /// <summary>
-    /// 获取帧数据
+    /// 获取帧数据 - 支持纯文本和协议组帧两种模式
     /// </summary>
-    private static byte[] GetFrameData(SequentialFrame frame)
+    private byte[] GetFrameData(SequentialFrame frame)
     {
+        if (frame.ResponseMode == ResponseBuildMode.ProtocolBuild)
+        {
+            if (frame.ProtocolResponse == null)
+                return [];
+            return BuildProtocolFrame(frame.ProtocolResponse);
+        }
+
         if (string.IsNullOrEmpty(frame.Content))
         {
             return [];
@@ -122,6 +137,45 @@ public class SequentialReplyHandler : IReplyHandler
         else
         {
             return Encoding.ASCII.GetBytes(frame.Content);
+        }
+    }
+
+    /// <summary>
+    /// 使用协议动态构建帧
+    /// </summary>
+    private byte[] BuildProtocolFrame(ProtocolResponseConfig responseConfig)
+    {
+        if (_protocolParserService == null || string.IsNullOrEmpty(responseConfig.ProtocolName))
+            return [];
+
+        var parser = _protocolParserService.GetParser(responseConfig.ProtocolName);
+        if (parser == null)
+            return [];
+
+        try
+        {
+            var fieldValues = new Dictionary<string, object>();
+            foreach (var (fieldName, expression) in responseConfig.FieldValues)
+            {
+                if (!string.IsNullOrEmpty(expression))
+                {
+                    // Hex 模式：将 hex 字符串转换为 byte[]
+                    if (responseConfig.FieldHexModes.TryGetValue(fieldName, out var isHex) && isHex)
+                    {
+                        fieldValues[fieldName] = Serial.Helpers.HexHelper.HexStringToBytes(expression.Replace(" ", ""));
+                    }
+                    else
+                    {
+                        fieldValues[fieldName] = expression;
+                    }
+                }
+            }
+
+            return parser.BuildFrame(fieldValues);
+        }
+        catch
+        {
+            return [];
         }
     }
 }

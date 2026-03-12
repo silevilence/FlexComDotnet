@@ -374,3 +374,28 @@ public class EnumToIntConverter : IValueConverter
         return value;
     }
 }
+
+/// <summary>
+/// 枚举到布尔转换器 - 用于 RadioButton 绑定枚举值
+/// ConverterParameter 为目标枚举整数值
+/// </summary>
+public class EnumToBoolConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is Enum enumValue && parameter is string paramStr && int.TryParse(paramStr, out var targetInt))
+        {
+            return System.Convert.ToInt32(enumValue) == targetInt;
+        }
+        return false;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is true && parameter is string paramStr && int.TryParse(paramStr, out var targetInt) && targetType.IsEnum)
+        {
+            return Enum.ToObject(targetType, targetInt);
+        }
+        return Binding.DoNothing;
+    }
+}

@@ -16,12 +16,12 @@ public class SequentialFrame
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// 帧内容（Hex 或 ASCII 字符串）
+    /// 帧内容（Hex 或 ASCII 字符串，PlainText 模式时使用）
     /// </summary>
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// 内容是否为 Hex 格式
+    /// 内容是否为 Hex 格式（PlainText 模式时有效）
     /// </summary>
     public bool IsHexMode { get; set; } = true;
 
@@ -39,4 +39,14 @@ public class SequentialFrame
     /// 帧描述
     /// </summary>
     public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 响应构建模式（纯文本 / 协议组帧）
+    /// </summary>
+    public ResponseBuildMode ResponseMode { get; set; } = ResponseBuildMode.PlainText;
+
+    /// <summary>
+    /// 协议组帧配置（ResponseMode == ProtocolBuild 时有效）
+    /// </summary>
+    public ProtocolResponseConfig ProtocolResponse { get; set; } = new();
 }

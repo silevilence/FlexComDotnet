@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using FlexComDotnet.Core.Features.Checksum.Models;
 using FlexComDotnet.Core.Features.Protocol.Models;
 using FlexComDotnet.Core.Features.Protocol.Services;
+using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Serial.Helpers;
 using FlexComDotnet.Core.Features.Serial.Services;
 
@@ -16,6 +17,7 @@ public partial class ProtocolParserViewModel : ObservableObject
 {
     private readonly IProtocolParserService _parserService;
     private readonly IConfigurationService _configService;
+    private readonly IScriptManager? _scriptManager;
 
     [ObservableProperty]
     private ObservableCollection<FrameDefinition> _definitions = [];
@@ -88,10 +90,23 @@ public partial class ProtocolParserViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDirty;
 
-    public ProtocolParserViewModel(IProtocolParserService parserService, IConfigurationService configService)
+    /// <summary>
+    /// 协议保存拦截事件 - 当协议被脚本引用时触发
+    /// UI层应弹出确认对话框，返回用户选择的操作
+    /// </summary>
+    public event Func<string, List<string>, Task<ProtocolSaveAction>>? SaveInterceptRequested;
+
+    /// <summary>
+    /// 协议删除拦截事件 - 当协议被脚本引用时触发
+    /// UI层应弹出确认对话框，返回用户是否确认删除
+    /// </summary>
+    public event Func<string, List<string>, Task<bool>>? DeleteInterceptRequested;
+
+    public ProtocolParserViewModel(IProtocolParserService parserService, IConfigurationService configService, IScriptManager? scriptManager = null)
     {
         _parserService = parserService ?? throw new ArgumentNullException(nameof(parserService));
         _configService = configService ?? throw new ArgumentNullException(nameof(configService));
+        _scriptManager = scriptManager;
         LoadDefinitions();
     }
 
@@ -244,12 +259,30 @@ public partial class ProtocolParserViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SaveDefinition()
+    private async Task SaveDefinitionAsync()
     {
         if (string.IsNullOrWhiteSpace(EditingDefinition.Name))
         {
             StatusMessage = "协议名称不能为空";
             return;
+        }
+
+        // 依赖检查：检查是否有脚本引用了此协议
+        var referencingScripts = FindScriptsReferencingProtocol(EditingDefinition.Name);
+        if (referencingScripts.Count > 0 && SaveInterceptRequested != null)
+        {
+            var action = await SaveInterceptRequested.Invoke(EditingDefinition.Name, referencingScripts);
+            if (action == ProtocolSaveAction.Cancel)
+            {
+                StatusMessage = "已取消保存";
+                return;
+            }
+            if (action == ProtocolSaveAction.CloneAsNew)
+            {
+                // 克隆模式：另存为新协议，原协议不变
+                EditingDefinition.Name = EditingDefinition.Name + " (副本)";
+                EditingDefinition.CreatedAt = DateTime.Now;
+            }
         }
 
         EditingDefinition.Fields = EditingFields.ToList();
@@ -273,12 +306,25 @@ public partial class ProtocolParserViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void DeleteDefinition()
+    private async Task DeleteDefinitionAsync()
     {
         if (SelectedDefinition == null)
             return;
 
         var name = SelectedDefinition.Name;
+
+        // 依赖检查：检查是否有脚本引用了此协议
+        var referencingScripts = FindScriptsReferencingProtocol(name);
+        if (referencingScripts.Count > 0 && DeleteInterceptRequested != null)
+        {
+            var confirmed = await DeleteInterceptRequested.Invoke(name, referencingScripts);
+            if (!confirmed)
+            {
+                StatusMessage = "已取消删除";
+                return;
+            }
+        }
+
         if (_parserService.RemoveParser(name))
         {
             LoadDefinitions();
@@ -672,5 +718,26 @@ public partial class ProtocolParserViewModel : ObservableObject
                 return [];
         }
         return bytes;
+    }
+
+    /// <summary>
+    /// 查找引用了指定协议的脚本列表
+    /// </summary>
+    private List<string> FindScriptsReferencingProtocol(string protocolName)
+    {
+        if (_scriptManager == null)
+            return [];
+
+        var referencingScripts = new List<string>();
+        foreach (var script in _scriptManager.GetAllScripts())
+        {
+            var content = _scriptManager.ReadScriptContent(script.Id);
+            if (content != null && content.Contains(protocolName, StringComparison.OrdinalIgnoreCase))
+            {
+                referencingScripts.Add(script.Name);
+            }
+        }
+
+        return referencingScripts;
     }
 }

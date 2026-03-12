@@ -543,6 +543,9 @@ public class Dlt645Parser : IProtocolParser
         if (decodedData.Length == 0)
             return;
 
+        // 自定义字段的 StartIndex 相对于数据标识之后的数据内容区域
+        int fieldOffset = DataIdentifierLength;
+
         // 跟踪已解析的字节索引
         var parsedIndices = new HashSet<int>();
 
@@ -552,11 +555,13 @@ public class Dlt645Parser : IProtocolParser
                 ? fieldDef.Length
                 : FieldDefinition.GetDefaultLength(fieldDef.DataType);
 
-            if (length <= 0 || fieldDef.StartIndex < 0 || fieldDef.StartIndex + length > decodedData.Length)
+            int actualStart = fieldOffset + fieldDef.StartIndex;
+
+            if (length <= 0 || actualStart < 0 || actualStart + length > decodedData.Length)
                 continue;
 
             byte[] rawBytes = new byte[length];
-            Array.Copy(decodedData, fieldDef.StartIndex, rawBytes, 0, length);
+            Array.Copy(decodedData, actualStart, rawBytes, 0, length);
 
             var parsedField = new ParsedField
             {
@@ -565,7 +570,7 @@ public class Dlt645Parser : IProtocolParser
                 RawBytes = rawBytes,
                 DataType = fieldDef.DataType,
                 // StartIndex 相对于整个帧（数据域起始位置10 + 数据域内偏移）
-                StartIndex = 10 + fieldDef.StartIndex,
+                StartIndex = 10 + actualStart,
                 Length = length,
                 Value = ConvertToValue(rawBytes, fieldDef.DataType, fieldDef.Endianness)
             };
@@ -583,10 +588,16 @@ public class Dlt645Parser : IProtocolParser
             result.Fields.Add(parsedField);
 
             // 记录已解析的索引
-            for (int i = fieldDef.StartIndex; i < fieldDef.StartIndex + length; i++)
+            for (int i = actualStart; i < actualStart + length; i++)
             {
                 parsedIndices.Add(i);
             }
+        }
+
+        // 标记数据标识区域为已解析（由 ParseDataResponse 处理）
+        for (int i = 0; i < Math.Min(DataIdentifierLength, decodedData.Length); i++)
+        {
+            parsedIndices.Add(i);
         }
 
         // 添加剩余数据字段（未被自定义字段覆盖的部分）
@@ -684,15 +695,38 @@ public class Dlt645Parser : IProtocolParser
         ArgumentNullException.ThrowIfNull(fieldValues);
 
         // Parse address (6 bytes BCD, little-endian)
-        string address = fieldValues.TryGetValue("电表地址", out var addrObj)
-            ? addrObj.ToString() ?? "000000000000"
-            : "000000000000";
-        var addressBytes = ParseAddressToBytes(address);
+        byte[] addressBytes;
+        if (fieldValues.TryGetValue("电表地址", out var addrObj))
+        {
+            if (addrObj is byte[] addrBytes)
+            {
+                // Hex mode: raw bytes, pad/truncate to 6 bytes (already reversed by user)
+                addressBytes = new byte[AddressLength];
+                Array.Copy(addrBytes, 0, addressBytes, 0, Math.Min(addrBytes.Length, AddressLength));
+            }
+            else
+            {
+                addressBytes = ParseAddressToBytes(addrObj.ToString() ?? "000000000000");
+            }
+        }
+        else
+        {
+            addressBytes = ParseAddressToBytes("000000000000");
+        }
 
         // Parse control code
-        byte controlCode = fieldValues.TryGetValue("控制码", out var ccObj)
-            ? Convert.ToByte(ccObj)
-            : (byte)0x11; // Default: read data
+        byte controlCode;
+        if (fieldValues.TryGetValue("控制码", out var ccObj))
+        {
+            if (ccObj is byte[] ccBytes && ccBytes.Length > 0)
+                controlCode = ccBytes[0];
+            else
+                controlCode = Convert.ToByte(ccObj);
+        }
+        else
+        {
+            controlCode = 0x11; // Default: read data
+        }
 
         // Build data field
         byte[] dataField = BuildDataField(fieldValues);
@@ -725,27 +759,39 @@ public class Dlt645Parser : IProtocolParser
     {
         var dataBytes = new List<byte>();
 
-        // Data identifier (4 bytes)
+        // Data identifier (4 bytes, little-endian)
         if (fieldValues.TryGetValue("数据标识", out var diObj))
         {
-            uint di = Convert.ToUInt32(diObj);
-            dataBytes.Add((byte)(di & 0xFF));
-            dataBytes.Add((byte)((di >> 8) & 0xFF));
-            dataBytes.Add((byte)((di >> 16) & 0xFF));
-            dataBytes.Add((byte)((di >> 24) & 0xFF));
+            if (diObj is byte[] diBytes)
+            {
+                // Hex mode: raw bytes, pad/truncate to 4
+                for (int i = 0; i < 4; i++)
+                    dataBytes.Add(i < diBytes.Length ? diBytes[i] : (byte)0);
+            }
+            else
+            {
+                uint di = Convert.ToUInt32(diObj);
+                dataBytes.Add((byte)(di & 0xFF));
+                dataBytes.Add((byte)((di >> 8) & 0xFF));
+                dataBytes.Add((byte)((di >> 16) & 0xFF));
+                dataBytes.Add((byte)((di >> 24) & 0xFF));
+            }
         }
 
         // Custom fields (user-defined data domain sub-fields)
         if (_customDefinition?.Fields.Any(f => f.IsEnabled) == true)
         {
+            // Custom field StartIndex is relative to data content (after data identifier)
+            int fieldOffset = dataBytes.Count; // After data identifier (4 bytes)
+
             // Determine max data size needed
-            int maxEnd = dataBytes.Count;
+            int maxEnd = fieldOffset;
             foreach (var fieldDef in _customDefinition.Fields.Where(f => f.IsEnabled))
             {
                 int length = fieldDef.Length > 0
                     ? fieldDef.Length
                     : FieldDefinition.GetDefaultLength(fieldDef.DataType);
-                maxEnd = Math.Max(maxEnd, fieldDef.StartIndex + length);
+                maxEnd = Math.Max(maxEnd, fieldOffset + fieldDef.StartIndex + length);
             }
 
             // Extend data bytes if needed
@@ -763,9 +809,9 @@ public class Dlt645Parser : IProtocolParser
                     : FieldDefinition.GetDefaultLength(fieldDef.DataType);
 
                 var bytes = ConvertFieldValueToBytes(value, fieldDef.DataType, fieldDef.Endianness, length);
-                for (int i = 0; i < Math.Min(bytes.Length, length) && fieldDef.StartIndex + i < dataBytes.Count; i++)
+                for (int i = 0; i < Math.Min(bytes.Length, length) && fieldOffset + fieldDef.StartIndex + i < dataBytes.Count; i++)
                 {
-                    dataBytes[fieldDef.StartIndex + i] = bytes[i];
+                    dataBytes[fieldOffset + fieldDef.StartIndex + i] = bytes[i];
                 }
             }
         }
@@ -823,6 +869,12 @@ public class Dlt645Parser : IProtocolParser
     private static byte[] ConvertFieldValueToBytes(object value, DataType dataType, Endianness endianness, int targetLength)
     {
         byte[] rawBytes;
+
+        // When value is already byte[] (e.g., Hex mode input), use directly
+        if (value is byte[] byteInput)
+        {
+            return byteInput;
+        }
 
         if (value is string strValue)
         {

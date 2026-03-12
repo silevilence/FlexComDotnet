@@ -337,4 +337,73 @@ public class AutoReplyViewModelTests
         vm.Rules[1].Name.Should().Be("TestSeqRule");
         vm.Rules[1].Type.Should().Be(ReplyMode.Sequential);
     }
+
+    [Fact]
+    public void RuleViewModel_ToModel_ShouldPreserveFieldHexModes()
+    {
+        // Arrange
+        var rule = new AutoReplyRuleViewModel
+        {
+            Name = "HexModeTest",
+            Type = ReplyMode.Match,
+            MatchConfig = new MatchRuleConfig
+            {
+                ResponseMode = ResponseBuildMode.ProtocolBuild,
+                ProtocolResponse = new ProtocolResponseConfig
+                {
+                    ProtocolName = "TestProtocol",
+                    FieldValues = new Dictionary<string, string>
+                    {
+                        ["电表地址"] = "112233445566",
+                        ["控制码"] = "11"
+                    },
+                    FieldHexModes = new Dictionary<string, bool>
+                    {
+                        ["电表地址"] = true,
+                        ["控制码"] = true
+                    }
+                }
+            }
+        };
+
+        // Act - ToModel → FromModel round-trip
+        var model = rule.ToModel();
+        var restored = AutoReplyRuleViewModel.FromModel(model);
+
+        // Assert
+        restored.MatchConfig!.ProtocolResponse.FieldHexModes.Should().ContainKey("电表地址");
+        restored.MatchConfig.ProtocolResponse.FieldHexModes["电表地址"].Should().BeTrue();
+        restored.MatchConfig.ProtocolResponse.FieldHexModes["控制码"].Should().BeTrue();
+    }
+
+    [Fact]
+    public void RuleViewModel_ToModel_ShouldPreserveProtocolConfigFieldHexModes()
+    {
+        // Arrange
+        var rule = new AutoReplyRuleViewModel
+        {
+            Name = "ProtocolHexTest",
+            Type = ReplyMode.Protocol,
+            ProtocolConfig = new ProtocolRuleConfig
+            {
+                ProtocolName = "TestProtocol",
+                FieldValues = new Dictionary<string, string>
+                {
+                    ["数据标识"] = "00010000"
+                },
+                FieldHexModes = new Dictionary<string, bool>
+                {
+                    ["数据标识"] = true
+                }
+            }
+        };
+
+        // Act
+        var model = rule.ToModel();
+        var restored = AutoReplyRuleViewModel.FromModel(model);
+
+        // Assert
+        restored.ProtocolConfig!.FieldHexModes.Should().ContainKey("数据标识");
+        restored.ProtocolConfig.FieldHexModes["数据标识"].Should().BeTrue();
+    }
 }
