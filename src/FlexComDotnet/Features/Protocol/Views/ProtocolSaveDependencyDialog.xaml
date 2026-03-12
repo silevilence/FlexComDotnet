@@ -1,0 +1,57 @@
+<Window x:Class="FlexComDotnet.Features.Protocol.Views.ProtocolSaveDependencyDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+        Title="依赖检查"
+        Width="420"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource BackgroundBrush}">
+
+    <StackPanel Margin="20">
+        <!-- 警告图标 + 标题 -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBlock Text="⚠" FontSize="24" Foreground="{DynamicResource WarningBrush}"
+                       VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <TextBlock Text="协议被脚本引用" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- 引用列表 -->
+        <TextBlock x:Name="ReferenceInfo" FontSize="12"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+        <TextBlock Text="修改此协议可能影响这些脚本的运行。请选择操作："
+                   FontSize="12"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
+                   TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+        <!-- 操作按钮 - 纵向排列，每个按钮清晰表达操作 -->
+        <Button Content="覆盖保存" Padding="12,8" Margin="0,0,0,8"
+                HorizontalAlignment="Stretch"
+                Background="{DynamicResource PrimaryBrush}"
+                Foreground="White"
+                pu:ButtonHelper.CornerRadius="4"
+                Click="ForceSave_Click"/>
+
+        <Button Content="另存为新协议" Padding="12,8" Margin="0,0,0,8"
+                HorizontalAlignment="Stretch"
+                Background="{DynamicResource CardBrush}"
+                Foreground="{DynamicResource TextPrimaryBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                pu:ButtonHelper.CornerRadius="4"
+                Click="CloneAsNew_Click"/>
+
+        <Button Content="取消" Padding="12,8"
+                HorizontalAlignment="Stretch"
+                Background="Transparent"
+                Foreground="{DynamicResource TextSecondaryBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                pu:ButtonHelper.CornerRadius="4"
+                Click="Cancel_Click"/>
+    </StackPanel>
+</Window>

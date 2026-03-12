@@ -24,31 +24,21 @@ public partial class ProtocolDefinitionWindow : Window
 
     private Task<ProtocolSaveAction> OnSaveInterceptRequested(string protocolName, List<string> referencingScripts)
     {
-        var scriptList = string.Join("\n  • ", referencingScripts);
-        var result = MessageBox.Show(
-            $"协议 \"{protocolName}\" 被以下脚本引用：\n  • {scriptList}\n\n修改此协议可能影响这些脚本的运行。\n\n• 选择「是」强行覆盖保存\n• 选择「否」另存为新协议（克隆模式）\n• 选择「取消」放弃保存",
-            "依赖检查",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Warning);
-
-        return Task.FromResult(result switch
+        var dialog = new ProtocolSaveDependencyDialog(protocolName, referencingScripts)
         {
-            MessageBoxResult.Yes => ProtocolSaveAction.ForceSave,
-            MessageBoxResult.No => ProtocolSaveAction.CloneAsNew,
-            _ => ProtocolSaveAction.Cancel
-        });
+            Owner = this
+        };
+        dialog.ShowDialog();
+        return Task.FromResult(dialog.SelectedAction);
     }
 
     private Task<bool> OnDeleteInterceptRequested(string protocolName, List<string> referencingScripts)
     {
-        var scriptList = string.Join("\n  • ", referencingScripts);
-        var result = MessageBox.Show(
-            $"协议 \"{protocolName}\" 被以下脚本引用：\n  • {scriptList}\n\n删除此协议将导致这些脚本无法正常工作。\n确定要删除吗？",
-            "依赖检查",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-
-        return Task.FromResult(result == MessageBoxResult.Yes);
+        var dialog = new ProtocolDeleteDependencyDialog(protocolName, referencingScripts)
+        {
+            Owner = this
+        };
+        return Task.FromResult(dialog.ShowDialog() == true);
     }
 
     private void ListBox_ContextMenuOpening(object sender, ContextMenuEventArgs e)
