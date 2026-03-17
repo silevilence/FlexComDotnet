@@ -17,6 +17,7 @@ public class ProtocolTypeDisplayConverter : IValueConverter
             {
                 ProtocolType.Generic => "通用协议",
                 ProtocolType.Dlt645 => "DL/T 645-2007",
+                ProtocolType.ModbusRtu => "Modbus-RTU",
                 _ => protocolType.ToString()
             };
         }

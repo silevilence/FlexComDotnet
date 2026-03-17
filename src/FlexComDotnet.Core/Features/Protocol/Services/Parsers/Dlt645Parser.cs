@@ -690,6 +690,52 @@ public class Dlt645Parser : IProtocolParser
         };
     }
 
+    public List<FieldInputItem> GetBuildFieldInputs()
+    {
+        var inputs = new List<FieldInputItem>
+        {
+            new()
+            {
+                FieldName = "电表地址",
+                DisplayName = "电表地址",
+                Description = "12位BCD码地址",
+                DataType = DataType.AsciiString,
+                DefaultValue = "000000000000"
+            },
+            new()
+            {
+                FieldName = "控制码",
+                DisplayName = "控制码",
+                Description = "功能控制字节 (Hex)",
+                DataType = DataType.UInt8,
+                DefaultValue = "11"
+            },
+            new()
+            {
+                FieldName = "数据标识",
+                DisplayName = "数据标识",
+                Description = "4字节数据标识 (十进制)",
+                DataType = DataType.UInt32,
+                DefaultValue = "65536"
+            }
+        };
+
+        foreach (var field in Definition.Fields.Where(f => f.IsEnabled))
+        {
+            inputs.Add(new FieldInputItem
+            {
+                FieldName = field.Name,
+                DisplayName = field.Name,
+                Description = field.Description,
+                DataType = field.DataType,
+                DefaultValue = string.Empty,
+                IsHexMode = field.DataType is DataType.Bytes or DataType.UInt8
+            });
+        }
+
+        return inputs;
+    }
+
     public byte[] BuildFrame(Dictionary<string, object> fieldValues)
     {
         ArgumentNullException.ThrowIfNull(fieldValues);

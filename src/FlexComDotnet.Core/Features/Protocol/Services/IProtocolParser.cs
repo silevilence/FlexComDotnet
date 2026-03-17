@@ -51,4 +51,9 @@ public interface IProtocolParser
     /// <param name="fieldValues">字段名到值的映射，值可以是具体类型或字符串</param>
     /// <returns>构建的完整帧字节数组</returns>
     byte[] BuildFrame(Dictionary<string, object> fieldValues);
+
+    /// <summary>
+    /// 获取组帧所需的输入字段列表（包含协议特有字段和用户自定义字段）
+    /// </summary>
+    List<FieldInputItem> GetBuildFieldInputs();
 }

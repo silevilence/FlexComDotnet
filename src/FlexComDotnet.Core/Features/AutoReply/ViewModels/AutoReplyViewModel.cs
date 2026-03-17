@@ -509,51 +509,12 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         if (string.IsNullOrEmpty(protocolName))
             return;
 
-        var definitions = _protocolParserService.GetAllDefinitions();
-        var definition = definitions.FirstOrDefault(d => d.Name == protocolName);
-        if (definition == null) return;
+        var parser = _protocolParserService.GetParser(protocolName);
+        if (parser == null) return;
 
-        // DL/T 645 固定字段
-        if (definition.ProtocolType == Protocol.Models.ProtocolType.Dlt645)
+        foreach (var input in parser.GetBuildFieldInputs())
         {
-            ProtocolFieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "电表地址",
-                DisplayName = "电表地址",
-                Description = "12位BCD码地址",
-                DataType = Protocol.Models.DataType.AsciiString,
-                DefaultValue = "000000000000"
-            });
-            ProtocolFieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "控制码",
-                DisplayName = "控制码",
-                Description = "功能控制字节 (Hex)",
-                DataType = Protocol.Models.DataType.UInt8,
-                DefaultValue = "11"
-            });
-            ProtocolFieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "数据标识",
-                DisplayName = "数据标识",
-                Description = "4字节数据标识 (十进制)",
-                DataType = Protocol.Models.DataType.UInt32,
-                DefaultValue = "65536"
-            });
-        }
-
-        // 用户定义字段
-        foreach (var field in definition.Fields.Where(f => f.IsEnabled))
-        {
-            ProtocolFieldInputs.Add(new FieldInputItem
-            {
-                FieldName = field.Name,
-                DisplayName = field.Name,
-                Description = field.Description,
-                DataType = field.DataType,
-                DefaultValue = string.Empty,
-                IsHexMode = true
-            });
+            ProtocolFieldInputs.Add(input);
         }
 
         // 恢复已保存的值和Hex模式
@@ -627,33 +588,17 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         if (string.IsNullOrEmpty(protocolName))
             return;
 
-        var definitions = _protocolParserService.GetAllDefinitions();
-        var definition = definitions.FirstOrDefault(d => d.Name == protocolName);
-        if (definition == null) return;
+        var parser = _protocolParserService.GetParser(protocolName);
+        if (parser == null) return;
 
-        // 为 DL/T 645 协议添加固定字段
-        AddDlt645FixedFields(definition, MatchResponseFieldInputs,
-            SelectedRule.MatchConfig.ProtocolResponse.FieldValues,
-            SelectedRule.MatchConfig.ProtocolResponse.FieldHexModes);
-
-        foreach (var field in definition.Fields.Where(f => f.IsEnabled))
+        foreach (var input in parser.GetBuildFieldInputs())
         {
-            var input = new FieldInputItem
-            {
-                FieldName = field.Name,
-                DisplayName = field.Name,
-                Description = field.Description,
-                DataType = field.DataType,
-                DefaultValue = string.Empty,
-                IsHexMode = true
-            };
-
             // 恢复已保存的值和Hex模式
-            if (SelectedRule.MatchConfig.ProtocolResponse.FieldValues.TryGetValue(field.Name, out var savedValue))
+            if (SelectedRule.MatchConfig.ProtocolResponse.FieldValues.TryGetValue(input.FieldName, out var savedValue))
             {
                 input.Value = savedValue;
             }
-            if (SelectedRule.MatchConfig.ProtocolResponse.FieldHexModes.TryGetValue(field.Name, out var hexMode))
+            if (SelectedRule.MatchConfig.ProtocolResponse.FieldHexModes.TryGetValue(input.FieldName, out var hexMode))
             {
                 input.IsHexMode = hexMode;
             }
@@ -675,21 +620,12 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         var protocolName = SelectedRule.MatchConfig.TriggerProtocolName;
         if (string.IsNullOrEmpty(protocolName)) return;
 
-        var definition = _protocolParserService.GetAllDefinitions()
-            .FirstOrDefault(d => d.Name == protocolName);
-        if (definition == null) return;
+        var parser = _protocolParserService.GetParser(protocolName);
+        if (parser == null) return;
 
-        // DL/T 645 协议的固定字段（解析结果中包含但不在 definition.Fields 中）
-        if (definition.ProtocolType == ProtocolType.Dlt645)
+        foreach (var input in parser.GetBuildFieldInputs())
         {
-            AssertionFieldNames.Add("电表地址");
-            AssertionFieldNames.Add("控制码");
-            AssertionFieldNames.Add("数据标识");
-        }
-
-        foreach (var field in definition.Fields)
-        {
-            AssertionFieldNames.Add(field.Name);
+            AssertionFieldNames.Add(input.FieldName);
         }
     }
 
@@ -714,32 +650,16 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         var protocolName = SelectedEditingFrame.ProtocolName;
         if (string.IsNullOrEmpty(protocolName)) return;
 
-        var definition = _protocolParserService.GetAllDefinitions()
-            .FirstOrDefault(d => d.Name == protocolName);
-        if (definition == null) return;
+        var parser = _protocolParserService.GetParser(protocolName);
+        if (parser == null) return;
 
-        // 为 DL/T 645 协议添加固定字段
-        AddDlt645FixedFields(definition, SequentialFrameFieldInputs,
-            SelectedEditingFrame.ProtocolFieldValues,
-            SelectedEditingFrame.ProtocolFieldHexModes);
-
-        foreach (var field in definition.Fields.Where(f => f.IsEnabled))
+        foreach (var input in parser.GetBuildFieldInputs())
         {
-            var input = new FieldInputItem
-            {
-                FieldName = field.Name,
-                DisplayName = field.Name,
-                Description = field.Description,
-                DataType = field.DataType,
-                DefaultValue = string.Empty,
-                IsHexMode = true
-            };
-
-            if (SelectedEditingFrame.ProtocolFieldValues.TryGetValue(field.Name, out var savedValue))
+            if (SelectedEditingFrame.ProtocolFieldValues.TryGetValue(input.FieldName, out var savedValue))
             {
                 input.Value = savedValue;
             }
-            if (SelectedEditingFrame.ProtocolFieldHexModes.TryGetValue(field.Name, out var hexMode))
+            if (SelectedEditingFrame.ProtocolFieldHexModes.TryGetValue(input.FieldName, out var hexMode))
             {
                 input.IsHexMode = hexMode;
             }
@@ -765,48 +685,6 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
                 SelectedEditingFrame.ProtocolFieldValues[input.FieldName] = input.Value;
                 SelectedEditingFrame.ProtocolFieldHexModes[input.FieldName] = input.IsHexMode;
             }
-        }
-    }
-
-    /// <summary>
-    /// 为 DL/T 645 协议添加固定字段（电表地址、控制码、数据标识）
-    /// </summary>
-    private static void AddDlt645FixedFields(FrameDefinition definition,
-        ObservableCollection<FieldInputItem> fieldInputs, Dictionary<string, string> savedValues,
-        Dictionary<string, bool>? savedHexModes = null)
-    {
-        if (definition.ProtocolType != ProtocolType.Dlt645)
-            return;
-
-        var dlt645Fields = new (string Name, string Desc, DataType Type, string Default)[]
-        {
-            ("电表地址", "12位BCD码地址", DataType.AsciiString, "000000000000"),
-            ("控制码", "功能控制字节 (Hex)", DataType.UInt8, "11"),
-            ("数据标识", "4字节数据标识 (Hex)", DataType.UInt32, "00010000")
-        };
-
-        foreach (var (name, desc, dataType, defaultVal) in dlt645Fields)
-        {
-            var input = new FieldInputItem
-            {
-                FieldName = name,
-                DisplayName = name,
-                Description = desc,
-                DataType = dataType,
-                DefaultValue = defaultVal,
-                IsHexMode = true
-            };
-
-            if (savedValues.TryGetValue(name, out var savedValue))
-            {
-                input.Value = savedValue;
-            }
-            if (savedHexModes?.TryGetValue(name, out var hexMode) == true)
-            {
-                input.IsHexMode = hexMode;
-            }
-
-            fieldInputs.Add(input);
         }
     }
 

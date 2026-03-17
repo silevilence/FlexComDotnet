@@ -1,4 +1,5 @@
 using FlexComDotnet.Core.Features.Checksum.Models;
+using FlexComDotnet.Core.Features.Protocol.Models.ModbusRtu;
 
 namespace FlexComDotnet.Core.Features.Protocol.Models;
 
@@ -43,6 +44,11 @@ public class FrameDefinition
     /// 长度字段配置 (可选，用于变长帧)
     /// </summary>
     public LengthFieldConfig? LengthFieldConfig { get; set; }
+
+    /// <summary>
+    /// Modbus-RTU 配置 (仅 ModbusRtu 类型有效)
+    /// </summary>
+    public ModbusRtuConfig? ModbusRtuConfig { get; set; }
 
     /// <summary>
     /// 数据字段定义列表

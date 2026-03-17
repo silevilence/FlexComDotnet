@@ -50,6 +50,37 @@ public partial class FieldInputItem : ObservableObject
     private bool _isHexMode;
 
     /// <summary>
+    /// 是否为二元切换模式（如 请求/响应）
+    /// </summary>
+    [ObservableProperty]
+    private bool _isToggleMode;
+
+    /// <summary>
+    /// 切换模式下 "选中" 时的标签
+    /// </summary>
+    [ObservableProperty]
+    private string _toggleTrueLabel = string.Empty;
+
+    /// <summary>
+    /// 切换模式下 "未选中" 时的标签
+    /// </summary>
+    [ObservableProperty]
+    private string _toggleFalseLabel = string.Empty;
+
+    /// <summary>
+    /// 切换状态 (true = ToggleTrueLabel, false = ToggleFalseLabel)
+    /// </summary>
+    public bool IsToggleChecked
+    {
+        get => Value == ToggleTrueLabel;
+        set
+        {
+            Value = value ? ToggleTrueLabel : ToggleFalseLabel;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
     /// 数据类型显示名称
     /// </summary>
     public string DataTypeDisplay => DataType switch

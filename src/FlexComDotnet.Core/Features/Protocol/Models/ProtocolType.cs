@@ -13,7 +13,12 @@ public enum ProtocolType
     /// <summary>
     /// DL/T 645-2007 电表协议
     /// </summary>
-    Dlt645
+    Dlt645,
+
+    /// <summary>
+    /// Modbus-RTU 协议
+    /// </summary>
+    ModbusRtu
 }
 
 /// <summary>

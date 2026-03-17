@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using FlexComDotnet.Core.Features.Protocol.Models;
+using FlexComDotnet.Core.Features.Protocol.Models.ModbusRtu;
 using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Serial.Helpers;
 using FlexComDotnet.Core.Features.Serial.ViewModels;
@@ -42,47 +43,13 @@ public partial class TxProtocolBuildWindow : Window
         if (ProtocolComboBox.SelectedItem is not FrameDefinition definition)
             return;
 
-        // DL/T 645 特殊字段
-        if (definition.ProtocolType == ProtocolType.Dlt645)
-        {
-            _fieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "电表地址",
-                DisplayName = "电表地址",
-                Description = "12位BCD码地址",
-                DataType = DataType.AsciiString,
-                DefaultValue = "000000000000"
-            });
-            _fieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "控制码",
-                DisplayName = "控制码",
-                Description = "功能控制字节 (Hex)",
-                DataType = DataType.UInt8,
-                DefaultValue = "11"
-            });
-            _fieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "数据标识",
-                DisplayName = "数据标识",
-                Description = "4字节数据标识 (十进制)",
-                DataType = DataType.UInt32,
-                DefaultValue = "65536"
-            });
-        }
+        var parser = _parserService.GetParser(definition.Name);
+        if (parser == null)
+            return;
 
-        // 用户定义字段
-        foreach (var field in definition.Fields.Where(f => f.IsEnabled))
+        foreach (var input in parser.GetBuildFieldInputs())
         {
-            _fieldInputs.Add(new FieldInputItem
-            {
-                FieldName = field.Name,
-                DisplayName = field.Name,
-                Description = field.Description,
-                DataType = field.DataType,
-                DefaultValue = string.Empty,
-                IsHexMode = field.DataType is DataType.Bytes or DataType.UInt8
-            });
+            _fieldInputs.Add(input);
         }
     }
 

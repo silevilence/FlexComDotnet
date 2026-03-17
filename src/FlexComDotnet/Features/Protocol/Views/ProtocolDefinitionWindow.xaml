@@ -9,6 +9,7 @@
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         xmlns:converters="clr-namespace:FlexComDotnet.Converters"
         xmlns:models="clr-namespace:FlexComDotnet.Core.Features.Protocol.Models;assembly=FlexComDotnet.Core"
+        xmlns:modbus="clr-namespace:FlexComDotnet.Core.Features.Protocol.Models.ModbusRtu;assembly=FlexComDotnet.Core"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="协议定义编辑器" 
@@ -120,6 +121,7 @@
                             <MenuItem Header="新建">
                                 <MenuItem Header="通用协议" Command="{Binding NewDefinitionCommand}"/>
                                 <MenuItem Header="DL/T 645-2007" Command="{Binding NewDlt645DefinitionCommand}"/>
+                                <MenuItem Header="Modbus-RTU" Command="{Binding NewModbusRtuDefinitionCommand}"/>
                             </MenuItem>
                             <Separator/>
                             <MenuItem Header="编辑" Command="{Binding EditDefinitionCommand}"/>
@@ -249,6 +251,68 @@
                             <Run Text="• 校验: 算术累加和"/><LineBreak/>
                             <Run Text="• 数据标识: 自动查询内置字典获取物理量名称和单位"/>
                         </TextBlock>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Modbus-RTU 协议说明与配置 - 仅 Modbus-RTU 显示 -->
+                <Border Style="{StaticResource SectionBorder}"
+                        Visibility="{Binding IsModbusRtuProtocol, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Modbus-RTU 协议说明" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12">
+                            <Run Text="• 帧格式: 从站地址(1B) + 功能码(1B) + 数据域 + CRC(2B)"/><LineBreak/>
+                            <Run Text="• 从站地址: 1-247，0为广播地址"/><LineBreak/>
+                            <Run Text="• 功能码: 03(读保持寄存器)、04(读输入寄存器)、06(写单寄存器)、10(写多寄存器)"/><LineBreak/>
+                            <Run Text="• CRC: CRC-16/Modbus，低字节在前"/><LineBreak/>
+                            <Run Text="• 自定义字段起始索引相对于寄存器数据区起始位置"/>
+                        </TextBlock>
+                        
+                        <TextBlock Text="Modbus-RTU 参数" Style="{StaticResource SectionTitle}" Margin="0,12,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Text="从站地址" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Column="1" 
+                                     Text="{Binding EditingDefinition.ModbusRtuConfig.SlaveId, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4"
+                                     pu:TextBoxHelper.Watermark="1-247"
+                                     Margin="0,0,8,8"/>
+                            
+                            <TextBlock Grid.Column="2" Text="功能码" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox Grid.Column="3" 
+                                      SelectedItem="{Binding EditingDefinition.ModbusRtuConfig.FunctionCode}"
+                                      pu:ComboBoxHelper.CornerRadius="4"
+                                      Margin="0,0,0,8">
+                                <ComboBox.Items>
+                                    <modbus:ModbusFunctionCode>ReadHoldingRegisters</modbus:ModbusFunctionCode>
+                                    <modbus:ModbusFunctionCode>ReadInputRegisters</modbus:ModbusFunctionCode>
+                                    <modbus:ModbusFunctionCode>WriteSingleRegister</modbus:ModbusFunctionCode>
+                                    <modbus:ModbusFunctionCode>WriteMultipleRegisters</modbus:ModbusFunctionCode>
+                                </ComboBox.Items>
+                            </ComboBox>
+                            
+                            <TextBlock Grid.Row="1" Text="起始地址" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" 
+                                     Text="{Binding EditingDefinition.ModbusRtuConfig.StartAddress, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4"
+                                     pu:TextBoxHelper.Watermark="0-65535"
+                                     Margin="0,0,8,0"/>
+                            
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="寄存器数量" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Grid.Row="1" Grid.Column="3" 
+                                     Text="{Binding EditingDefinition.ModbusRtuConfig.Quantity, UpdateSourceTrigger=PropertyChanged}"
+                                     pu:TextBoxHelper.CornerRadius="4"
+                                     pu:TextBoxHelper.Watermark="1-125"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
                 
@@ -513,8 +577,9 @@
         </ScrollViewer>
         
         <!-- 右侧: 测试区域 -->
-        <DockPanel Grid.Column="2">
-            <Border DockPanel.Dock="Top"
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <Border
                     Background="{DynamicResource CardBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
@@ -602,7 +667,7 @@
             </Border>
             
             <!-- 测试数据帧组合 -->
-            <Border DockPanel.Dock="Top"
+            <Border
                     Background="{DynamicResource CardBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
@@ -638,14 +703,77 @@
                                                Text="{Binding DisplayName, StringFormat={}{0}:}" 
                                                VerticalAlignment="Center" FontSize="11"
                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <!-- 普通输入模式 -->
                                     <TextBox Grid.Column="1" 
                                              Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
                                              pu:TextBoxHelper.CornerRadius="4"
-                                             pu:TextBoxHelper.Watermark="{Binding DefaultValue}"/>
+                                             pu:TextBoxHelper.Watermark="{Binding DefaultValue}">
+                                        <TextBox.Style>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsToggleMode}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBox.Style>
+                                    </TextBox>
                                     <CheckBox Grid.Column="2" Content="Hex" Margin="6,0,0,0"
                                               IsChecked="{Binding IsHexMode}"
                                               VerticalAlignment="Center"
-                                              Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
+                                              Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11">
+                                        <CheckBox.Style>
+                                            <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsToggleMode}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </CheckBox.Style>
+                                    </CheckBox>
+                                    <!-- 二元切换模式 -->
+                                    <StackPanel Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsToggleMode}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="{Binding ToggleFalseLabel}" VerticalAlignment="Center" Margin="0,0,6,0"
+                                                   FontSize="11" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsToggleChecked}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <ToggleButton IsChecked="{Binding IsToggleChecked}" VerticalAlignment="Center"
+                                                      pu:ToggleButtonHelper.CornerRadius="8" MinWidth="40"/>
+                                        <TextBlock Text="{Binding ToggleTrueLabel}" VerticalAlignment="Center" Margin="6,0,0,0"
+                                                   FontSize="11" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsToggleChecked}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
                                     <TextBlock Grid.Row="1" Grid.ColumnSpan="3"
                                                Text="{Binding Description}" FontSize="10"
                                                Foreground="{DynamicResource TextMutedBrush}"
@@ -680,6 +808,7 @@
                                Visibility="{Binding BuildStatusMessage, Converter={StaticResource NullToBoolConverter}}"/>
                 </StackPanel>
             </Border>
-        </DockPanel>
+        </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

@@ -238,12 +238,12 @@ public class FComCompletionData : ICompletionData
     /// 获取 FCom.build 上下文中的协议名称补全项 - 选中后自动插入字段模板
     /// </summary>
     public static IEnumerable<BuildTemplateCompletionData> GetBuildProtocolCompletions(
-        IEnumerable<(string Name, string Description, IEnumerable<string> FieldNames)> protocols)
+        IEnumerable<(string Name, string Description, IEnumerable<(string Name, string DefaultValue)> Fields)> protocols)
     {
-        foreach (var (name, description, fieldNames) in protocols)
+        foreach (var (name, description, fields) in protocols)
         {
             var desc = string.IsNullOrEmpty(description) ? $"协议: {name}" : description;
-            yield return new BuildTemplateCompletionData(name, desc, fieldNames.ToList());
+            yield return new BuildTemplateCompletionData(name, desc, fields.ToList());
         }
     }
 
@@ -264,18 +264,18 @@ public class FComCompletionData : ICompletionData
 /// </summary>
 public class BuildTemplateCompletionData : FComCompletionData
 {
-    private readonly List<string> _fieldNames;
+    private readonly List<(string Name, string DefaultValue)> _fields;
 
-    public BuildTemplateCompletionData(string protocolName, string description, List<string> fieldNames)
+    public BuildTemplateCompletionData(string protocolName, string description, List<(string Name, string DefaultValue)> fields)
         : base(protocolName, description, "protocol")
     {
-        _fieldNames = fieldNames;
+        _fields = fields;
     }
 
     public override void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
     {
-        // 插入协议名 + 字段模板
-        var fieldEntries = _fieldNames.Select(f => $"[\"{f}\"] = \"\"");
+        // 插入协议名 + 字段模板（含默认值示例）
+        var fieldEntries = _fields.Select(f => $"[\"{f.Name}\"] = \"{f.DefaultValue}\"");
         var template = $"{Text}\", {{ {string.Join(", ", fieldEntries)} }}";
         textArea.Document.Replace(completionSegment, template);
     }

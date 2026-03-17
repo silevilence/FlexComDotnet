@@ -76,6 +76,7 @@
                              Foreground="{DynamicResource TextSecondaryBrush}"
                              FontSize="10"/>
                 </StackPanel>
+                <!-- 普通输入模式 -->
                 <TextBox Grid.Column="1" 
                          Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
                          FontFamily="Consolas"
@@ -85,11 +86,73 @@
                          CaretBrush="{DynamicResource PrimaryBrush}"
                          pu:TextBoxHelper.CornerRadius="4"
                          pu:TextBoxHelper.Watermark="{Binding Description}"
-                         Padding="8,4" Margin="8,0"/>
+                         Padding="8,4" Margin="8,0">
+                  <TextBox.Style>
+                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsToggleMode}" Value="True">
+                          <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBox.Style>
+                </TextBox>
                 <CheckBox Grid.Column="2" Content="Hex"
                           IsChecked="{Binding IsHexMode}"
                           VerticalAlignment="Center"
-                          Foreground="{DynamicResource TextSecondaryBrush}"/>
+                          Foreground="{DynamicResource TextSecondaryBrush}">
+                  <CheckBox.Style>
+                    <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsToggleMode}" Value="True">
+                          <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </CheckBox.Style>
+                </CheckBox>
+                <!-- 二元切换模式 -->
+                <StackPanel Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" 
+                            VerticalAlignment="Center" Margin="8,0">
+                  <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                      <Setter Property="Visibility" Value="Collapsed"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsToggleMode}" Value="True">
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </StackPanel.Style>
+                  <TextBlock Text="{Binding ToggleFalseLabel}" VerticalAlignment="Center" Margin="0,0,6,0"
+                             FontSize="12" FontWeight="SemiBold">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsToggleChecked}" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                  <ToggleButton IsChecked="{Binding IsToggleChecked}" VerticalAlignment="Center"
+                                pu:ToggleButtonHelper.CornerRadius="8" MinWidth="40"/>
+                  <TextBlock Text="{Binding ToggleTrueLabel}" VerticalAlignment="Center" Margin="6,0,0,0"
+                             FontSize="12" FontWeight="SemiBold">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsToggleChecked}" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                </StackPanel>
               </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>

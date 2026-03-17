@@ -292,11 +292,14 @@ public partial class ScriptEditorWindow : Window
 
         if (isBuildContext)
         {
-            var protocols = definitions.Select(d => (
-                d.Name,
-                Description: d.Description ?? string.Empty,
-                FieldNames: d.Fields.Where(f => f.IsEnabled).Select(f => f.Name)
-            ));
+            var protocols = definitions.Select(d =>
+            {
+                var p = _protocolParserService!.GetParser(d.Name);
+                var fields = p != null
+                    ? p.GetBuildFieldInputs().Select(f => (f.FieldName, f.DefaultValue))
+                    : d.Fields.Where(f => f.IsEnabled).Select(f => (f.Name, DefaultValue: string.Empty));
+                return (d.Name, Description: d.Description ?? string.Empty, Fields: fields);
+            });
             matchingItems = FComCompletionData.GetBuildProtocolCompletions(protocols)
                 .Where(item => item.Text.StartsWith(typedPrefix, StringComparison.OrdinalIgnoreCase))
                 .Cast<FComCompletionData>()
@@ -406,13 +409,17 @@ public partial class ScriptEditorWindow : Window
     /// </summary>
     private void ShowProtocolFieldCompletion(string protocolName, string typedPrefix)
     {
-        var definition = _protocolParserService!.GetAllDefinitions()
-            .FirstOrDefault(d => d.Name == protocolName);
-        if (definition == null) return;
+        var parser = _protocolParserService!.GetParser(protocolName);
+        if (parser == null) return;
 
-        var fields = definition.Fields
-            .Where(f => f.IsEnabled)
-            .Select(f => (f.Name, Description: string.IsNullOrEmpty(f.Description) ? $"{f.DataType}" : f.Description));
+        var fields = parser.GetBuildFieldInputs()
+            .Select(f =>
+            {
+                var desc = string.IsNullOrEmpty(f.Description) ? $"{f.DataType}" : f.Description;
+                if (!string.IsNullOrEmpty(f.DefaultValue))
+                    desc += $" (示例: {f.DefaultValue})";
+                return (f.FieldName, Description: desc);
+            });
 
         var matchingItems = FComCompletionData.GetProtocolFieldCompletions(fields)
             .Where(item => item.Text.StartsWith(typedPrefix, StringComparison.OrdinalIgnoreCase))

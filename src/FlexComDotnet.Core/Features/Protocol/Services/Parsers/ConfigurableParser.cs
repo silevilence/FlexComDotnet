@@ -573,6 +573,26 @@ public class ConfigurableParser : IProtocolParser
         };
     }
 
+    public List<FieldInputItem> GetBuildFieldInputs()
+    {
+        var inputs = new List<FieldInputItem>();
+
+        foreach (var field in Definition.Fields.Where(f => f.IsEnabled))
+        {
+            inputs.Add(new FieldInputItem
+            {
+                FieldName = field.Name,
+                DisplayName = field.Name,
+                Description = field.Description,
+                DataType = field.DataType,
+                DefaultValue = string.Empty,
+                IsHexMode = field.DataType is DataType.Bytes or DataType.UInt8
+            });
+        }
+
+        return inputs;
+    }
+
     private static byte[] ConvertStringToBytes(string strValue, DataType dataType, int targetLength)
     {
         return dataType switch

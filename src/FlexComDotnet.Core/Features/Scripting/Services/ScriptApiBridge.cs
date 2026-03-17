@@ -239,18 +239,15 @@ public class ScriptApiBridge : IScriptApiBridge
         if (parser == null)
             return [];
 
-        var definition = parser.Definition;
         var result = new List<Dictionary<string, object>>();
 
-        foreach (var field in definition.Fields.Where(f => f.IsEnabled))
+        foreach (var input in parser.GetBuildFieldInputs())
         {
             result.Add(new Dictionary<string, object>
             {
-                ["name"] = field.Name,
-                ["description"] = field.Description,
-                ["dataType"] = field.DataType.ToString(),
-                ["length"] = field.Length,
-                ["startIndex"] = field.StartIndex
+                ["name"] = input.FieldName,
+                ["description"] = input.Description,
+                ["dataType"] = input.DataType.ToString()
             });
         }
 

@@ -6,6 +6,7 @@ using FlexComDotnet.Core.Features.Protocol.Models;
 using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Scripting.Services;
 using FlexComDotnet.Core.Features.Serial.Helpers;
+using FlexComDotnet.Core.Features.Protocol.Models.ModbusRtu;
 using FlexComDotnet.Core.Features.Serial.Services;
 
 namespace FlexComDotnet.Core.Features.Protocol.ViewModels;
@@ -50,6 +51,7 @@ public partial class ProtocolParserViewModel : ObservableObject
     public bool HasChecksumConfig => EditingDefinition.ChecksumConfig != null;
     public bool IsGenericProtocol => EditingDefinition.ProtocolType == ProtocolType.Generic;
     public bool IsDlt645Protocol => EditingDefinition.ProtocolType == ProtocolType.Dlt645;
+    public bool IsModbusRtuProtocol => EditingDefinition.ProtocolType == ProtocolType.ModbusRtu;
 
     public IReadOnlyList<DataType> DataTypes { get; } = Enum.GetValues<DataType>();
     public IReadOnlyList<Endianness> EndianOptions { get; } = Enum.GetValues<Endianness>();
@@ -148,6 +150,7 @@ public partial class ProtocolParserViewModel : ObservableObject
         IsDirty = false;
         OnPropertyChanged(nameof(IsGenericProtocol));
         OnPropertyChanged(nameof(IsDlt645Protocol));
+        OnPropertyChanged(nameof(IsModbusRtuProtocol));
         StatusMessage = "正在创建新协议定义...";
     }
 
@@ -176,7 +179,42 @@ public partial class ProtocolParserViewModel : ObservableObject
         IsDirty = false;
         OnPropertyChanged(nameof(IsGenericProtocol));
         OnPropertyChanged(nameof(IsDlt645Protocol));
+        OnPropertyChanged(nameof(IsModbusRtuProtocol));
         StatusMessage = "正在创建 DL/T 645-2007 协议定义...";
+    }
+
+    [RelayCommand]
+    private void NewModbusRtuDefinition()
+    {
+        if (IsEditing && IsDirty)
+        {
+            StatusMessage = "请先保存或取消当前编辑";
+            return;
+        }
+
+        EditingDefinition = new FrameDefinition
+        {
+            Name = "Modbus-RTU",
+            Description = "Modbus-RTU 协议指令",
+            ProtocolType = ProtocolType.ModbusRtu,
+            MinFrameLength = 5,
+            MaxFrameLength = 256,
+            ModbusRtuConfig = new ModbusRtuConfig
+            {
+                SlaveId = 1,
+                FunctionCode = ModbusFunctionCode.ReadHoldingRegisters,
+                StartAddress = 0,
+                Quantity = 1
+            }
+        };
+        _editingSnapshot = SerializeDefinitionSnapshot(EditingDefinition);
+        SyncEditingFields();
+        IsEditing = true;
+        IsDirty = false;
+        OnPropertyChanged(nameof(IsGenericProtocol));
+        OnPropertyChanged(nameof(IsDlt645Protocol));
+        OnPropertyChanged(nameof(IsModbusRtuProtocol));
+        StatusMessage = "正在创建 Modbus-RTU 协议定义...";
     }
 
     [RelayCommand]
@@ -199,6 +237,7 @@ public partial class ProtocolParserViewModel : ObservableObject
         IsDirty = false;
         OnPropertyChanged(nameof(IsGenericProtocol));
         OnPropertyChanged(nameof(IsDlt645Protocol));
+        OnPropertyChanged(nameof(IsModbusRtuProtocol));
         StatusMessage = $"正在编辑: {EditingDefinition.Name}";
     }
 
@@ -225,6 +264,7 @@ public partial class ProtocolParserViewModel : ObservableObject
         IsDirty = false;
         OnPropertyChanged(nameof(IsGenericProtocol));
         OnPropertyChanged(nameof(IsDlt645Protocol));
+        OnPropertyChanged(nameof(IsModbusRtuProtocol));
         StatusMessage = $"正在编辑: {EditingDefinition.Name}";
     }
 
@@ -244,6 +284,7 @@ public partial class ProtocolParserViewModel : ObservableObject
         IsDirty = false;
         OnPropertyChanged(nameof(IsGenericProtocol));
         OnPropertyChanged(nameof(IsDlt645Protocol));
+        OnPropertyChanged(nameof(IsModbusRtuProtocol));
         StatusMessage = $"正在编辑: {EditingDefinition.Name}";
     }
 
@@ -530,6 +571,13 @@ public partial class ProtocolParserViewModel : ObservableObject
                 IncludesChecksum = source.LengthFieldConfig.IncludesChecksum,
                 Offset = source.LengthFieldConfig.Offset
             } : null,
+            ModbusRtuConfig = source.ModbusRtuConfig != null ? new ModbusRtuConfig
+            {
+                SlaveId = source.ModbusRtuConfig.SlaveId,
+                FunctionCode = source.ModbusRtuConfig.FunctionCode,
+                StartAddress = source.ModbusRtuConfig.StartAddress,
+                Quantity = source.ModbusRtuConfig.Quantity
+            } : null,
             Fields = source.Fields.Select(f => new FieldDefinition
             {
                 Name = f.Name,
@@ -608,47 +656,13 @@ public partial class ProtocolParserViewModel : ObservableObject
         if (BuildSelectedDefinition == null)
             return;
 
-        // Add protocol-specific fixed fields for DL/T 645
-        if (BuildSelectedDefinition.ProtocolType == ProtocolType.Dlt645)
-        {
-            BuildFieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "电表地址",
-                DisplayName = "电表地址",
-                Description = "12位BCD码地址",
-                DataType = DataType.AsciiString,
-                DefaultValue = "000000000000"
-            });
-            BuildFieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "控制码",
-                DisplayName = "控制码",
-                Description = "功能控制字节 (Hex)",
-                DataType = DataType.UInt8,
-                DefaultValue = "11"
-            });
-            BuildFieldInputs.Add(new FieldInputItem
-            {
-                FieldName = "数据标识",
-                DisplayName = "数据标识",
-                Description = "4字节数据标识 (十进制)",
-                DataType = DataType.UInt32,
-                DefaultValue = "65536"
-            });
-        }
+        var parser = _parserService.GetParser(BuildSelectedDefinition.Name);
+        if (parser == null)
+            return;
 
-        // Add user-defined fields
-        foreach (var field in BuildSelectedDefinition.Fields.Where(f => f.IsEnabled))
+        foreach (var input in parser.GetBuildFieldInputs())
         {
-            BuildFieldInputs.Add(new FieldInputItem
-            {
-                FieldName = field.Name,
-                DisplayName = field.Name,
-                Description = field.Description,
-                DataType = field.DataType,
-                DefaultValue = string.Empty,
-                IsHexMode = field.DataType is DataType.Bytes or DataType.UInt8
-            });
+            BuildFieldInputs.Add(input);
         }
     }
 
@@ -694,7 +708,11 @@ public partial class ProtocolParserViewModel : ObservableObject
             def.MaxFrameLength.ToString(),
             def.ProtocolType.ToString(),
             def.ChecksumConfig?.Algorithm.ToString() ?? "",
-            def.LengthFieldConfig?.StartIndex.ToString() ?? ""
+            def.LengthFieldConfig?.StartIndex.ToString() ?? "",
+            def.ModbusRtuConfig?.SlaveId.ToString() ?? "",
+            def.ModbusRtuConfig?.FunctionCode.ToString() ?? "",
+            def.ModbusRtuConfig?.StartAddress.ToString() ?? "",
+            def.ModbusRtuConfig?.Quantity.ToString() ?? ""
         };
 
         foreach (var field in def.Fields)

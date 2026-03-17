@@ -59,6 +59,7 @@ public class ProtocolParserService : IProtocolParserService
             IProtocolParser parser = definition.ProtocolType switch
             {
                 ProtocolType.Dlt645 => new Dlt645Parser(definition),
+                ProtocolType.ModbusRtu => new ModbusRtuParser(definition, _checksumService),
                 _ => new ConfigurableParser(definition, _checksumService)
             };
             _parsers[definition.Name] = parser;
@@ -82,6 +83,7 @@ public class ProtocolParserService : IProtocolParserService
                     IProtocolParser parser = definition.ProtocolType switch
                     {
                         ProtocolType.Dlt645 => new Dlt645Parser(definition),
+                        ProtocolType.ModbusRtu => new ModbusRtuParser(definition, _checksumService),
                         _ => new ConfigurableParser(definition, _checksumService)
                     };
                     _parsers[definition.Name] = parser;
