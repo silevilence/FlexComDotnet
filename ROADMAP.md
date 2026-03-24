@@ -3,31 +3,6 @@
 ## 📝 计划中 (Planned)
 > 待开发的需求池，按优先级排序
 
-- [ ] 🔴 **[P0] 新增 Rust 串口监控驱动（基础能力）**
-    - [ ] 新建 `driver/serial-monitor/` Rust 驱动工程：
-        - [ ] 初始化 Cargo 项目（支持内核模式）
-        - [ ] 配置构建脚本（build.rs）对接 WDK
-    - [ ] 实现驱动基础框架：
-        - [ ] DriverEntry / 卸载逻辑
-        - [ ] 创建设备对象（`\Device\SerialMonitor`）
-        - [ ] 建立符号链接（`\DosDevices\SerialMonitor`）
-    - [ ] 实现过滤驱动核心能力：
-        - [ ] Attach 到串口设备（serial.sys / usbser.sys）
-        - [ ] 拦截 IRP：
-            - [ ] `IRP_MJ_READ`
-            - [ ] `IRP_MJ_WRITE`
-            - [ ] `IRP_MJ_DEVICE_CONTROL`
-        - [ ] 数据透传 + 捕获（不影响原通信）
-    - [ ] 实现用户态通信接口：
-        - [ ] 定义 IOCTL：
-            - [ ] 启动监控
-            - [ ] 停止监控
-            - [ ] 获取数据
-        - [ ] 定义共享数据结构（#[repr(C)]）
-    - [ ] 输出驱动产物：
-        - [ ] `.sys`
-        - [ ] （可选）`.inf`
-
 - [ ] 🔴 **[P0] 驱动安装与生命周期管理（用户无感）**
     - [ ] 设计驱动安装策略：
         - [ ] 应用启动时自动检测驱动是否存在
@@ -114,18 +89,30 @@
 ## 🚧 开发中 (In Progress)
 > 当前正在进行的工作
 
-- [ ] 🟡 **[P1] 拆分 Copilot 指导文件结构**
-    - [ ] 精简 `.github/copilot-instructions.md`，仅保留跨语言通用规范
-    - [ ] 新增 `.github/instructions/dotnet.md`：
-        - [ ] 迁移现有 C# / WPF / MVVM 相关规范
-    - [ ] 新增 `.github/instructions/rust.md`：
-        - [ ] 定义 Rust 编码规范（unsafe、错误处理、FFI 等）
-    - [ ] 新增 `.github/instructions/driver.md`：
-        - [ ] 定义驱动开发约束（IRP、性能、安全性等）
-    - [ ]（可选）在以下目录增加局部指导文件：
-        - [ ] `src/`：限定为 C# 规则
-        - [ ] `driver/`：限定为 Rust + 驱动规则
-    - [ ] 确保不同语言规范之间无冲突、不混用
+- [ ] 🔴 **[P0] 新增 Rust 串口监控驱动（基础能力）**
+    - [ ] 新建 `driver/serial-monitor/` Rust 驱动工程：
+        - [ ] 初始化 Cargo 项目（支持内核模式）
+        - [ ] 配置构建脚本（build.rs）对接 WDK
+    - [ ] 实现驱动基础框架：
+        - [ ] DriverEntry / 卸载逻辑
+        - [ ] 创建设备对象（`\Device\SerialMonitor`）
+        - [ ] 建立符号链接（`\DosDevices\SerialMonitor`）
+    - [ ] 实现过滤驱动核心能力：
+        - [ ] Attach 到串口设备（serial.sys / usbser.sys）
+        - [ ] 拦截 IRP：
+            - [ ] `IRP_MJ_READ`
+            - [ ] `IRP_MJ_WRITE`
+            - [ ] `IRP_MJ_DEVICE_CONTROL`
+        - [ ] 数据透传 + 捕获（不影响原通信）
+    - [ ] 实现用户态通信接口：
+        - [ ] 定义 IOCTL：
+            - [ ] 启动监控
+            - [ ] 停止监控
+            - [ ] 获取数据
+        - [ ] 定义共享数据结构（#[repr(C)]）
+    - [ ] 输出驱动产物：
+        - [ ] `.sys`
+        - [ ] （可选）`.inf`
 
 ## ✅ 已完成 (Completed)
 > 已验收通过的功能
@@ -407,3 +394,16 @@
     - [x] Lua 脚本引擎架构一致性适配
         - [x] 无缝接入现有模型：在 Lua 脚本层面，Modbus-RTU 指令对象与已有的 645、自定义指令对象在调用方式上保持**绝对一致**（遵循统一的 `引擎 -> 协议(指令)对象 -> 数据项集合` 交互逻辑）
         - [x] 屏蔽底层协议细节：在脚本中调用此对象的 `build()` 方法组帧时，只需传入业务数据项，引擎自动补全帧头与 CRC；调用 `parse()` 方法时，引擎自动完成 CRC 校验并仅返回提取好的纯数据项集合（或在校验失败时返回异常），无需额外增加专门针对 Modbus 的独立 API
+
+- [x] 🟡 **[P1] 拆分 Copilot 指导文件结构**
+    - [x] 精简 `.github/copilot-instructions.md`，仅保留跨语言通用规范
+    - [x] 新增 `.github/instructions/dotnet.md`：
+        - [x] 迁移现有 C# / WPF / MVVM 相关规范
+    - [x] 新增 `.github/instructions/rust.md`：
+        - [x] 定义 Rust 编码规范（unsafe、错误处理、FFI 等）
+    - [x] 新增 `.github/instructions/driver.md`：
+        - [x] 定义驱动开发约束（IRP、性能、安全性等）
+    - [x]（可选）在以下目录增加局部指导文件：
+        - [x] `src/`：限定为 C# 规则
+        - [x] `driver/`：限定为 Rust + 驱动规则
+    - [x] 确保不同语言规范之间无冲突、不混用
