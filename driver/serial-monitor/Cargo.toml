@@ -1,0 +1,21 @@
+[package]
+name = "serial-monitor"
+version = "0.1.0"
+edition = "2021"
+description = "Windows kernel-mode serial port monitoring filter driver"
+
+[lib]
+name = "serial_monitor"
+path = "src/lib.rs"
+
+# For kernel driver, the actual entry point is handled by build.rs/WDK
+# Tests run in user-mode with mock abstractions
+
+[features]
+default = []
+# When building for kernel mode, enable this feature
+kernel = []
+
+[dependencies]
+
+[dev-dependencies]
