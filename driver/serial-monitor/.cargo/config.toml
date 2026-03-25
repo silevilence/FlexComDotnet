@@ -1,0 +1,5 @@
+[build]
+# Static CRT linkage required for kernel-mode drivers.
+# This is the default for kernel builds via cargo-make, but setting it here
+# ensures consistency when building manually with `cargo build --features kernel`.
+rustflags = ["-C", "target-feature=+crt-static"]

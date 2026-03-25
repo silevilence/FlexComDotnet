@@ -6,6 +6,10 @@
 //! # Cross-Language Sync
 //! When adding/removing fields, **MUST** update the corresponding C# P/Invoke definitions.
 
+// In kernel (no_std) mode, String/Vec come from alloc instead of std.
+#[cfg(feature = "kernel")]
+use alloc::{string::String, vec::Vec};
+
 /// Maximum length of a serial port device name (e.g., `\Device\Serial0`).
 pub const MAX_PORT_NAME_LEN: usize = 64;
 
@@ -104,7 +108,11 @@ impl StartMonitorRequest {
     ///
     /// Reads until the first null terminator (0x0000) in the UTF-16 array.
     pub fn port_name_string(&self) -> String {
-        let len = self.port_name.iter().position(|&c| c == 0).unwrap_or(MAX_PORT_NAME_LEN);
+        let len = self
+            .port_name
+            .iter()
+            .position(|&c| c == 0)
+            .unwrap_or(MAX_PORT_NAME_LEN);
         String::from_utf16_lossy(&self.port_name[..len])
     }
 }

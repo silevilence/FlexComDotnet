@@ -11,6 +11,10 @@
 //! - Write/read positions wrap around using modular arithmetic.
 //! - Oldest entries are silently overwritten when the buffer is full.
 
+// In kernel (no_std) mode, Vec comes from alloc instead of std.
+#[cfg(feature = "kernel")]
+use alloc::{vec, vec::Vec};
+
 use crate::shared::{CapturedDataHeader, DataDirection};
 
 /// Default ring buffer capacity: 64 KB.
@@ -410,7 +414,7 @@ mod tests {
         let header_size = CapturedDataHeader::SIZE; // 16
         let payload_size = 4;
         let entry_size = header_size + payload_size; // 20
-        // Buffer can hold exactly 3 entries
+                                                     // Buffer can hold exactly 3 entries
         let capacity = entry_size * 3;
         let mut buf = small_buffer(capacity);
 

@@ -9,6 +9,10 @@
 //! The actual IRP handling uses trait abstractions (`IrpHandler`) so the
 //! data capture and protocol logic can be thoroughly tested without kernel dependencies.
 
+// In kernel (no_std) mode, Vec comes from alloc instead of std.
+#[cfg(feature = "kernel")]
+use alloc::vec::Vec;
+
 use crate::ring_buffer::RingBuffer;
 use crate::shared::DataDirection;
 
@@ -159,9 +163,7 @@ pub fn capture_read_data(
 pub fn is_monitored_serial_ioctl(ioctl_code: u32) -> bool {
     matches!(
         ioctl_code,
-        serial_ioctl::SET_BAUD_RATE
-            | serial_ioctl::SET_LINE_CONTROL
-            | serial_ioctl::SET_HANDFLOW
+        serial_ioctl::SET_BAUD_RATE | serial_ioctl::SET_LINE_CONTROL | serial_ioctl::SET_HANDFLOW
     )
 }
 
@@ -437,10 +439,7 @@ mod tests {
         let restored_header = CapturedDataHeader::from_bytes(&header_bytes).unwrap();
 
         assert_eq!(restored_header.timestamp, timestamp);
-        assert_eq!(
-            restored_header.data_direction(),
-            Some(DataDirection::Tx)
-        );
+        assert_eq!(restored_header.data_direction(), Some(DataDirection::Tx));
         assert_eq!(restored_header.data_length, original_data.len() as u32);
         assert_eq!(payload, original_data.to_vec());
     }

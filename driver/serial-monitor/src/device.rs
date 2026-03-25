@@ -10,6 +10,13 @@
 //! In kernel mode (`kernel` feature), `KernelApi` is implemented by the
 //! actual WDK bindings. In test mode, a mock implementation is used.
 
+// In kernel (no_std) mode, String/format! come from alloc instead of std.
+#[cfg(feature = "kernel")]
+use alloc::{
+    format,
+    string::{String, ToString},
+};
+
 use crate::ioctl;
 use crate::ring_buffer::RingBuffer;
 use crate::shared::MonitorState;

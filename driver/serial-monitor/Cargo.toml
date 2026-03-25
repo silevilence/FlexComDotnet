@@ -7,15 +7,35 @@ description = "Windows kernel-mode serial port monitoring filter driver"
 [lib]
 name = "serial_monitor"
 path = "src/lib.rs"
-
-# For kernel driver, the actual entry point is handled by build.rs/WDK
-# Tests run in user-mode with mock abstractions
+# cdylib produces .sys (via WDK linker) for kernel builds; rlib for tests
+crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
-# When building for kernel mode, enable this feature
-kernel = []
+# Enable kernel mode build: links WDK, enables DriverEntry, produces .sys
+kernel = [
+    "dep:wdk",
+    "dep:wdk-sys",
+    "dep:wdk-alloc",
+    "dep:wdk-panic",
+]
+
+[package.metadata.wdk.driver-model]
+driver-type = "WDM"
 
 [dependencies]
+wdk = { version = "0.4.1", optional = true }
+wdk-alloc = { version = "0.4.1", optional = true }
+wdk-panic = { version = "0.4.1", optional = true }
+wdk-sys = { version = "0.5.1", optional = true }
 
 [dev-dependencies]
+
+[build-dependencies]
+wdk-build = "0.5.1"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

@@ -1,0 +1,68 @@
+;
+; serial_monitor.inx — Driver installation descriptor (INF template)
+;
+; This file is processed by Stampinf.exe during `cargo make` to produce
+; serial_monitor.inf with correct version stamps.
+;
+; Installation methods:
+;   1. pnputil: pnputil /add-driver serial_monitor.inf /install
+;   2. sc:      sc create SerialMonitor type= kernel start= demand binpath= <path>\serial_monitor.sys
+;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = System
+ClassGuid   = {4D36E97D-E325-11CE-BFC1-08002BE10318}
+Provider    = %ProviderName%
+CatalogFile = serial_monitor.cat
+DriverVer   = ; Stamped by Stampinf
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir          = 13
+SerialMonitor.CopyFiles = 13
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+serial_monitor.sys = 1,,
+
+; ----------------------------------------------------------------
+; Default install sections
+; ----------------------------------------------------------------
+
+[DefaultInstall.NT$ARCH$]
+CopyFiles = SerialMonitor.CopyFiles
+
+[DefaultInstall.NT$ARCH$.Services]
+AddService = SerialMonitor,,SerialMonitor.Service
+
+; ----------------------------------------------------------------
+; Service configuration
+; ----------------------------------------------------------------
+
+[SerialMonitor.Service]
+DisplayName    = %ServiceName%
+Description    = %ServiceDescription%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %13%\serial_monitor.sys
+
+; ----------------------------------------------------------------
+; File copy
+; ----------------------------------------------------------------
+
+[SerialMonitor.CopyFiles]
+serial_monitor.sys
+
+; ----------------------------------------------------------------
+; Strings
+; ----------------------------------------------------------------
+
+[Strings]
+ProviderName       = "FlexComDotnet"
+ServiceName        = "Serial Monitor Filter Driver"
+ServiceDescription = "Transparent serial port monitoring filter driver for FlexComDotnet"
+DiskName           = "Serial Monitor Installation Disk"

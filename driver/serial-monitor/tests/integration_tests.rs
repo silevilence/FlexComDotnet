@@ -8,10 +8,9 @@
 //! 4. Retrieve data via IOCTL → Read from ring buffer
 //! 5. Stop monitor → Detach and cleanup
 
-use serial_monitor::device::{DeviceManager, KernelApi, DeviceHandle, NtStatus};
+use serial_monitor::device::{DeviceHandle, DeviceManager, KernelApi, NtStatus};
 use serial_monitor::filter::{
-    capture_read_data, capture_write_data, determine_filter_action, FilterAction,
-    IrpMajorFunction,
+    capture_read_data, capture_write_data, determine_filter_action, FilterAction, IrpMajorFunction,
 };
 use serial_monitor::ioctl;
 use serial_monitor::ring_buffer::RingBuffer;
@@ -78,7 +77,11 @@ impl KernelApi for MockKernel {
         Ok(lower)
     }
 
-    fn detach_device(&mut self, filter: DeviceHandle, _lower: DeviceHandle) -> Result<(), NtStatus> {
+    fn detach_device(
+        &mut self,
+        filter: DeviceHandle,
+        _lower: DeviceHandle,
+    ) -> Result<(), NtStatus> {
         self.attachments.remove(&filter);
         Ok(())
     }
@@ -212,14 +215,14 @@ fn test_dl_t645_frame_roundtrip() {
     // DL/T 645-2007 frame
     let frame: Vec<u8> = vec![
         0xFE, 0xFE, 0xFE, 0xFE, // Preamble
-        0x68,                     // Start
+        0x68, // Start
         0x99, 0x99, 0x99, 0x99, 0x99, 0x99, // Address (BCD)
-        0x68,                     // Start2
-        0x11,                     // Control: Read normal response
-        0x04,                     // Length
+        0x68, // Start2
+        0x11, // Control: Read normal response
+        0x04, // Length
         0x33, 0x33, 0x34, 0x33, // Data (with +0x33 offset)
-        0xC5,                     // Checksum
-        0x16,                     // End
+        0xC5, // Checksum
+        0x16, // End
     ];
 
     capture_write_data(&mut buffer, 500, &frame);
@@ -386,12 +389,7 @@ fn test_capture_single_byte() {
 #[test]
 fn test_start_monitor_request_port_name_encoding() {
     // Test that port names survive the UTF-16 encoding roundtrip
-    let names = [
-        "COM1",
-        "COM256",
-        "\\Device\\Serial0",
-        "\\Device\\USBSER000",
-    ];
+    let names = ["COM1", "COM256", "\\Device\\Serial0", "\\Device\\USBSER000"];
 
     for name in &names {
         let req = StartMonitorRequest::from_port_name(name).unwrap();
