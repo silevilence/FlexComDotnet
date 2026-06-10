@@ -348,6 +348,9 @@ ASALocalRun/
 # BeatPulse healthcheck temp database
 healthchecksdb
 
+# Rust build output
+target/
+
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
 
@@ -403,3 +406,5 @@ dmypy.json
 
 ROADMAP.md.backup*
 FlexComDotnet_Base64.txt
+
+driver/serial-monitor/target/
