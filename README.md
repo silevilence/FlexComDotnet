@@ -4,14 +4,15 @@
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![WPF](https://img.shields.io/badge/WPF-Windows-0078D4?logo=windows)
-![Tests](https://img.shields.io/badge/Tests-Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-1059_passing-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green)
+![Rust](https://img.shields.io/badge/Driver-Rust_%2F_WDK-orange?logo=rust)
 
 ## 📋 项目状态
 
-**🚀 开发中 - Modbus-RTU 协议扩展**
+**🚀 开发中 - 驱动安装生命周期管理与串口传输控制优化**
 
-当前版本 v1.3.0。已完成串口/网络通信、协议解析引擎（通用/DL/T 645-2007）、Lua 脚本系统、智能自动回复（规则池架构）、数据可视化、协议组帧与解析联动等核心功能。当前正在开发 Modbus-RTU 协议支持。
+当前版本 v1.5.0。已完成串口/网络通信、协议解析引擎（通用/DL/T 645-2007/Modbus-RTU）、Lua 脚本系统、智能自动回复（规则池架构）、数据可视化、协议组帧与解析联动、Rust 内核驱动框架等核心功能。当前正在开发驱动安装与生命周期管理、串口帧定界与传输控制、自动响应防抖机制。
 
 ## ✨ 功能列表
 
@@ -59,8 +60,23 @@
 - [x] **自动更新** - GitHub API 版本检测、语义版本号比对、下载进度显示、应用内更新
 - [x] **配置持久化** - JSON 配置自动保存/加载 (串口/网络/自动回复/Hook/面板布局)
 
+**协议解析扩展**
+- [x] **Modbus-RTU 协议支持** - 从站地址/功能码配置、基于功能码的动态表单、CRC-16 自动编解码、Lua 脚本无缝接入
+- [x] **协议组帧/逆向解析** - Rx 接收区右键协议逆向解析、Tx 发送区快捷组帧回填 (覆盖/追加)
+- [x] **协议管理依赖图谱** - 修改/删除协议时自动检查脚本依赖并拦截
+
+**驱动开发**
+- [x] **Rust 内核串口监控驱动** - Windows 内核驱动框架 (WDK)、过滤驱动 IRP 拦截、IOCTL 用户态通信、共享数据结构
+
+**接收区优化**
+- [x] **接收区延迟格式化** - 仅对可见项执行格式化，大幅提升大数据量下接收性能
+- [x] **自动滚动** - 新数据到达自动滚动到底部，手动上滚暂停跟随
+- [x] **自动换行修复** - 开关正常控制 TextWrapping，联动水平滚动条
+
 ### 🚧 开发中
-- [ ] **Modbus-RTU 协议支持** - 从站地址/功能码配置、基于功能码的动态表单、CRC-16 自动编解码、Lua 脚本无缝接入
+- [ ] **驱动安装与生命周期管理** - 应用启动自动检测/安装/启动驱动，安全与权限控制
+- [ ] **串口帧定界与传输控制** - 帧间隔超时判定、最大帧长度限制、运行期生命周期控制
+- [ ] **自动响应防抖机制** - 防抖延迟窗口、多帧联合决策 (AND/OR/LAST/FIRST 模式)
 
 ## 🚀 快速开始
 
@@ -127,6 +143,15 @@ FlexComDotnet/
 └── tests/
     └── FlexComDotnet.Tests/        # 单元测试 (xUnit + FluentAssertions + Moq)
         └── Features/               # 按功能模块对应测试
+│
+├── driver/
+│   └── serial-monitor/             # Rust 串口监控内核驱动
+│       ├── src/                    # 驱动源码 (entry, device, filter, ioctl, ring_buffer)
+│       ├── tests/                  # 集成测试
+│       ├── Cargo.toml              # Rust 项目配置 (cargo-make + WDK)
+│       └── serial_monitor.inx      # 驱动安装清单
+│
+└── docs/                           # 文档 (架构/驱动/开发/部署说明)
 ```
 
 ### 架构模式
@@ -135,6 +160,7 @@ FlexComDotnet/
 - **依赖注入**: Microsoft.Extensions.DependencyInjection 管理服务生命周期
 - **Feature-first**: 按功能模块组织代码，Core 层无 UI 依赖
 - **策略模式**: 校验算法、协议解析器、自动回复处理器均可零耦合扩展
+- **C# ↔ Rust 跨语言通信**: WPF 应用与内核驱动通过 IOCTL + 共享结构体 (`#[repr(C)]`) 双向通信
 - **主题系统**: DynamicResource 绑定实现运行时主题切换
 
 ## 🛠️ 技术栈

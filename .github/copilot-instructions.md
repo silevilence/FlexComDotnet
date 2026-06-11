@@ -16,11 +16,19 @@ FlexComDotnet/
 │   └── serial-monitor/           # 串口监控内核驱动 (Rust)
 ├── tests/
 │   └── FlexComDotnet.Tests/      # C# 单元测试
-└── .github/
-    └── instructions/             # 分语言开发规范
-        ├── dotnet.md             # C# / WPF / MVVM 规范
-        ├── rust.md               # Rust 编码规范
-        └── driver.md             # 驱动开发约束
+├── docs/
+│   ├── specs/                    # 功能设计文档
+│   └── plans/                    # 实现计划
+├── .github/
+│   ├── instructions/             # 分语言开发规范
+│   │   ├── dotnet.md             # C# / WPF / MVVM 规范
+│   │   ├── rust.md               # Rust 编码规范
+│   │   └── driver.md             # 驱动开发约束
+│   ├── prompts/                  # Agent 提示词模板
+│   └── copilot-instructions.md   # 跨语言通用规范（本文件）
+├── CHANGELOG.md                  # 版本更新日志
+├── ROADMAP.md                    # 产品路线图
+└── README.md                     # 项目说明
 ```
 
 ## 3. 开发流程 (Development Workflow)
