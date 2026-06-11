@@ -200,7 +200,8 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     partial void OnAutoLineBreakChanged(bool value)
     {
-        UpdateReceivedDataText();
+        RecordDisplaySettings.AutoLineBreak = value;
+        InvalidateDisplay();
         SaveDisplayConfig();
     }
 
@@ -353,7 +354,6 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         _showDateInTimestamp = config.DisplayConfig.ShowDateInTimestamp;
         _autoLineBreak = config.DisplayConfig.AutoLineBreak;
         _isHexSendMode = config.DisplayConfig.IsHexSendMode;
-#pragma warning restore MVVMTK0034
         
         // 通知属性变化
         OnPropertyChanged(nameof(IsHexDisplayMode));
@@ -369,6 +369,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         OnPropertyChanged(nameof(ShowDateInTimestamp));
         OnPropertyChanged(nameof(AutoLineBreak));
         OnPropertyChanged(nameof(IsHexSendMode));
+#pragma warning restore MVVMTK0034
     }
 
     /// <summary>

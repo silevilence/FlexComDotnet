@@ -14,6 +14,7 @@
     
     <UserControl.Resources>
         <converters:DataRecordFormatConverter x:Key="DataRecordFormatConverter"/>
+        <converters:BooleanToTextWrappingConverter x:Key="BooleanToTextWrappingConverter"/>
         
         <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14"/>
@@ -206,8 +207,19 @@
                              Foreground="{DynamicResource TextPrimaryBrush}"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
-                             SelectionMode="Extended"
-                             ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                             SelectionMode="Extended">
+                        <ListBox.Style>
+                            <Style TargetType="ListBox">
+                                <!-- 默认关闭水平滚动条以允许 TextWrapping 折行 -->
+                                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+                                <Style.Triggers>
+                                    <!-- 关闭自动换行时恢复水平滚动条 -->
+                                    <DataTrigger Binding="{Binding AutoLineBreak}" Value="False">
+                                        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.Style>
                         <ListBox.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="复制" Click="CopyReceived_Click" InputGestureText="Ctrl+C"/>
@@ -227,7 +239,7 @@
                             <DataTemplate>
                                 <emoji:TextBlock Text="{Binding Converter={StaticResource DataRecordFormatConverter}}"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"
-                                                 TextWrapping="Wrap"/>
+                                                 TextWrapping="{Binding DataContext.AutoLineBreak, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource BooleanToTextWrappingConverter}}"/>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>

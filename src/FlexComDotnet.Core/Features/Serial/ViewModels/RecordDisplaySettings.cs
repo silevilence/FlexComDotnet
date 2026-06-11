@@ -19,4 +19,9 @@ public static class RecordDisplaySettings
     /// 时间戳是否显示日期
     /// </summary>
     public static bool ShowDateInTimestamp { get; set; }
+
+    /// <summary>
+    /// 是否自动换行（控制 TextWrapping）
+    /// </summary>
+    public static bool AutoLineBreak { get; set; }
 }

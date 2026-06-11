@@ -1,5 +1,7 @@
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using FlexComDotnet.Core.Features.Protocol.Services;
 using FlexComDotnet.Core.Features.Serial.Helpers;
 using FlexComDotnet.Core.Features.Serial.ViewModels;
@@ -14,9 +16,89 @@ namespace FlexComDotnet.Features.Serial.Views;
 /// </summary>
 public partial class SerialCommunicationView : UserControl
 {
+    private ScrollViewer? _scrollViewer;
+    private bool _isUserScrollingUp;
+
     public SerialCommunicationView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+        ReceivedDataListBox.Loaded += OnListBoxLoaded;
+    }
+
+    private void OnListBoxLoaded(object sender, RoutedEventArgs e)
+    {
+        _scrollViewer = FindVisualChild<ScrollViewer>(ReceivedDataListBox);
+        if (_scrollViewer != null)
+        {
+            _scrollViewer.ScrollChanged += OnScrollChanged;
+        }
+    }
+
+    private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (_scrollViewer == null) return;
+
+        // 用户滚动到底部 → 恢复自动滚动
+        if (Math.Abs(e.VerticalOffset - _scrollViewer.ScrollableHeight) < 1.0)
+        {
+            _isUserScrollingUp = false;
+        }
+        // 用户手动向上滚动（非内容增长导致的偏移变化）
+        else if (e.VerticalChange < 0 && e.ExtentHeightChange == 0)
+        {
+            _isUserScrollingUp = true;
+        }
+    }
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is SerialCommunicationViewModel oldVm)
+        {
+            oldVm.DisplayRecords.CollectionChanged -= OnDisplayRecordsChanged;
+        }
+        if (e.NewValue is SerialCommunicationViewModel newVm)
+        {
+            newVm.DisplayRecords.CollectionChanged += OnDisplayRecordsChanged;
+            // 当 DisplayRecords 属性被替换时（如 InvalidateDisplay），重新订阅
+            newVm.PropertyChanged += (s, args) =>
+            {
+                if (args.PropertyName == nameof(SerialCommunicationViewModel.DisplayRecords))
+                {
+                    newVm.DisplayRecords.CollectionChanged += OnDisplayRecordsChanged;
+                }
+            };
+        }
+    }
+
+    private void OnDisplayRecordsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action != NotifyCollectionChangedAction.Add) return;
+        if (_isUserScrollingUp) return;
+
+        // 延迟到布局完成后再滚动，确保虚拟化项已生成
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (ReceivedDataListBox.Items.Count > 0)
+            {
+                ReceivedDataListBox.ScrollIntoView(ReceivedDataListBox.Items[^1]);
+            }
+        }), System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// 递归查找指定类型的可视化子元素
+    /// </summary>
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T result) return result;
+            var descendant = FindVisualChild<T>(child);
+            if (descendant != null) return descendant;
+        }
+        return null;
     }
 
     private void CopyReceived_Click(object sender, RoutedEventArgs e)

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using FlexComDotnet.Core.Features.Serial.Models;
 
@@ -167,6 +168,26 @@ public class ChecksumTypeToDisplayConverter : IValueConverter
             };
         }
         return value?.ToString() ?? "";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// 布尔值到 TextWrapping 转换器 — true → Wrap, false → NoWrap
+/// </summary>
+public class BooleanToTextWrappingConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool autoLineBreak)
+        {
+            return autoLineBreak ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        }
+        return TextWrapping.NoWrap;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
