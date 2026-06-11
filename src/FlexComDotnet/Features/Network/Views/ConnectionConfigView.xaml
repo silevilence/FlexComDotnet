@@ -255,6 +255,34 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                     </Grid>
+                    
+                    <!-- 帧间隔超时 -->
+                    <Grid Margin="0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Grid.Column="0" Text="帧间隔(ms)" Style="{StaticResource ConfigLabelStyle}"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding FrameIntervalMs, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsConfigEnabled}"
+                                 Style="{StaticResource ConfigTextBoxStyle}"/>
+                    </Grid>
+                    
+                    <!-- 最大帧长度 -->
+                    <Grid Margin="0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Grid.Column="0" Text="最大帧(Byte)" Style="{StaticResource ConfigLabelStyle}"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding MaxFrameBytes, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsConfigEnabled}"
+                                 Style="{StaticResource ConfigTextBoxStyle}"/>
+                    </Grid>
                 </StackPanel>
                 
                 <!-- ==================== TCP 客户端配置区域 ==================== -->

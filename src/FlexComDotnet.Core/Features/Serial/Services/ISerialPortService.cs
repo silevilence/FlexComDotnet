@@ -40,6 +40,11 @@ public interface ISerialPortService
     event EventHandler<byte[]>? DataReceived;
 
     /// <summary>
+    /// 帧接收事件 — 经过帧定界后的完整数据帧
+    /// </summary>
+    event EventHandler<byte[]>? FrameReceived;
+
+    /// <summary>
     /// 连接状态变化事件
     /// </summary>
     event EventHandler<bool>? ConnectionStateChanged;

@@ -94,7 +94,12 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// <summary>
     /// 按条显示的数据记录（供 ListBox 绑定）
     /// </summary>
-    public ObservableCollection<string> DisplayRecords { get; } = [];
+    public ObservableCollection<DataRecord> DisplayRecords
+    {
+        get => _displayRecords;
+        set => SetProperty(ref _displayRecords, value);
+    }
+    private ObservableCollection<DataRecord> _displayRecords = [];
 
     /// <summary>
     /// 待发送的文本
@@ -111,8 +116,8 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     partial void OnIsHexDisplayModeChanged(bool value)
     {
-        // 切换显示模式时刷新显示并保存配置
-        RefreshDisplay();
+        RecordDisplaySettings.IsHexDisplayMode = value;
+        InvalidateDisplay();
         SaveDisplayConfig();
     }
 
@@ -169,8 +174,8 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     partial void OnShowTimestampChanged(bool value)
     {
-        // 切换时间戳显示时刷新显示并保存配置
-        RefreshDisplay();
+        RecordDisplaySettings.ShowTimestamp = value;
+        InvalidateDisplay();
         SaveDisplayConfig();
     }
 
@@ -182,8 +187,8 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     partial void OnShowDateInTimestampChanged(bool value)
     {
-        // 切换日期显示时刷新显示并保存配置
-        RefreshDisplay();
+        RecordDisplaySettings.ShowDateInTimestamp = value;
+        InvalidateDisplay();
         SaveDisplayConfig();
     }
 
@@ -195,8 +200,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
     partial void OnAutoLineBreakChanged(bool value)
     {
-        // 切换自动换行时刷新显示并保存配置
-        RefreshDisplay();
+        UpdateReceivedDataText();
         SaveDisplayConfig();
     }
 
@@ -311,7 +315,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         _sendTimer.AutoReset = true;
 
         // 订阅数据接收事件
-        _serialPortService.DataReceived += OnDataReceived;
+        _serialPortService.FrameReceived += OnFrameReceived;
         _serialPortService.ConnectionStateChanged += OnConnectionStateChanged;
         _serialPortService.HookProcessed += OnHookProcessed;
 
@@ -354,6 +358,14 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         // 通知属性变化
         OnPropertyChanged(nameof(IsHexDisplayMode));
         OnPropertyChanged(nameof(ShowTimestamp));
+        OnPropertyChanged(nameof(ShowDateInTimestamp));
+        OnPropertyChanged(nameof(AutoLineBreak));
+        OnPropertyChanged(nameof(IsHexSendMode));
+        
+        // 同步静态显示设置（OnChanged 不会被触发，因为直接赋字段）
+        RecordDisplaySettings.IsHexDisplayMode = _isHexDisplayMode;
+        RecordDisplaySettings.ShowTimestamp = _showTimestamp;
+        RecordDisplaySettings.ShowDateInTimestamp = _showDateInTimestamp;
         OnPropertyChanged(nameof(ShowDateInTimestamp));
         OnPropertyChanged(nameof(AutoLineBreak));
         OnPropertyChanged(nameof(IsHexSendMode));
@@ -555,15 +567,62 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
 
         if (IsPaused)
         {
-            // 暂停时缓冲记录
             _pausedRecords.Add(record);
         }
         else
         {
-            // 正常添加记录并刷新显示
             _dataRecords.Add(record);
-            RefreshDisplay();
+            DisplayRecords.Add(record);
+            UpdateReceivedDataText();
+
+            // 限制记录总数，防止内存无限增长
+            if (_dataRecords.Count > 10000)
+            {
+                _dataRecords.RemoveAt(0);
+                _pausedRecords.RemoveAt(0);
+            }
         }
+    }
+
+    /// <summary>
+    /// 更新 ReceivedData 全文（仅用于搜索/复制等场景）
+    /// </summary>
+    private void UpdateReceivedDataText()
+    {
+        if (_dataRecords.Count == 0)
+        {
+            ReceivedData = string.Empty;
+            return;
+        }
+
+        // 只保留最新 200 条用于全文显示，避免字符串过大
+        var start = Math.Max(0, _dataRecords.Count - 200);
+        var sb = new StringBuilder();
+        for (int i = start; i < _dataRecords.Count; i++)
+        {
+            var record = _dataRecords[i];
+            var prefix = record.IsTx ? "[TX] " : "[RX] ";
+            if (record.RecordType == DataRecordType.ScriptAutoReply)
+                prefix = "[⚡]";
+            else if (record.RecordType == DataRecordType.AutoReply)
+                prefix = "[↩️]";
+
+            // 时间戳
+            if (ShowTimestamp)
+            {
+                var format = ShowDateInTimestamp ? "yyyy-MM-dd HH:mm:ss.fff" : "HH:mm:ss.fff";
+                prefix = $"[{record.Timestamp.ToString(format)}] {prefix}";
+            }
+
+            sb.Append(prefix);
+            sb.Append(IsHexDisplayMode
+                ? HexHelper.BytesToHexString(record.Data)
+                : HexHelper.BytesToAsciiString(record.Data, '.'));
+
+            if (AutoLineBreak)
+                sb.AppendLine();
+        }
+        ReceivedData = sb.ToString();
     }
 
     /// <summary>
@@ -654,35 +713,14 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     }
 
     /// <summary>
-    /// 刷新显示区域（根据当前设置重新格式化所有数据）
+    /// 使当前显示失效，触发 ListBox 重新调用转换器格式化可见项
     /// </summary>
-    private void RefreshDisplay()
+    private void InvalidateDisplay()
     {
-        if (_dataRecords.Count == 0)
-        {
-            ReceivedData = string.Empty;
-            DisplayRecords.Clear();
-            return;
-        }
-
-        var sb = new StringBuilder();
-        DisplayRecords.Clear();
-        
-        foreach (var record in _dataRecords)
-        {
-            var formatted = FormatRecord(record);
-            DisplayRecords.Add(formatted);
-            if (AutoLineBreak)
-            {
-                sb.AppendLine(formatted);
-            }
-            else
-            {
-                sb.Append(formatted);
-            }
-        }
-
-        ReceivedData = sb.ToString();
+        // 重新赋值集合，触发 ListBox 刷新可见项的绑定
+        DisplayRecords = new ObservableCollection<DataRecord>(_displayRecords);
+        // 同步更新全文文本（仅最新 200 条，性能可接受）
+        UpdateReceivedDataText();
     }
 
     /// <summary>
@@ -694,7 +732,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
         {
             _dataRecords.AddRange(_pausedRecords);
             _pausedRecords.Clear();
-            RefreshDisplay();
+            InvalidateDisplay();
         }
     }
 
@@ -772,7 +810,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
             {
                 // 将 HookProcessed 记录替换为 AutoReply 类型，保留处理后的数据和原始数据
                 records[i] = record with { RecordType = DataRecordType.AutoReply };
-                if (!IsPaused) RefreshDisplay();
+                if (!IsPaused) InvalidateDisplay();
                 return;
             }
         }
@@ -784,17 +822,17 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
     /// <summary>
     /// 数据接收处理
     /// </summary>
-    private void OnDataReceived(object? sender, byte[] data)
+    private void OnFrameReceived(object? sender, byte[] frame)
     {
         // 使用同步上下文将 UI 更新调度到 UI 线程
         if (_syncContext != null)
         {
-            _syncContext.Post(_ => ProcessReceivedData(data), null);
+            _syncContext.Post(_ => ProcessReceivedData(frame), null);
         }
         else
         {
             // 如果没有同步上下文（如单元测试），直接执行
-            ProcessReceivedData(data);
+            ProcessReceivedData(frame);
         }
     }
 
@@ -909,7 +947,7 @@ public partial class SerialCommunicationViewModel : ObservableObject, IDisposabl
                 _sendTimer.Elapsed -= OnTimerElapsed;
                 _sendTimer.Dispose();
 
-                _serialPortService.DataReceived -= OnDataReceived;
+                _serialPortService.FrameReceived -= OnFrameReceived;
                 _serialPortService.ConnectionStateChanged -= OnConnectionStateChanged;
                 _serialPortService.HookProcessed -= OnHookProcessed;
 

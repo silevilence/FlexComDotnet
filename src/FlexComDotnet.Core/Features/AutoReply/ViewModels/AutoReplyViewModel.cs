@@ -27,10 +27,21 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     #region Observable Properties
 
     /// <summary>
-    /// 全局回复延迟（毫秒）
+    /// 防抖窗口（毫秒）
     /// </summary>
     [ObservableProperty]
-    private int _globalDelayMs = 100;
+    private int _debounceWindowMs = 50;
+
+    /// <summary>
+    /// 多帧联合决策模式
+    /// </summary>
+    [ObservableProperty]
+    private DecisionMode _decisionMode = DecisionMode.LAST;
+
+    /// <summary>
+    /// 可用的决策模式列表
+    /// </summary>
+    public List<DecisionMode> AvailableDecisionModes { get; } = [..Enum.GetValues<DecisionMode>()];
 
     /// <summary>
     /// 是否正在运行
@@ -731,7 +742,8 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
 
             // IsRunning 不从配置恢复，始终从停止状态开始
             IsRunning = false;
-            GlobalDelayMs = config.GlobalDelayMs;
+            DebounceWindowMs = config.DebounceWindowMs;
+            DecisionMode = config.DecisionMode;
 
             // 加载统一规则池
             Rules.Clear();
@@ -762,7 +774,8 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
         var config = new AutoReplyConfig
         {
             IsEnabled = IsRunning,
-            GlobalDelayMs = GlobalDelayMs,
+            DebounceWindowMs = DebounceWindowMs,
+            DecisionMode = DecisionMode,
             Rules = Rules.Select(r => r.ToModel()).ToList()
         };
 
@@ -856,7 +869,9 @@ public partial class AutoReplyViewModel : ObservableObject, IDisposable
     /// <summary>
     /// 当属性变化时自动保存
     /// </summary>
-    partial void OnGlobalDelayMsChanged(int value) => AutoSave();
+    partial void OnDebounceWindowMsChanged(int value) => AutoSave();
+
+    partial void OnDecisionModeChanged(DecisionMode value) => AutoSave();
 
     /// <summary>
     /// 选中顺序帧变更时同步协议字段

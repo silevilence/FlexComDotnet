@@ -10,8 +10,11 @@ namespace FlexComDotnet.Core.Features.Serial.Services;
 /// </summary>
 public class SerialPortService : ISerialPortService, IDisposable
 {
+    private readonly object _lock = new();
     private SerialPort? _serialPort;
     private bool _disposed;
+    private FrameDelimiter? _frameDelimiter;
+    private CancellationTokenSource? _flushDebounceCts;
 
     /// <inheritdoc/>
     public bool IsConnected => _serialPort?.IsOpen ?? false;
@@ -21,6 +24,9 @@ public class SerialPortService : ISerialPortService, IDisposable
 
     /// <inheritdoc/>
     public event EventHandler<byte[]>? DataReceived;
+
+    /// <inheritdoc/>
+    public event EventHandler<byte[]>? FrameReceived;
 
     /// <inheritdoc/>
     public event EventHandler<bool>? ConnectionStateChanged;
@@ -90,7 +96,11 @@ public class SerialPortService : ISerialPortService, IDisposable
 
             _serialPort.Open();
             CurrentConfig = config.Clone();
-            
+
+            // 初始化帧定界器
+            _frameDelimiter = new FrameDelimiter(config.FrameIntervalMs, config.MaxFrameBytes);
+            _frameDelimiter.FrameCompleted += OnFrameCompleted;
+
             ConnectionStateChanged?.Invoke(this, true);
             return true;
         }
@@ -107,6 +117,17 @@ public class SerialPortService : ISerialPortService, IDisposable
     public void Close()
     {
         if (_serialPort == null) return;
+
+        // Flush 残留数据
+        _flushDebounceCts?.Cancel();
+        _flushDebounceCts?.Dispose();
+        _flushDebounceCts = null;
+
+        lock (_lock)
+        {
+            _frameDelimiter?.Flush();
+            _frameDelimiter = null;
+        }
 
         try
         {
@@ -217,6 +238,19 @@ public class SerialPortService : ISerialPortService, IDisposable
                 }
 
                 DataReceived?.Invoke(this, buffer);
+
+                // 通过 FrameDelimiter 逐字节处理
+                var now = DateTime.UtcNow;
+                lock (_lock)
+                {
+                    foreach (var b in buffer)
+                    {
+                        _frameDelimiter?.AppendByte(b, now);
+                    }
+
+                    // 数据流停止后经过一个帧间隔自动产出残留帧
+                    ResetFlushDebounce();
+                }
             }
         }
         catch (Exception ex)
@@ -228,6 +262,52 @@ public class SerialPortService : ISerialPortService, IDisposable
     private void OnSerialErrorReceived(object sender, SerialErrorReceivedEventArgs e)
     {
         RaiseError($"串口错误: {e.EventType}");
+    }
+
+    private void OnFrameCompleted(byte[] frame)
+    {
+        FrameReceived?.Invoke(this, frame);
+    }
+
+    /// <summary>
+    /// 重置 Flush 防抖定时器 — 每次收到数据块后调用，取消之前的等待并重新计时
+    /// 必须在 lock (_lock) 内调用
+    /// </summary>
+    private void ResetFlushDebounce()
+    {
+        _flushDebounceCts?.Cancel();
+        _flushDebounceCts?.Dispose();
+
+        var cts = new CancellationTokenSource();
+        _flushDebounceCts = cts;
+
+        // 获取当前 FrameIntervalMs（从 currentConfig 或默认值）
+        var intervalMs = CurrentConfig?.FrameIntervalMs ?? 10;
+        _ = DebounceFlushAsync(intervalMs, cts.Token);
+    }
+
+    private async Task DebounceFlushAsync(int intervalMs, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(intervalMs, ct);
+        }
+        catch (TaskCanceledException)
+        {
+            return; // 有新数据到达，放弃 flush
+        }
+
+        // 在锁内取出帧数据，在锁外触发事件，避免订阅者占用锁
+        byte[]? frame;
+        lock (_lock)
+        {
+            frame = _frameDelimiter?.TryFlush();
+        }
+
+        if (frame != null && frame.Length > 0)
+        {
+            FrameReceived?.Invoke(this, frame);
+        }
     }
 
     private void RaiseError(string message)

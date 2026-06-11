@@ -36,6 +36,16 @@ public class SerialPortConfig
     public FlowControlOption FlowControl { get; set; } = FlowControlOption.None;
 
     /// <summary>
+    /// 帧间隔超时阈值（毫秒），相邻字节间隔超过此值则截断为帧。≥1
+    /// </summary>
+    public int FrameIntervalMs { get; set; } = 10;
+
+    /// <summary>
+    /// 最大帧长度（字节），单帧累积达到此值则强制截断。≥1
+    /// </summary>
+    public int MaxFrameBytes { get; set; } = 4096;
+
+    /// <summary>
     /// 创建配置的副本
     /// </summary>
     public SerialPortConfig Clone() => new()
@@ -45,6 +55,8 @@ public class SerialPortConfig
         DataBits = DataBits,
         StopBits = StopBits,
         Parity = Parity,
-        FlowControl = FlowControl
+        FlowControl = FlowControl,
+        FrameIntervalMs = FrameIntervalMs,
+        MaxFrameBytes = MaxFrameBytes
     };
 }

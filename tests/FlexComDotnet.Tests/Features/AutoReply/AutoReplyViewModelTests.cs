@@ -29,7 +29,8 @@ public class AutoReplyViewModelTests
     [Fact]
     public void Constructor_ShouldInitializeWithDefaultValues()
     {
-        _viewModel.GlobalDelayMs.Should().Be(100);
+        _viewModel.DebounceWindowMs.Should().Be(50);
+        _viewModel.DecisionMode.Should().Be(DecisionMode.LAST);
         _viewModel.IsRunning.Should().BeFalse();
         _viewModel.ReceiveCount.Should().Be(0);
         _viewModel.ReplyCount.Should().Be(0);
@@ -225,7 +226,7 @@ public class AutoReplyViewModelTests
             AutoReplyConfig = new AutoReplyConfig
             {
                 IsEnabled = true,
-                GlobalDelayMs = 250,
+                DebounceWindowMs = 250,
                 Rules =
                 [
                     new AutoReplyRule
@@ -263,7 +264,8 @@ public class AutoReplyViewModelTests
 
         // Assert
         newViewModel.IsRunning.Should().BeFalse();  // Always starts stopped
-        newViewModel.GlobalDelayMs.Should().Be(250);
+        newViewModel.DebounceWindowMs.Should().Be(250);
+        newViewModel.DecisionMode.Should().Be(DecisionMode.LAST);
         newViewModel.Rules.Should().HaveCount(2);
         newViewModel.Rules[0].Name.Should().Be("Rule1");
         newViewModel.Rules[0].Type.Should().Be(ReplyMode.Match);
@@ -287,7 +289,7 @@ public class AutoReplyViewModelTests
         {
             AutoReplyConfig = new AutoReplyConfig
             {
-                GlobalDelayMs = 200,
+                DebounceWindowMs = 200,
                 Rules =
                 [
                     new AutoReplyRule

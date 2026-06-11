@@ -105,6 +105,18 @@ public partial class ConnectionConfigViewModel : ObservableObject
     private FlowControlOption _selectedFlowControl = FlowControlOption.None;
 
     /// <summary>
+    /// 帧间隔超时阈值（毫秒）
+    /// </summary>
+    [ObservableProperty]
+    private int _frameIntervalMs = 10;
+
+    /// <summary>
+    /// 最大帧长度（字节）
+    /// </summary>
+    [ObservableProperty]
+    private int _maxFrameBytes = 4096;
+
+    /// <summary>
     /// 可用串口列表
     /// </summary>
     public ObservableCollection<SerialPortInfo> AvailablePorts { get; } = [];
@@ -247,6 +259,8 @@ public partial class ConnectionConfigViewModel : ObservableObject
         SelectedStopBits = serialConfig.StopBits;
         SelectedParity = serialConfig.Parity;
         SelectedFlowControl = serialConfig.FlowControl;
+        FrameIntervalMs = serialConfig.FrameIntervalMs;
+        MaxFrameBytes = serialConfig.MaxFrameBytes;
         _savedPortName = serialConfig.PortName;
 
         // 加载连接配置
@@ -385,7 +399,9 @@ public partial class ConnectionConfigViewModel : ObservableObject
             DataBits = SelectedDataBits,
             StopBits = SelectedStopBits,
             Parity = SelectedParity,
-            FlowControl = SelectedFlowControl
+            FlowControl = SelectedFlowControl,
+            FrameIntervalMs = FrameIntervalMs,
+            MaxFrameBytes = MaxFrameBytes
         };
 
         if (_serialPortService.Open(config))

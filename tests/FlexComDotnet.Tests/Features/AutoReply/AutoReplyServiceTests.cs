@@ -91,7 +91,7 @@ public class AutoReplyServiceTests
         var newConfig = new AutoReplyConfig
         {
             IsEnabled = true,
-            GlobalDelayMs = 500
+            DebounceWindowMs = 500
         };
 
         // Act
@@ -99,7 +99,7 @@ public class AutoReplyServiceTests
 
         // Assert
         _service.Config.IsEnabled.Should().BeTrue();
-        _service.Config.GlobalDelayMs.Should().Be(500);
+        _service.Config.DebounceWindowMs.Should().Be(500);
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public class AutoReplyServiceTests
         // 注意：不调用 Start()
 
         // Act - 模拟数据接收
-        _mockSerialService.Raise(s => s.DataReceived += null, _mockSerialService.Object, new byte[] { 0xAA });
+        _mockSerialService.Raise(s => s.FrameReceived += null, _mockSerialService.Object, new byte[] { 0xAA });
 
         // Assert
         replyTriggered.Should().BeFalse();
@@ -227,7 +227,7 @@ public class AutoReplyServiceTests
         _service.Start();
 
         // Act
-        _mockSerialService.Raise(s => s.DataReceived += null, _mockSerialService.Object, new byte[] { 0xAA });
+        _mockSerialService.Raise(s => s.FrameReceived += null, _mockSerialService.Object, new byte[] { 0xAA });
 
         // Assert
         replyTriggered.Should().BeFalse();
@@ -248,7 +248,7 @@ public class AutoReplyServiceTests
         _service.UpdateConfig(new AutoReplyConfig
         {
             IsEnabled = true,
-            GlobalDelayMs = 0, // 无延迟
+            DebounceWindowMs = 1, // 防抖窗口最小延迟
             Rules =
             [
                 new AutoReplyRule
@@ -269,7 +269,7 @@ public class AutoReplyServiceTests
         _service.Start();
 
         // Act
-        _mockSerialService.Raise(s => s.DataReceived += null, _mockSerialService.Object, new byte[] { 0xAA });
+        _mockSerialService.Raise(s => s.FrameReceived += null, _mockSerialService.Object, new byte[] { 0xAA });
 
         // 等待事件或超时
         var completed = await Task.WhenAny(eventTriggered.Task, Task.Delay(1000));
@@ -293,7 +293,7 @@ public class AutoReplyServiceTests
         _service.UpdateConfig(new AutoReplyConfig
         {
             IsEnabled = true,
-            GlobalDelayMs = 0,
+            DebounceWindowMs = 1,
             Rules =
             [
                 new AutoReplyRule
@@ -312,7 +312,7 @@ public class AutoReplyServiceTests
         _service.Start();
 
         // Act
-        _mockSerialService.Raise(s => s.DataReceived += null, _mockSerialService.Object, new byte[] { 0xAA });
+        _mockSerialService.Raise(s => s.FrameReceived += null, _mockSerialService.Object, new byte[] { 0xAA });
 
         Thread.Sleep(100);
 
@@ -342,7 +342,7 @@ public class AutoReplyServiceTests
         _service.UpdateConfig(new AutoReplyConfig
         {
             IsEnabled = true,
-            GlobalDelayMs = 0,
+            DebounceWindowMs = 1,
             Rules =
             [
                 new AutoReplyRule
@@ -366,9 +366,9 @@ public class AutoReplyServiceTests
         _service.Start();
 
         // Act
-        _mockSerialService.Raise(s => s.DataReceived += null, _mockSerialService.Object, new byte[] { 0x01 });
+        _mockSerialService.Raise(s => s.FrameReceived += null, _mockSerialService.Object, new byte[] { 0x01 });
         await Task.Delay(100);
-        _mockSerialService.Raise(s => s.DataReceived += null, _mockSerialService.Object, new byte[] { 0x02 });
+        _mockSerialService.Raise(s => s.FrameReceived += null, _mockSerialService.Object, new byte[] { 0x02 });
 
         // 等待事件或超时
         await Task.WhenAny(eventTriggered.Task, Task.Delay(1000));

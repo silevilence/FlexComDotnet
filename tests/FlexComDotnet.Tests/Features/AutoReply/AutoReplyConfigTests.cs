@@ -13,7 +13,8 @@ public class AutoReplyConfigTests
 
         // Assert
         config.IsEnabled.Should().BeFalse();
-        config.GlobalDelayMs.Should().Be(100);
+        config.DebounceWindowMs.Should().Be(50);
+        config.DecisionMode.Should().Be(DecisionMode.LAST);
         config.Rules.Should().NotBeNull();
         config.Rules.Should().BeEmpty();
     }
@@ -61,7 +62,7 @@ public class AutoReplyConfigTests
         var config = new AutoReplyConfig
         {
             IsEnabled = true,
-            GlobalDelayMs = 500,
+            DebounceWindowMs = 500,
             Rules =
             [
                 new AutoReplyRule
@@ -86,7 +87,8 @@ public class AutoReplyConfigTests
 
         // Assert
         config.IsEnabled.Should().BeTrue();
-        config.GlobalDelayMs.Should().Be(500);
+        config.DebounceWindowMs.Should().Be(500);
+        config.DecisionMode.Should().Be(DecisionMode.LAST);
         config.Rules.Should().HaveCount(2);
         config.Rules[0].Name.Should().Be("Rule1");
         config.Rules[1].SequentialConfig!.Frames.Should().HaveCount(1);

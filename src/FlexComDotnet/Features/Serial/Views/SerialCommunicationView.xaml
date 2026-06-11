@@ -13,6 +13,8 @@
              Background="{DynamicResource BackgroundBrush}">
     
     <UserControl.Resources>
+        <converters:DataRecordFormatConverter x:Key="DataRecordFormatConverter"/>
+        
         <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -223,7 +225,7 @@
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <emoji:TextBlock Text="{Binding}"
+                                <emoji:TextBlock Text="{Binding Converter={StaticResource DataRecordFormatConverter}}"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                                  TextWrapping="Wrap"/>
                             </DataTemplate>

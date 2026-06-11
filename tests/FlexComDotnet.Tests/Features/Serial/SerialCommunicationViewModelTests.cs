@@ -19,6 +19,11 @@ public class SerialCommunicationViewModelTests
 
     public SerialCommunicationViewModelTests()
     {
+        // 重置静态显示设置
+        RecordDisplaySettings.IsHexDisplayMode = false;
+        RecordDisplaySettings.ShowTimestamp = false;
+        RecordDisplaySettings.ShowDateInTimestamp = false;
+
         _mockSerialPortService = new Mock<ISerialPortService>();
         _mockConfigurationService = new Mock<IConfigurationService>();
         _mockLogSaveService = new Mock<ILogSaveService>();
@@ -142,7 +147,7 @@ public class SerialCommunicationViewModelTests
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
 
         // Assert
         _viewModel.ReceivedData.Should().Contain("[RX] Hello");
@@ -156,7 +161,7 @@ public class SerialCommunicationViewModelTests
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
 
         // Assert
         _viewModel.ReceivedData.Should().Contain("[RX] 48 65 6C 6C 6F");
@@ -168,7 +173,7 @@ public class SerialCommunicationViewModelTests
         // Arrange - 先以 ASCII 模式接收数据
         _viewModel.IsHexDisplayMode = false;
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
         _viewModel.ReceivedData.Should().Contain("[RX] Hello");
         _viewModel.ReceivedData.Should().NotContain("48 65 6C 6C 6F");
 
@@ -186,7 +191,7 @@ public class SerialCommunicationViewModelTests
         // Arrange - 先以 HEX 模式接收数据
         _viewModel.IsHexDisplayMode = true;
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
         _viewModel.ReceivedData.Should().Contain("[RX] 48 65 6C 6C 6F");
 
         // Act - 切换到 ASCII 模式
@@ -242,7 +247,7 @@ public class SerialCommunicationViewModelTests
     {
         // Arrange
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F };
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
         _viewModel.ReceivedData.Should().NotBeEmpty();
 
         // Act
@@ -349,7 +354,7 @@ public class SerialCommunicationViewModelTests
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // 5 bytes
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
 
         // Assert
         _viewModel.RxBytes.Should().Be(5);
@@ -363,8 +368,8 @@ public class SerialCommunicationViewModelTests
         var testData2 = new byte[] { 0x6C, 0x6C, 0x6F }; // 3 bytes
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData1);
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData2);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData1);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData2);
 
         // Assert
         _viewModel.RxBytes.Should().Be(5);
@@ -416,7 +421,7 @@ public class SerialCommunicationViewModelTests
         
         // 接收一些数据
         var testData = new byte[] { 0x48, 0x65, 0x6C };
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
         
         _viewModel.RxBytes.Should().Be(3);
         _viewModel.TxBytes.Should().Be(5);
@@ -449,7 +454,7 @@ public class SerialCommunicationViewModelTests
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
 
         // Assert - 时间戳格式 [HH:mm:ss.fff]
         _viewModel.ReceivedData.Should().MatchRegex(@"\[\d{2}:\d{2}:\d{2}\.\d{3}\]");
@@ -465,7 +470,7 @@ public class SerialCommunicationViewModelTests
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
 
         // Assert
         _viewModel.ReceivedData.Should().NotMatchRegex(@"\[\d{2}:\d{2}:\d{2}\.\d{3}\]");
@@ -478,7 +483,7 @@ public class SerialCommunicationViewModelTests
         // Arrange - 先接收数据（无时间戳）
         _viewModel.ShowTimestamp = false;
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
         _viewModel.ReceivedData.Should().NotMatchRegex(@"\[\d{2}:\d{2}:\d{2}\.\d{3}\]");
 
         // Act - 切换显示时间戳
@@ -509,8 +514,8 @@ public class SerialCommunicationViewModelTests
         var testData2 = new byte[] { 0x42 }; // "B"
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData1);
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData2);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData1);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData2);
 
         // Assert - 每条数据应在单独的行
         var lines = _viewModel.ReceivedData.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
@@ -526,8 +531,8 @@ public class SerialCommunicationViewModelTests
         var testData2 = new byte[] { 0x42 }; // "B"
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData1);
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData2);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData1);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData2);
 
         // Assert - 数据应在同一行（没有强制换行）
         var lines = _viewModel.ReceivedData.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
@@ -572,7 +577,7 @@ public class SerialCommunicationViewModelTests
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
 
         // Act
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
 
         // Assert - 显示区不应更新
         _viewModel.ReceivedData.Should().BeEmpty();
@@ -587,7 +592,7 @@ public class SerialCommunicationViewModelTests
         // Arrange
         _viewModel.IsPaused = true;
         var testData = new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }; // "Hello"
-        _mockSerialPortService.Raise(s => s.DataReceived += null, _mockSerialPortService.Object, testData);
+        _mockSerialPortService.Raise(s => s.FrameReceived += null, _mockSerialPortService.Object, testData);
         _viewModel.ReceivedData.Should().BeEmpty();
 
         // Act - 恢复显示
