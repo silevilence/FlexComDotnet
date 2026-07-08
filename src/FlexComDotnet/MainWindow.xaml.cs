@@ -29,6 +29,8 @@ using FlexComDotnet.Features.Visualization.Views;
 using FlexComDotnet.Core.Features.Logging.ViewModels;
 using FlexComDotnet.Core.Features.Logging.Services;
 using FlexComDotnet.Features.Logging.Views;
+using FlexComDotnet.Core.Features.Driver.ViewModels;
+using FlexComDotnet.Features.Driver.Views;
 namespace FlexComDotnet;
 
 /// <summary>
@@ -44,6 +46,7 @@ public partial class MainWindow : Window
     private readonly ScriptingView _scriptingView;
     private readonly DataVisualizationView _dataVisualizationView;
     private readonly LogPanelView _logPanelView;
+    private readonly SerialMonitorView _serialMonitorView;
     private readonly SerialCommunicationView _serialCommunicationView;
 
     /// <summary>
@@ -57,6 +60,7 @@ public partial class MainWindow : Window
         public const string Scripting = "scripting";
         public const string DataVisualization = "data-visualization";
         public const string LogPanel = "log-panel";
+        public const string SerialMonitor = "serial-monitor";
     }
 
     public MainWindow()
@@ -124,6 +128,8 @@ public partial class MainWindow : Window
         persistenceService.WriteSessionStart();
         var logPanelViewModel = new LogPanelViewModel(loggingService);
         _logPanelView = new LogPanelView(logPanelViewModel);
+
+        _serialMonitorView = new SerialMonitorView(App.Services.GetRequiredService<SerialMonitorViewModel>());
 
         // 记录会话启动
         loggingService.Info(Core.Features.Logging.Models.LogSource.System, "应用程序启动");
@@ -232,6 +238,7 @@ public partial class MainWindow : Window
         var savedCommandList = _panelManager.GetPanel(PanelIds.CommandList);
         var savedAutoReply = _panelManager.GetPanel(PanelIds.AutoReply);
         var savedScripting = _panelManager.GetPanel(PanelIds.Scripting);
+        var savedSerialMonitor = _panelManager.GetPanel(PanelIds.SerialMonitor);
 
         // 添加连接配置面板（固定在左侧，不可移动）
         MultiZoneLayout.AddPanel(
@@ -273,6 +280,15 @@ public partial class MainWindow : Window
             order: savedScripting?.Order ?? 2
         );
 
+        MultiZoneLayout.AddPanel(
+            PanelIds.SerialMonitor,
+            "串口监控",
+            _serialMonitorView,
+            savedSerialMonitor?.Zone ?? PanelZone.Bottom,
+            isMovable: true,
+            order: savedSerialMonitor?.Order ?? 0
+        );
+
         // 添加数据可视化面板（可移动，默认在底部）
         var savedVisualization = _panelManager.GetPanel(PanelIds.DataVisualization);
         MultiZoneLayout.AddPanel(
@@ -281,7 +297,7 @@ public partial class MainWindow : Window
             _dataVisualizationView,
             savedVisualization?.Zone ?? PanelZone.Bottom,
             isMovable: true,
-            order: savedVisualization?.Order ?? 0
+            order: savedVisualization?.Order ?? 1
         );
 
         // 添加统一日志面板（可移动，默认在底部）
@@ -292,7 +308,7 @@ public partial class MainWindow : Window
             _logPanelView,
             savedLogPanel?.Zone ?? PanelZone.Bottom,
             isMovable: true,
-            order: savedLogPanel?.Order ?? 1
+            order: savedLogPanel?.Order ?? 2
         );
 
         // 设置面板列表提供器（保留兼容性）
@@ -423,7 +439,8 @@ public partial class MainWindow : Window
             _configService,
             App.Services.GetRequiredService<Core.Features.Update.Services.IVersionService>(),
             _panelManager,
-            logDir);
+            logDir,
+            App.Services.GetRequiredService<Core.Features.Driver.Services.DriverLifecycleService>());
 
         var window = new SettingsWindow(viewModel)
         {

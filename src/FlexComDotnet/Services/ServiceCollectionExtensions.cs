@@ -18,6 +18,8 @@ using FlexComDotnet.Core.Features.Visualization.Services;
 using FlexComDotnet.Core.Features.Visualization.ViewModels;
 using FlexComDotnet.Core.Features.Logging.Services;
 using FlexComDotnet.Core.Features.EmojiSupport.Services;
+using FlexComDotnet.Core.Features.Driver.Services;
+using FlexComDotnet.Core.Features.Driver.ViewModels;
 
 namespace FlexComDotnet.Services;
 
@@ -36,6 +38,10 @@ public static class ServiceCollectionExtensions
 
         // 主题服务 (单例)
         services.AddSingleton<IThemeService, ThemeService>();
+
+        // 驱动生命周期服务 (单例)
+        services.AddSingleton<DriverLifecycleService>();
+        services.AddSingleton<SerialMonitorService>();
 
         // 配置服务 (单例)
         services.AddSingleton<IConfigurationService, JsonConfigurationService>();
@@ -162,6 +168,7 @@ public static class ServiceCollectionExtensions
             return new ProtocolParserViewModel(parserService, configService, scriptManager);
         });
         services.AddTransient<DataVisualizationViewModel>();
+        services.AddTransient<SerialMonitorViewModel>();
 
         return services;
     }

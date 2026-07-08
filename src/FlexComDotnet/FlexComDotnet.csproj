@@ -19,6 +19,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.1.0</Version>
   </PropertyGroup>
 
@@ -32,6 +33,11 @@
 
   <ItemGroup>
     <Resource Include="Fonts\MapleMono-NF-CN-Regular.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\driver\serial-monitor\target\release\package\serial_monitor.*" Link="driver\serial-monitor\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\driver\serial-monitor\target\debug\package\serial_monitor.*" Link="driver\serial-monitor\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="!Exists('..\..\driver\serial-monitor\target\release\package\serial_monitor.sys')" />
   </ItemGroup>
 
 </Project>

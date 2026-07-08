@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Diagnostics;
+using FlexComDotnet.Core.Features.Driver.Services;
 using FlexComDotnet.Core.Features.Layout.Services;
 using FlexComDotnet.Core.Features.Serial.Services;
 using FlexComDotnet.Core.Features.Settings.Models;
@@ -15,6 +17,8 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IConfigurationService _configService;
     private readonly IVersionService _versionService;
     private readonly IPanelManager _panelManager;
+    private readonly DriverLifecycleService? _driverLifecycleService;
+    private readonly Action _restartAsAdministrator;
     private readonly string _logDirectory;
 
     [ObservableProperty]
@@ -23,15 +27,22 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _currentVersion = string.Empty;
 
+    [ObservableProperty]
+    private string _driverOperationStatus = "驱动未自动安装；如需串口监控，请手动安装/启动。";
+
     public SettingsViewModel(
         IConfigurationService configService,
         IVersionService versionService,
         IPanelManager panelManager,
-        string logDirectory)
+        string logDirectory,
+        DriverLifecycleService? driverLifecycleService = null,
+        Action? restartAsAdministrator = null)
     {
         _configService = configService;
         _versionService = versionService;
         _panelManager = panelManager;
+        _driverLifecycleService = driverLifecycleService;
+        _restartAsAdministrator = restartAsAdministrator ?? RestartCurrentProcessAsAdministrator;
         _logDirectory = logDirectory;
 
         LoadSettings();
@@ -86,6 +97,56 @@ public partial class SettingsViewModel : ObservableObject
     /// 面板可见性切换事件（由 View 层处理实际逻辑）
     /// </summary>
     public event EventHandler<string>? PanelVisibilityToggled;
+
+    [RelayCommand]
+    private void InstallDriver() =>
+        RunDriverOperation(static service => service.EnsureInstalledAndStarted());
+
+    [RelayCommand]
+    private void StopDriver() =>
+        RunDriverOperation(static service => service.StopDriver());
+
+    [RelayCommand]
+    private void UninstallDriver() =>
+        RunDriverOperation(static service => service.UninstallDriver());
+
+    [RelayCommand]
+    private void RestartAsAdministrator()
+    {
+        try
+        {
+            _restartAsAdministrator();
+            DriverOperationStatus = "已请求以管理员身份重启。";
+        }
+        catch (Exception ex)
+        {
+            DriverOperationStatus = $"管理员重启失败：{ex.Message}";
+        }
+    }
+
+    private void RunDriverOperation(Func<DriverLifecycleService, DriverLifecycleResult> operation)
+    {
+        DriverOperationStatus = _driverLifecycleService is null
+            ? "驱动服务未配置。"
+            : operation(_driverLifecycleService).Message;
+    }
+
+    private static void RestartCurrentProcessAsAdministrator()
+    {
+        var fileName = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new InvalidOperationException("无法定位当前程序路径。");
+        }
+
+        Process.Start(new ProcessStartInfo(fileName)
+        {
+            UseShellExecute = true,
+            Verb = "runas",
+            WorkingDirectory = AppContext.BaseDirectory
+        });
+        Environment.Exit(0);
+    }
 }
 
 /// <summary>

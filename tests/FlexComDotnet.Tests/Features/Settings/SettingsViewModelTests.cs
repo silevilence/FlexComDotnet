@@ -1,5 +1,6 @@
 using FlexComDotnet.Core.Features.Layout.Models;
 using FlexComDotnet.Core.Features.Layout.Services;
+using FlexComDotnet.Core.Features.Driver.Services;
 using FlexComDotnet.Core.Features.Serial.Models;
 using FlexComDotnet.Core.Features.Serial.Services;
 using FlexComDotnet.Core.Features.Settings.ViewModels;
@@ -35,13 +36,15 @@ public class SettingsViewModelTests
             .Returns(new List<PanelInfo>());
     }
 
-    private SettingsViewModel CreateViewModel()
+    private SettingsViewModel CreateViewModel(DriverLifecycleService? driverLifecycleService = null, Action? restartAsAdministrator = null)
     {
         return new SettingsViewModel(
             _mockConfigService.Object,
             _mockVersionService.Object,
             _mockPanelManager.Object,
-            _testLogDir);
+            _testLogDir,
+            driverLifecycleService,
+            restartAsAdministrator);
     }
 
     [Fact]
@@ -162,4 +165,74 @@ public class SettingsViewModelTests
         // Assert
         toggledPanelId.Should().Be("command-list");
     }
+
+    [Fact]
+    public void Constructor_ShouldNotRunDriverCommands()
+    {
+        var commands = new List<string>();
+
+        CreateViewModel(CreateDriverLifecycleService(commands));
+
+        commands.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void InstallDriverCommand_ShouldInstallStartDriverAndShowStatus()
+    {
+        var commands = new List<string>();
+        var vm = CreateViewModel(CreateDriverLifecycleService(commands));
+
+        vm.InstallDriverCommand.Execute(null);
+
+        commands.Should().Contain("sc query SerialMonitor");
+        commands.Should().Contain("sc start SerialMonitor");
+        vm.DriverOperationStatus.Should().Be("SerialMonitor 驱动已启动。");
+    }
+
+    [Fact]
+    public void StopDriverCommand_ShouldStopDriverAndShowStatus()
+    {
+        var commands = new List<string>();
+        var vm = CreateViewModel(CreateDriverLifecycleService(commands));
+
+        vm.StopDriverCommand.Execute(null);
+
+        commands.Should().Contain("sc stop SerialMonitor");
+        vm.DriverOperationStatus.Should().Be("SerialMonitor 驱动已停止。");
+    }
+
+    [Fact]
+    public void UninstallDriverCommand_ShouldStopDeleteDriverAndShowStatus()
+    {
+        var commands = new List<string>();
+        var vm = CreateViewModel(CreateDriverLifecycleService(commands));
+
+        vm.UninstallDriverCommand.Execute(null);
+
+        commands.Should().Contain("sc stop SerialMonitor");
+        commands.Should().Contain("sc delete SerialMonitor");
+        vm.DriverOperationStatus.Should().Be("SerialMonitor 驱动已卸载。");
+    }
+
+    [Fact]
+    public void RestartAsAdministratorCommand_ShouldRequestElevatedRestartAndShowStatus()
+    {
+        var restarted = false;
+        var vm = CreateViewModel(restartAsAdministrator: () => restarted = true);
+
+        vm.RestartAsAdministratorCommand.Execute(null);
+
+        restarted.Should().BeTrue();
+        vm.DriverOperationStatus.Should().Be("已请求以管理员身份重启。");
+    }
+
+    private static DriverLifecycleService CreateDriverLifecycleService(List<string> commands) =>
+        new(
+            null,
+            (file, args) =>
+            {
+                commands.Add($"{file} {string.Join(' ', args)}");
+                return new DriverCommandResult(0, "", "");
+            },
+            () => true);
 }

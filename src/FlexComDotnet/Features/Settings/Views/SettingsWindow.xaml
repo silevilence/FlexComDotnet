@@ -155,6 +155,60 @@
           </StackPanel>
         </Border>
 
+        <!-- 驱动管理 -->
+        <Border Style="{StaticResource SectionBorderStyle}">
+          <StackPanel>
+            <TextBlock Text="驱动管理" Style="{StaticResource SectionTitleStyle}"/>
+            <TextBlock Text="驱动不会在启动时自动安装；需要串口监控时手动操作。"
+                       Style="{StaticResource LabelStyle}"
+                       Margin="0,0,0,8"/>
+            <WrapPanel Margin="0,0,0,8">
+              <Button Content="安装/启动驱动"
+                      Command="{Binding InstallDriverCommand}"
+                      Padding="12,6"
+                      pu:ButtonHelper.CornerRadius="4"
+                      Background="{DynamicResource SurfaceHighBrush}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      BorderBrush="{DynamicResource BorderBrush}"
+                      BorderThickness="1"
+                      Cursor="Hand"
+                      Margin="0,0,8,0"/>
+              <Button Content="停止驱动"
+                      Command="{Binding StopDriverCommand}"
+                      Padding="12,6"
+                      pu:ButtonHelper.CornerRadius="4"
+                      Background="{DynamicResource SurfaceHighBrush}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      BorderBrush="{DynamicResource BorderBrush}"
+                      BorderThickness="1"
+                      Cursor="Hand"
+                      Margin="0,0,8,0"/>
+              <Button Content="卸载驱动"
+                      Command="{Binding UninstallDriverCommand}"
+                      Padding="12,6"
+                      pu:ButtonHelper.CornerRadius="4"
+                      Background="{DynamicResource SurfaceHighBrush}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      BorderBrush="{DynamicResource BorderBrush}"
+                      BorderThickness="1"
+                      Cursor="Hand"
+                      Margin="0,0,8,0"/>
+              <Button Content="以管理员重启"
+                      Command="{Binding RestartAsAdministratorCommand}"
+                      Padding="12,6"
+                      pu:ButtonHelper.CornerRadius="4"
+                      Background="{DynamicResource SurfaceHighBrush}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      BorderBrush="{DynamicResource BorderBrush}"
+                      BorderThickness="1"
+                      Cursor="Hand"/>
+            </WrapPanel>
+            <TextBlock Text="{Binding DriverOperationStatus}"
+                       Style="{StaticResource LabelStyle}"
+                       TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
+
         <!-- 关于信息 -->
         <Border Style="{StaticResource SectionBorderStyle}">
           <StackPanel>

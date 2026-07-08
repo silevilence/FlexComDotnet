@@ -1,0 +1,98 @@
+<UserControl x:Class="FlexComDotnet.Features.Driver.Views.SerialMonitorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
+             mc:Ignorable="d"
+             d:DesignHeight="260" d:DesignWidth="820"
+             Background="{DynamicResource SurfaceBrush}">
+  <UserControl.Resources>
+    <Style x:Key="ToolButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Padding" Value="10,4"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="pu:ButtonHelper.CornerRadius" Value="4"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <Border Grid.Row="0" Padding="8,6"
+            Background="{DynamicResource CardBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+      <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="驱动：" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding DriverStatus}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" Margin="0,0,10,0" VerticalAlignment="Center"/>
+          <TextBlock Text="权限：" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding PermissionStatus}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <WrapPanel VerticalAlignment="Center">
+          <ComboBox ItemsSource="{Binding Ports}"
+                    SelectedItem="{Binding SelectedPort}"
+                    DisplayMemberPath="DisplayName"
+                    MinWidth="150"
+                    Margin="0,0,6,0"/>
+          <Button Content="刷新串口" Command="{Binding RefreshPortsCommand}" Style="{StaticResource ToolButtonStyle}"/>
+          <Button Content="{Binding StartStopButtonText}" Command="{Binding StartStopMonitoringCommand}" Style="{StaticResource ToolButtonStyle}"/>
+          <Button Content="检测驱动" Command="{Binding CheckAvailabilityCommand}" Style="{StaticResource ToolButtonStyle}"/>
+
+          <Rectangle Width="1" Fill="{DynamicResource BorderBrush}" Margin="4,2,10,2"/>
+
+          <CheckBox Content="TX" IsChecked="{Binding ShowTx}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <CheckBox Content="RX" IsChecked="{Binding ShowRx}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <CheckBox Content="Hex" IsChecked="{Binding IsHexDisplay}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <TextBox Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                   MinWidth="140"
+                   Padding="4,2"
+                   pu:TextBoxHelper.Watermark="过滤关键字"
+                   pu:TextBoxHelper.CornerRadius="4"/>
+        </WrapPanel>
+      </DockPanel>
+    </Border>
+
+    <DataGrid Grid.Row="1"
+              ItemsSource="{Binding FilteredRecords}"
+              AutoGenerateColumns="False"
+              IsReadOnly="True"
+              CanUserAddRows="False"
+              HeadersVisibility="Column"
+              GridLinesVisibility="Horizontal"
+              Background="{DynamicResource BackgroundBrush}"
+              Foreground="{DynamicResource TextPrimaryBrush}"
+              BorderThickness="0"
+              FontFamily="Cascadia Code, Consolas, Courier New"
+              FontSize="11">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="时间" Binding="{Binding Timestamp, StringFormat='HH:mm:ss.fff'}" Width="110"/>
+        <DataGridTextColumn Header="方向" Binding="{Binding Direction}" Width="60"/>
+        <DataGridTextColumn Header="内容" Binding="{Binding Content}" Width="*"/>
+      </DataGrid.Columns>
+    </DataGrid>
+
+    <Border Grid.Row="2" Padding="8,5"
+            Background="{DynamicResource CardBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button Content="保存监控数据" Click="Export_Click" Style="{StaticResource ToolButtonStyle}"/>
+          <Button Content="清空" Command="{Binding ClearRecordsCommand}" Style="{StaticResource ToolButtonStyle}" Margin="0"/>
+        </StackPanel>
+        <TextBlock Text="{Binding OperationStatus}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center"/>
+      </DockPanel>
+    </Border>
+  </Grid>
+</UserControl>
