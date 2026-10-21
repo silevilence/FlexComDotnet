@@ -9,13 +9,13 @@
 //! # Architecture
 //! - `shared`: Shared data structures between kernel and user-mode (#[repr(C)])
 //! - `ioctl`: IOCTL code definitions and helpers
-//! - `ring_buffer`: Lock-free ring buffer for captured data storage
-//! - `device`: Device object creation and management
+//! - `monitor`: Versioned capture protocol, port/session ownership and bounded queue
+//! - `ring_buffer`, `device`: Legacy host-side helpers (not the live WDM capture path)
 //! - `filter`: Filter driver IRP interception logic
 //! - `entry` (kernel only): DriverEntry, unload, and WDK KernelApi implementation
 //!
 //! # Build Modes
-//! - **User-mode tests** (`cargo test`): All logic tested via `KernelApi` trait mocks.
+//! - **User-mode tests** (`cargo test`): Session/protocol tests execute the same engine as WDM.
 //! - **Kernel driver** (`cargo make --features kernel`): Compiles to `.sys` with WDK.
 
 // alloc crate provides String, Vec, format!() for kernel (no_std) builds.
@@ -37,6 +37,7 @@ static GLOBAL_ALLOCATOR: WdkAllocator = WdkAllocator;
 pub mod device;
 pub mod filter;
 pub mod ioctl;
+pub mod monitor;
 pub mod ring_buffer;
 pub mod shared;
 

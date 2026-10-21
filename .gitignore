@@ -410,3 +410,4 @@ FlexComDotnet_Base64.txt
 driver/serial-monitor/target/
 .superpowers/
 docs/superpowers/
+.codegraph/

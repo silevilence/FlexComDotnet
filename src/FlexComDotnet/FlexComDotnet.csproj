@@ -20,7 +20,19 @@
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.1.0</Version>
+    <Version>1.6.0</Version>
+    <SerialMonitorDriverProjectDirectory>$(MSBuildProjectDirectory)\..\..\driver\serial-monitor</SerialMonitorDriverProjectDirectory>
+    <SerialMonitorDriverCargoProfile>debug</SerialMonitorDriverCargoProfile>
+    <SerialMonitorDriverBuildCommand>powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SerialMonitorDriverProjectDirectory)\scripts\Package-DebugDriver.ps1&quot;</SerialMonitorDriverBuildCommand>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <SerialMonitorDriverCargoProfile>release</SerialMonitorDriverCargoProfile>
+    <SerialMonitorDriverBuildCommand>powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SerialMonitorDriverProjectDirectory)\scripts\Package-DebugDriver.ps1&quot; -Profile release</SerialMonitorDriverBuildCommand>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SerialMonitorDriverPackageDirectory>$(SerialMonitorDriverProjectDirectory)\target\$(SerialMonitorDriverCargoProfile)\serial_monitor_package</SerialMonitorDriverPackageDirectory>
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,9 +47,48 @@
     <Resource Include="Fonts\MapleMono-NF-CN-Regular.ttf" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="..\..\driver\serial-monitor\target\release\package\serial_monitor.*" Link="driver\serial-monitor\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\driver\serial-monitor\target\debug\package\serial_monitor.*" Link="driver\serial-monitor\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="!Exists('..\..\driver\serial-monitor\target\release\package\serial_monitor.sys')" />
-  </ItemGroup>
+  <Target Name="BuildSerialMonitorDriver"
+          BeforeTargets="CopyFilesToOutputDirectory"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildSerialMonitorDriver)' != 'false'">
+    <Exec WorkingDirectory="$(SerialMonitorDriverProjectDirectory)"
+          Command="$(SerialMonitorDriverBuildCommand)"
+          IgnoreStandardErrorWarningFormat="true" />
+
+    <Error Condition="!Exists('$(SerialMonitorDriverPackageDirectory)\serial_monitor.sys')"
+           Text="Rust 驱动构建未生成 serial_monitor.sys：$(SerialMonitorDriverPackageDirectory)" />
+    <Error Condition="!Exists('$(SerialMonitorDriverPackageDirectory)\serial_monitor.inf')"
+           Text="Rust 驱动构建未生成 serial_monitor.inf：$(SerialMonitorDriverPackageDirectory)" />
+
+    <ItemGroup>
+      <_SerialMonitorDriverPackage Include="$(SerialMonitorDriverPackageDirectory)\serial_monitor.sys" />
+      <_SerialMonitorDriverPackage Include="$(SerialMonitorDriverPackageDirectory)\serial_monitor.inf" />
+      <_SerialMonitorDriverPackage Include="$(SerialMonitorDriverPackageDirectory)\serial_monitor.cat"
+                                   Condition="Exists('$(SerialMonitorDriverPackageDirectory)\serial_monitor.cat')" />
+      <_SerialMonitorDriverPackage Include="$(SerialMonitorDriverPackageDirectory)\WDRLocalTestCert.cer"
+                                   Condition="Exists('$(SerialMonitorDriverPackageDirectory)\WDRLocalTestCert.cer')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_SerialMonitorDriverPackage)"
+          DestinationFolder="$(OutDir)driver\serial-monitor\"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopySerialMonitorDriverToPublishDirectory"
+          AfterTargets="Publish"
+          DependsOnTargets="BuildSerialMonitorDriver"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildSerialMonitorDriver)' != 'false'">
+    <ItemGroup>
+      <_SerialMonitorDriverPackage Include="$(SerialMonitorDriverPackageDirectory)\serial_monitor.sys" />
+      <_SerialMonitorDriverPackage Include="$(SerialMonitorDriverPackageDirectory)\serial_monitor.inf" />
+      <_SerialMonitorDriverPackage Include="$(SerialMonitorDriverPackageDirectory)\serial_monitor.cat"
+                                   Condition="Exists('$(SerialMonitorDriverPackageDirectory)\serial_monitor.cat')" />
+      <_SerialMonitorDriverPackage Include="$(SerialMonitorDriverPackageDirectory)\WDRLocalTestCert.cer"
+                                   Condition="Exists('$(SerialMonitorDriverPackageDirectory)\WDRLocalTestCert.cer')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_SerialMonitorDriverPackage)"
+          DestinationFolder="$(PublishDir)driver\serial-monitor\"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

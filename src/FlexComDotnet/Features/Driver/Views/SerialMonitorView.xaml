@@ -7,6 +7,10 @@
              mc:Ignorable="d"
              d:DesignHeight="260" d:DesignWidth="820"
              Background="{DynamicResource SurfaceBrush}">
+  <UserControl.CommandBindings>
+    <CommandBinding Command="ApplicationCommands.Open"
+                    Executed="ViewRawRecord_Executed" CanExecute="ViewRawRecord_CanExecute"/>
+  </UserControl.CommandBindings>
   <UserControl.Resources>
     <Style x:Key="ToolButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Padding" Value="10,4"/>
@@ -46,12 +50,18 @@
           <Button Content="刷新串口" Command="{Binding RefreshPortsCommand}" Style="{StaticResource ToolButtonStyle}"/>
           <Button Content="{Binding StartStopButtonText}" Command="{Binding StartStopMonitoringCommand}" Style="{StaticResource ToolButtonStyle}"/>
           <Button Content="检测驱动" Command="{Binding CheckAvailabilityCommand}" Style="{StaticResource ToolButtonStyle}"/>
+          <Button Content="首次登记端口" Command="{Binding ApplyPnpFilterCommand}" Style="{StaticResource ToolButtonStyle}"
+                  ToolTip="仅登记所选端口；不会自动重启。停止业务通信后重新插拔设备或重启系统使其生效。"/>
+          <Button Content="刷新诊断" Command="{Binding RefreshDiagnosticsCommand}" Style="{StaticResource ToolButtonStyle}"/>
 
           <Rectangle Width="1" Fill="{DynamicResource BorderBrush}" Margin="4,2,10,2"/>
 
           <CheckBox Content="TX" IsChecked="{Binding ShowTx}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
           <CheckBox Content="RX" IsChecked="{Binding ShowRx}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
           <CheckBox Content="Hex" IsChecked="{Binding IsHexDisplay}" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <TextBlock Text="定长帧字节数：" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+          <TextBox Text="{Binding FixedFrameLength, UpdateSourceTrigger=LostFocus}" Width="65" Margin="0,0,8,0"
+                   ToolTip="0 显示原始 I/O 记录；1–65536 按指定长度重组数据帧。须已知协议帧长；不推断线路帧间隔。"/>
           <TextBox Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                    MinWidth="140"
                    Padding="4,2"
@@ -66,17 +76,82 @@
               AutoGenerateColumns="False"
               IsReadOnly="True"
               CanUserAddRows="False"
+              SelectionMode="Single"
+              SelectionUnit="FullRow"
               HeadersVisibility="Column"
               GridLinesVisibility="Horizontal"
               Background="{DynamicResource BackgroundBrush}"
+              RowBackground="{DynamicResource BackgroundBrush}"
+              AlternatingRowBackground="{DynamicResource SurfaceBrush}"
+              HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
               Foreground="{DynamicResource TextPrimaryBrush}"
               BorderThickness="0"
               FontFamily="Cascadia Code, Consolas, Courier New"
               FontSize="11">
+      <DataGrid.ColumnHeaderStyle>
+        <Style TargetType="DataGridColumnHeader">
+          <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+          <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+          <Setter Property="BorderThickness" Value="0,0,1,1"/>
+          <Setter Property="Padding" Value="8,6"/>
+        </Style>
+      </DataGrid.ColumnHeaderStyle>
+      <DataGrid.RowStyle>
+        <Style TargetType="DataGridRow">
+          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+          <Setter Property="ContextMenu">
+            <Setter.Value>
+              <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                <MenuItem Header="查看原帧 / 原始记录" Command="ApplicationCommands.Open"
+                          CommandParameter="{Binding}"
+                          CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+              </ContextMenu>
+            </Setter.Value>
+          </Setter>
+          <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Background" Value="{DynamicResource SelectedBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            </Trigger>
+          </Style.Triggers>
+        </Style>
+      </DataGrid.RowStyle>
+      <DataGrid.CellStyle>
+        <Style TargetType="DataGridCell">
+          <Setter Property="Background" Value="Transparent"/>
+          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+          <Setter Property="BorderThickness" Value="0"/>
+          <Setter Property="Padding" Value="8,5"/>
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="DataGridCell">
+                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                  <ContentPresenter VerticalAlignment="Center"/>
+                </Border>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
+          <Setter Property="ToolTip" Value="{Binding Content}"/>
+          <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Background" Value="{DynamicResource SelectedBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            </Trigger>
+          </Style.Triggers>
+        </Style>
+      </DataGrid.CellStyle>
       <DataGrid.Columns>
         <DataGridTextColumn Header="时间" Binding="{Binding Timestamp, StringFormat='HH:mm:ss.fff'}" Width="110"/>
-        <DataGridTextColumn Header="方向" Binding="{Binding Direction}" Width="60"/>
-        <DataGridTextColumn Header="内容" Binding="{Binding Content}" Width="*"/>
+        <DataGridTextColumn Header="方向" Binding="{Binding Direction}" Width="75"/>
+        <DataGridTextColumn Header="事件 / 指令" Binding="{Binding EventLabel}" Width="250"/>
+        <DataGridTextColumn Header="结果" Binding="{Binding Result}" Width="170"/>
+        <DataGridTextColumn Header="请求" Binding="{Binding RequestId}" Width="60"/>
+        <DataGridTextColumn Header="偏移" Binding="{Binding Offset}" Width="60"/>
+        <DataGridTextColumn Header="内容 / 参数（右键查看原始记录）" Binding="{Binding Content}" Width="*" MinWidth="220"/>
       </DataGrid.Columns>
     </DataGrid>
 
@@ -88,10 +163,21 @@
           <Button Content="保存监控数据" Click="Export_Click" Style="{StaticResource ToolButtonStyle}"/>
           <Button Content="清空" Command="{Binding ClearRecordsCommand}" Style="{StaticResource ToolButtonStyle}" Margin="0"/>
         </StackPanel>
-        <TextBlock Text="{Binding OperationStatus}"
-                   Foreground="{DynamicResource TextSecondaryBrush}"
-                   TextTrimming="CharacterEllipsis"
-                   VerticalAlignment="Center"/>
+        <StackPanel>
+          <TextBlock Text="{Binding CaptureStatus}" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding OperationStatus}"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     TextWrapping="Wrap"
+                     ToolTip="{Binding OperationStatus}"
+                     VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding DiagnosticStatus}"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontFamily="Cascadia Code, Consolas"
+                     FontSize="10"
+                     TextWrapping="Wrap"
+                     ToolTip="{Binding DiagnosticStatus}"
+                     VerticalAlignment="Center"/>
+        </StackPanel>
       </DockPanel>
     </Border>
   </Grid>

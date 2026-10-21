@@ -1,441 +1,613 @@
-//! Windows kernel driver entry point and WDK API implementation.
-//!
-//! This module provides:
-//! - `DriverEntry`: The kernel entry point called when the driver loads.
-//! - `driver_unload`: Called when the driver is unloaded.
-//! - `WdkKernelApi`: The real [`KernelApi`] implementation using WDK bindings.
-//! - IRP dispatch stubs for the driver's major function table.
-//!
-//! # Safety
-//! This module contains `unsafe` kernel API calls. Each unsafe block documents
-//! the safety invariant being upheld. The driver relies on WDK guarantees about
-//! object lifetimes, IRQL levels, and pointer validity.
-//!
-//! # Build
-//! This module is only compiled with `--features kernel` and requires WDK/eWDK.
-//! ```bash
-//! cargo make --features kernel          # Build .sys driver
-//! cargo make --features kernel --release # Release build
-//! ```
-
-use core::sync::atomic::{AtomicPtr, Ordering};
-
-use wdk_sys::{
-    ntddk::{
-        IoAttachDevice, IoCreateDevice, IoCreateSymbolicLink, IoDeleteDevice, IoDeleteSymbolicLink,
-        IoDetachDevice, IofCompleteRequest, KeQuerySystemTimePrecise,
-    },
-    DEVICE_OBJECT, DRIVER_OBJECT, FILE_DEVICE_UNKNOWN, IRP, LARGE_INTEGER, NTSTATUS,
-    PCUNICODE_STRING, PDEVICE_OBJECT, PDRIVER_OBJECT, STATUS_SUCCESS, STATUS_UNSUCCESSFUL,
-    UNICODE_STRING,
+//! WDM adapter. Capture failures never fail or modify a serial request.
+//! Session state is shared with host tests; WDK lifetimes remain here.
+use crate::monitor::{self, CaptureToken, EventInfo, MonitorCore};
+use core::{
+    cell::UnsafeCell,
+    ffi::c_void,
+    mem::{size_of, size_of_val},
+    ptr,
+    sync::atomic::{AtomicPtr, AtomicU64, Ordering},
 };
+use wdk_sys::{ntddk::*, *};
 
-use crate::device::{DeviceHandle, DeviceManager, KernelApi, NtStatus};
-use crate::ring_buffer::DEFAULT_BUFFER_CAPACITY;
-
-// ---------------------------------------------------------------------------
-// Global driver state
-// ---------------------------------------------------------------------------
-
-/// Global pointer to the heap-allocated `DeviceManager<WdkKernelApi>`.
-///
+const TAG: u32 = u32::from_le_bytes(*b"SmC2");
+const POOL_NON_PAGED: u64 = 0x40;
+const REMOVE: u8 = 2;
+const REMOVE_LOCK_SIZE: u32 = size_of::<IO_REMOVE_LOCK>() as u32;
+const PNP: u32 = 0x1b;
+const CONFIG_MAX: usize = 32;
+struct State {
+    lock: UnsafeCell<KSPIN_LOCK>,
+    core: UnsafeCell<MonitorCore>,
+    diagnostics: UnsafeCell<crate::shared::DriverDiagnostics>,
+}
+static STATE: AtomicPtr<State> = AtomicPtr::new(ptr::null_mut());
+static CONTROL: AtomicPtr<DEVICE_OBJECT> = AtomicPtr::new(ptr::null_mut());
+static NEXT_PORT_ID: AtomicU64 = AtomicU64::new(1);
+#[repr(C)]
+struct Extension {
+    lower: PDEVICE_OBJECT,
+    remove_lock: IO_REMOVE_LOCK,
+    io_flags: u32,
+    port_id: u64,
+}
+struct CompletionContext {
+    token: Option<CaptureToken>,
+    extension: *mut Extension,
+    major: u8,
+    requested: u32,
+    ioctl: u32,
+    config_len: usize,
+    config: [u8; CONFIG_MAX],
+}
+// Implementation behind the WDK IoCreateDeviceSecure macro.
+#[link(name = "Wdmsec", kind = "static")]
+unsafe extern "system" {
+    fn WdmlibIoCreateDeviceSecure(
+        driver: PDRIVER_OBJECT,
+        extension_size: u32,
+        name: *const UNICODE_STRING,
+        device_type: u32,
+        characteristics: u32,
+        exclusive: u8,
+        sddl: *const UNICODE_STRING,
+        class_guid: *const GUID,
+        device: *mut PDEVICE_OBJECT,
+    ) -> NTSTATUS;
+}
+fn unicode(bytes: &mut [u16]) -> UNICODE_STRING {
+    UNICODE_STRING {
+        Length: (bytes.len() * 2) as u16,
+        MaximumLength: (bytes.len() * 2) as u16,
+        Buffer: bytes.as_mut_ptr(),
+    }
+}
+fn literal_unicode(text: &str, storage: &mut [u16; 64]) -> UNICODE_STRING {
+    // All callers use fixed driver names/SDDL shorter than 64 characters.
+    let mut length = 0;
+    for (slot, character) in storage.iter_mut().zip(text.encode_utf16()) {
+        *slot = character;
+        length += 1;
+    }
+    unicode(&mut storage[..length])
+}
+/// Runs at <= DISPATCH_LEVEL while a device/IRP keeps the driver alive.
+/// Closures access nonpaged memory only, never allocate or call down.
+fn with_state<R>(
+    f: impl FnOnce(&mut MonitorCore, &mut crate::shared::DriverDiagnostics) -> R,
+) -> Option<R> {
+    let state = STATE.load(Ordering::Acquire);
+    if state.is_null() {
+        return None;
+    }
+    // SAFETY: state lives until unload; mutable references are created only under the lock.
+    unsafe {
+        let lock = (*state).lock.get();
+        let irql = KeAcquireSpinLockRaiseToDpc(lock);
+        struct Guard(*mut KSPIN_LOCK, KIRQL);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                unsafe { KeReleaseSpinLock(self.0, self.1) };
+            }
+        }
+        let _guard = Guard(lock, irql);
+        Some(f(
+            &mut *(*state).core.get(),
+            &mut *(*state).diagnostics.get(),
+        ))
+    }
+}
 /// # Safety
-/// Access is synchronized by the kernel's guarantee that `DriverEntry` completes
-/// before any IRP dispatch or `DriverUnload` is called. After initialization,
-/// concurrent access must be serialized externally (e.g., via SpinLock in IRP
-/// dispatch paths). For the MVP, IOCTL handlers run at PASSIVE_LEVEL and are
-/// serialized by the I/O manager's device queue.
-static DEVICE_MANAGER: AtomicPtr<DeviceManager<WdkKernelApi>> =
-    AtomicPtr::new(core::ptr::null_mut());
-
-// ---------------------------------------------------------------------------
-// WDK KernelApi implementation
-// ---------------------------------------------------------------------------
-
-/// Real kernel API implementation backed by WDK FFI calls.
-///
-/// Each method wraps one or more Windows kernel functions with proper
-/// safety checks and UNICODE_STRING conversions.
-pub struct WdkKernelApi {
-    /// The driver object pointer, needed for `IoCreateDevice`.
-    driver_object: PDRIVER_OBJECT,
-}
-
-impl WdkKernelApi {
-    /// Creates a new `WdkKernelApi` wrapping the given driver object.
-    ///
-    /// # Safety
-    /// `driver_object` must be a valid, non-null pointer that remains valid
-    /// for the lifetime of this struct (guaranteed by the kernel for loaded drivers).
-    pub unsafe fn new(driver_object: PDRIVER_OBJECT) -> Self {
-        Self { driver_object }
-    }
-}
-
-/// Converts a Rust `&str` to a kernel `UNICODE_STRING` backed by a UTF-16 buffer.
-///
-/// # Returns
-/// A tuple of (UNICODE_STRING, Vec<u16>) where the Vec owns the backing buffer.
-/// The caller must keep the Vec alive while the UNICODE_STRING is in use.
-fn str_to_unicode_string(s: &str) -> (UNICODE_STRING, alloc::vec::Vec<u16>) {
-    let utf16: alloc::vec::Vec<u16> = s.encode_utf16().collect();
-    let byte_len = (utf16.len() * 2) as u16;
-    let us = UNICODE_STRING {
-        Length: byte_len,
-        MaximumLength: byte_len,
-        Buffer: utf16.as_ptr() as *mut u16,
-    };
-    (us, utf16)
-}
-
-impl KernelApi for WdkKernelApi {
-    fn create_device(&mut self, name: &str) -> Result<DeviceHandle, NtStatus> {
-        let (mut dev_name, _name_buf) = str_to_unicode_string(name);
-        let mut device_object: PDEVICE_OBJECT = core::ptr::null_mut();
-
-        // SAFETY: IoCreateDevice is called at PASSIVE_LEVEL during DriverEntry
-        // or IOCTL handling. driver_object is valid (kernel guarantee).
-        // device_object receives the output pointer.
-        let status = unsafe {
-            IoCreateDevice(
-                self.driver_object,
-                0, // DeviceExtensionSize
-                &mut dev_name,
-                FILE_DEVICE_UNKNOWN,
-                0, // DeviceCharacteristics
-                0, // Exclusive = FALSE
-                &mut device_object,
-            )
-        };
-
-        if status == STATUS_SUCCESS as i32 {
-            Ok(device_object as DeviceHandle)
-        } else {
-            Err(status)
-        }
-    }
-
-    fn create_symbolic_link(&mut self, link_name: &str, device_name: &str) -> Result<(), NtStatus> {
-        let (mut sym_name, _sym_buf) = str_to_unicode_string(link_name);
-        let (mut dev_name, _dev_buf) = str_to_unicode_string(device_name);
-
-        // SAFETY: IoCreateSymbolicLink at PASSIVE_LEVEL with valid UNICODE_STRINGs.
-        let status = unsafe { IoCreateSymbolicLink(&mut sym_name, &mut dev_name) };
-
-        if status == STATUS_SUCCESS as i32 {
-            Ok(())
-        } else {
-            Err(status)
-        }
-    }
-
-    fn delete_symbolic_link(&mut self, link_name: &str) -> Result<(), NtStatus> {
-        let (mut sym_name, _sym_buf) = str_to_unicode_string(link_name);
-
-        // SAFETY: IoDeleteSymbolicLink at PASSIVE_LEVEL with a valid UNICODE_STRING.
-        let status = unsafe { IoDeleteSymbolicLink(&mut sym_name) };
-
-        if status == STATUS_SUCCESS as i32 {
-            Ok(())
-        } else {
-            Err(status)
-        }
-    }
-
-    fn delete_device(&mut self, handle: DeviceHandle) -> Result<(), NtStatus> {
-        let device_ptr = handle as PDEVICE_OBJECT;
-        if device_ptr.is_null() {
-            return Err(crate::device::STATUS_INVALID_PARAMETER);
-        }
-
-        // SAFETY: handle was obtained from IoCreateDevice and has not been
-        // deleted yet. IoDeleteDevice is called at PASSIVE_LEVEL.
-        unsafe { IoDeleteDevice(device_ptr) };
-        Ok(())
-    }
-
-    fn attach_device(
-        &mut self,
-        filter_device: DeviceHandle,
-        target_device_name: &str,
-    ) -> Result<DeviceHandle, NtStatus> {
-        let source_ptr = filter_device as PDEVICE_OBJECT;
-        let (mut target_name, _target_buf) = str_to_unicode_string(target_device_name);
-        let mut attached_device: PDEVICE_OBJECT = core::ptr::null_mut();
-
-        // SAFETY: IoAttachDevice at PASSIVE_LEVEL. source_ptr is a valid device
-        // object created by IoCreateDevice. target_name is a valid device path.
-        let status = unsafe { IoAttachDevice(source_ptr, &mut target_name, &mut attached_device) };
-
-        if status == STATUS_SUCCESS as i32 {
-            Ok(attached_device as DeviceHandle)
-        } else {
-            Err(status)
-        }
-    }
-
-    fn detach_device(
-        &mut self,
-        _filter_device: DeviceHandle,
-        lower_device: DeviceHandle,
-    ) -> Result<(), NtStatus> {
-        let lower_ptr = lower_device as PDEVICE_OBJECT;
-        if lower_ptr.is_null() {
-            return Err(crate::device::STATUS_INVALID_PARAMETER);
-        }
-
-        // SAFETY: lower_ptr was obtained from IoAttachDevice and is the device
-        // we attached to. IoDetachDevice detaches our filter from the stack.
-        unsafe { IoDetachDevice(lower_ptr) };
-        Ok(())
-    }
-
-    fn get_timestamp(&self) -> u64 {
-        let mut time: LARGE_INTEGER = unsafe { core::mem::zeroed() };
-        // SAFETY: KeQuerySystemTimePrecise is safe to call at any IRQL.
-        // It writes a LARGE_INTEGER through the pointer.
-        unsafe { KeQuerySystemTimePrecise(&mut time) };
-        unsafe { time.QuadPart as u64 }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Driver entry point
-// ---------------------------------------------------------------------------
-
-/// Windows kernel driver entry point.
-///
-/// Called by the kernel when the driver service is started. Initializes
-/// the device manager, creates the control device (`\Device\SerialMonitor`)
-/// and symbolic link (`\DosDevices\SerialMonitor`), and sets up the IRP
-/// dispatch table.
-///
-/// # Safety
-/// This function is called by the Windows kernel with valid pointers.
-/// - `driver` is a valid `DRIVER_OBJECT` pointer.
-/// - `_registry_path` is a valid `UNICODE_STRING` pointer to the driver's
-///   registry key.
-///
-/// The `export_name` attribute ensures the symbol name matches what the
-/// kernel loader expects.
-// SAFETY: "DriverEntry" is the required export name for Windows driver entry points.
-// No other function in this crate exports this name.
+/// Invoked only by the Windows loader with a valid DRIVER_OBJECT.
 #[unsafe(export_name = "DriverEntry")]
 pub unsafe extern "system" fn driver_entry(
     driver: &mut DRIVER_OBJECT,
-    _registry_path: PCUNICODE_STRING,
+    _registry: PCUNICODE_STRING,
 ) -> NTSTATUS {
-    // Create the WDK kernel API implementation
-    // SAFETY: driver is a valid DRIVER_OBJECT reference from the kernel.
-    let kernel_api = unsafe { WdkKernelApi::new(driver as *mut DRIVER_OBJECT) };
-
-    // Create the device manager with default buffer capacity
-    let mut manager =
-        alloc::boxed::Box::new(DeviceManager::new(kernel_api, DEFAULT_BUFFER_CAPACITY));
-
-    // Initialize control device and symbolic link
-    if let Err(status) = manager.initialize() {
+    let core = match MonitorCore::new(32) {
+        Ok(core) => core,
+        Err(status) => return status,
+    };
+    // SAFETY: checked nonpaged allocation at PASSIVE_LEVEL, initialized before publication.
+    let state =
+        unsafe { ExAllocatePool2(POOL_NON_PAGED, size_of::<State>() as u64, TAG) as *mut State };
+    if state.is_null() {
+        return monitor::STATUS_NO_MEMORY;
+    }
+    unsafe {
+        state.write(State {
+            lock: UnsafeCell::new(0),
+            core: UnsafeCell::new(core),
+            diagnostics: UnsafeCell::new(Default::default()),
+        });
+    }
+    let mut name_buffer = [0; 64];
+    let mut name = literal_unicode(crate::ioctl::DEVICE_NAME, &mut name_buffer);
+    let mut sddl_buffer = [0; 64];
+    let sddl = literal_unicode("D:P(A;;GA;;;SY)(A;;GA;;;BA)", &mut sddl_buffer);
+    let class = GUID {
+        Data1: 0x5c68d998,
+        Data2: 0x124e,
+        Data3: 0x4fab,
+        Data4: [0xa8, 0xc3, 0x19, 0x96, 0x11, 0x76, 0x51, 0xa2],
+    };
+    let mut control = ptr::null_mut();
+    let status = unsafe {
+        WdmlibIoCreateDeviceSecure(
+            driver,
+            0,
+            &name,
+            crate::ioctl::FILE_DEVICE_SERIAL_MONITOR,
+            FILE_DEVICE_SECURE_OPEN,
+            0,
+            &sddl,
+            &class,
+            &mut control,
+        )
+    };
+    if status < 0 {
+        unsafe {
+            ptr::drop_in_place(state);
+            ExFreePoolWithTag(state.cast(), TAG);
+        }
         return status;
     }
-
-    // Set up IRP dispatch functions
-    // IRP_MJ_CREATE and IRP_MJ_CLOSE allow user-mode handles (CreateFile/CloseHandle)
-    driver.MajorFunction[wdk_sys::IRP_MJ_CREATE as usize] = Some(dispatch_create_close);
-    driver.MajorFunction[wdk_sys::IRP_MJ_CLOSE as usize] = Some(dispatch_create_close);
-    // IRP_MJ_DEVICE_CONTROL handles IOCTL requests from user-mode
-    driver.MajorFunction[wdk_sys::IRP_MJ_DEVICE_CONTROL as usize] = Some(dispatch_device_control);
-
-    // Set unload function
-    driver.DriverUnload = Some(driver_unload);
-
-    // Store the device manager globally
-    let raw = alloc::boxed::Box::into_raw(manager);
-    DEVICE_MANAGER.store(raw, Ordering::Release);
-
-    STATUS_SUCCESS as NTSTATUS
-}
-
-// ---------------------------------------------------------------------------
-// Driver unload
-// ---------------------------------------------------------------------------
-
-/// Called by the kernel when the driver service is stopped.
-///
-/// Cleans up all resources: stops monitoring if active, removes the symbolic
-/// link, and deletes all device objects.
-///
-/// # Safety
-/// Called by the kernel with a valid `DRIVER_OBJECT` pointer.
-/// Guaranteed to be called only once, after all pending I/O has completed.
-unsafe extern "C" fn driver_unload(_driver: *mut DRIVER_OBJECT) {
-    let raw = DEVICE_MANAGER.swap(core::ptr::null_mut(), Ordering::AcqRel);
-    if !raw.is_null() {
-        // SAFETY: raw was stored by driver_entry via Box::into_raw and has
-        // not been freed. We reclaim ownership to run cleanup and drop.
-        let mut manager = unsafe { alloc::boxed::Box::from_raw(raw) };
-        let _ = manager.cleanup();
-        // Box drops and deallocates here
-    }
-}
-
-// ---------------------------------------------------------------------------
-// IRP dispatch stubs
-// ---------------------------------------------------------------------------
-
-/// Dispatch handler for IRP_MJ_CREATE and IRP_MJ_CLOSE.
-///
-/// Simply completes the IRP with success, allowing user-mode applications
-/// to open and close handles to the control device.
-///
-/// # Safety
-/// Called by the kernel I/O manager with valid device and IRP pointers.
-unsafe extern "C" fn dispatch_create_close(
-    _device: *mut DEVICE_OBJECT,
-    irp: *mut IRP,
-) -> NTSTATUS {
-    // SAFETY: irp is a valid IRP pointer from the I/O manager.
-    // We complete it immediately with STATUS_SUCCESS and 0 bytes transferred.
-    unsafe {
-        (*irp).IoStatus.Information = 0;
-        (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_SUCCESS as NTSTATUS;
-        IofCompleteRequest(irp, wdk_sys::IO_NO_INCREMENT as i8);
-    }
-    STATUS_SUCCESS as NTSTATUS
-}
-
-/// Dispatch handler for IRP_MJ_DEVICE_CONTROL.
-///
-/// Routes IOCTL requests to the appropriate handler based on the control code:
-/// - `IOCTL_START_MONITOR`: Begins monitoring a serial port.
-/// - `IOCTL_STOP_MONITOR`: Stops monitoring.
-/// - `IOCTL_GET_DATA`: Reads captured data from the ring buffer.
-/// - `IOCTL_GET_STATUS`: Returns driver status information.
-///
-/// # Safety
-/// Called by the kernel I/O manager with valid device and IRP pointers.
-/// The IO_STACK_LOCATION contains validated buffer pointers and sizes.
-unsafe extern "C" fn dispatch_device_control(
-    _device: *mut DEVICE_OBJECT,
-    irp: *mut IRP,
-) -> NTSTATUS {
-    let raw = DEVICE_MANAGER.load(Ordering::Acquire);
-    if raw.is_null() {
-        // SAFETY: Complete IRP with error if manager not initialized.
+    let mut link_buffer = [0; 64];
+    let mut link = literal_unicode(crate::ioctl::SYMLINK_NAME, &mut link_buffer);
+    let status = unsafe { IoCreateSymbolicLink(&mut link, &mut name) };
+    if status < 0 {
         unsafe {
-            (*irp).IoStatus.Information = 0;
-            (*irp).IoStatus.__bindgen_anon_1.Status = STATUS_UNSUCCESSFUL as NTSTATUS;
-            IofCompleteRequest(irp, wdk_sys::IO_NO_INCREMENT as i8);
+            IoDeleteDevice(control);
+            ptr::drop_in_place(state);
+            ExFreePoolWithTag(state.cast(), TAG);
         }
-        return STATUS_UNSUCCESSFUL as NTSTATUS;
+        return status;
     }
-
-    // SAFETY: raw is valid (stored by driver_entry, not yet freed).
-    // The kernel serializes IOCTL dispatch at PASSIVE_LEVEL for our device.
-    let manager = unsafe { &mut *raw };
-
-    // Get the current I/O stack location to determine the IOCTL code
-    // SAFETY: Tail.Overlay.__bindgen_anon_2.__bindgen_anon_1.CurrentStackLocation
-    // is the equivalent of IoGetCurrentIrpStackLocation() macro.
-    let irp_ref = unsafe { &*irp };
-    let stack = unsafe { *irp_ref.Tail.Overlay.__bindgen_anon_2.__bindgen_anon_1.CurrentStackLocation };
-    let ioctl_code = unsafe { stack.Parameters.DeviceIoControl.IoControlCode };
-
-    let status = match ioctl_code {
-        crate::ioctl::IOCTL_START_MONITOR => handle_start_monitor(manager, irp),
-        crate::ioctl::IOCTL_STOP_MONITOR => handle_stop_monitor(manager),
-        crate::ioctl::IOCTL_GET_DATA => handle_get_data(manager, irp),
-        crate::ioctl::IOCTL_GET_STATUS => handle_get_status(manager, irp),
-        _ => crate::device::STATUS_INVALID_PARAMETER,
+    driver.MajorFunction.fill(Some(dispatch_irp));
+    driver.DriverUnload = Some(unload);
+    unsafe {
+        (*driver.DriverExtension).AddDevice = Some(add_device);
+    }
+    STATE.store(state, Ordering::Release);
+    CONTROL.store(control, Ordering::Release);
+    unsafe {
+        (*control).Flags &= !DO_DEVICE_INITIALIZING;
+    }
+    0
+}
+unsafe extern "C" fn unload(_driver: PDRIVER_OBJECT) {
+    // SAFETY: PnP removed filters and the I/O manager released open handles.
+    let mut link_buffer = [0; 64];
+    let mut link = literal_unicode(crate::ioctl::SYMLINK_NAME, &mut link_buffer);
+    unsafe {
+        let _ = IoDeleteSymbolicLink(&mut link);
+    }
+    let device = CONTROL.swap(ptr::null_mut(), Ordering::AcqRel);
+    if !device.is_null() {
+        unsafe {
+            IoDeleteDevice(device);
+        }
+    }
+    let state = STATE.swap(ptr::null_mut(), Ordering::AcqRel);
+    if !state.is_null() {
+        unsafe {
+            ptr::drop_in_place(state);
+            ExFreePoolWithTag(state.cast(), TAG);
+        }
+    }
+}
+unsafe extern "C" fn add_device(driver: PDRIVER_OBJECT, pdo: PDEVICE_OBJECT) -> NTSTATUS {
+    let mut name = [0u16; 64];
+    let mut returned = 0;
+    // SAFETY: PnP supplies a live PDO at PASSIVE_LEVEL. No COM open is performed.
+    let named = unsafe {
+        IoGetDeviceProperty(
+            pdo,
+            DEVICE_REGISTRY_PROPERTY::DevicePropertyPhysicalDeviceObjectName,
+            size_of_val(&name) as u32,
+            name.as_mut_ptr().cast(),
+            &mut returned,
+        )
+    } >= 0;
+    let mut device = ptr::null_mut();
+    let status = unsafe {
+        IoCreateDevice(
+            driver,
+            size_of::<Extension>() as u32,
+            ptr::null_mut(),
+            FILE_DEVICE_UNKNOWN,
+            0,
+            0,
+            &mut device,
+        )
     };
-
-    // SAFETY: irp is valid. We complete it with the computed status.
+    if status < 0 {
+        return status;
+    }
+    let ext = unsafe { (*device).DeviceExtension as *mut Extension };
+    unsafe {
+        (*ext).port_id = NEXT_PORT_ID.fetch_add(1, Ordering::Relaxed);
+    }
+    unsafe {
+        IoInitializeRemoveLockEx(
+            ptr::addr_of_mut!((*ext).remove_lock),
+            TAG,
+            0,
+            0,
+            REMOVE_LOCK_SIZE,
+        );
+    }
+    // Safe attachment publishes the lower pointer atomically with insertion.
+    let status =
+        unsafe { IoAttachDeviceToDeviceStackSafe(device, pdo, ptr::addr_of_mut!((*ext).lower)) };
+    if status < 0 {
+        unsafe {
+            IoDeleteDevice(device);
+        }
+        return status;
+    }
+    unsafe {
+        (*ext).io_flags = (*(*ext).lower).Flags & (DO_BUFFERED_IO | DO_DIRECT_IO);
+        (*device).Flags |=
+            (*(*ext).lower).Flags & (DO_BUFFERED_IO | DO_DIRECT_IO | DO_POWER_PAGABLE);
+        (*device).DeviceType = (*(*ext).lower).DeviceType;
+        (*device).Characteristics = (*(*ext).lower).Characteristics;
+        (*device).AlignmentRequirement = (*(*ext).lower).AlignmentRequirement;
+    }
+    if named {
+        with_state(|core, _| {
+            let _ = core.register_port(unsafe { (*ext).port_id }, name);
+        });
+    }
+    unsafe {
+        (*device).Flags &= !DO_DEVICE_INITIALIZING;
+    }
+    0
+}
+unsafe fn stack(irp: *mut IRP) -> *mut IO_STACK_LOCATION {
+    unsafe {
+        (*irp)
+            .Tail
+            .Overlay
+            .__bindgen_anon_2
+            .__bindgen_anon_1
+            .CurrentStackLocation
+    }
+}
+unsafe fn skip(irp: *mut IRP) {
+    unsafe {
+        (*irp).CurrentLocation += 1;
+        (*irp)
+            .Tail
+            .Overlay
+            .__bindgen_anon_2
+            .__bindgen_anon_1
+            .CurrentStackLocation = stack(irp).add(1);
+    }
+}
+unsafe fn copy_to_next(irp: *mut IRP) {
+    // SAFETY: the attached device owns a stack slot. Equivalent to the WDK macro.
+    unsafe {
+        let current = stack(irp);
+        let next = current.sub(1);
+        ptr::copy_nonoverlapping(
+            current.cast::<u8>(),
+            next.cast::<u8>(),
+            core::mem::offset_of!(IO_STACK_LOCATION, CompletionRoutine),
+        );
+        (*next).Control = 0;
+    }
+}
+unsafe fn finish(irp: *mut IRP, status: i32, bytes: usize) -> i32 {
     unsafe {
         (*irp).IoStatus.__bindgen_anon_1.Status = status;
-        IofCompleteRequest(irp, wdk_sys::IO_NO_INCREMENT as i8);
+        (*irp).IoStatus.Information = bytes as u64;
+        IofCompleteRequest(irp, IO_NO_INCREMENT as i8);
     }
     status
 }
-
-// ---------------------------------------------------------------------------
-// IOCTL handlers
-// ---------------------------------------------------------------------------
-
-/// Handles IOCTL_START_MONITOR: parses the input buffer to get the port name
-/// and starts monitoring.
-fn handle_start_monitor(manager: &mut DeviceManager<WdkKernelApi>, irp: *mut IRP) -> NTSTATUS {
-    // The input buffer contains a StartMonitorRequest struct.
-    // SAFETY: irp is valid, AssociatedIrp is a union — accessing SystemBuffer is correct for
-    // METHOD_BUFFERED IOCTLs.
-    let input = unsafe { (*irp).AssociatedIrp.SystemBuffer };
-    if input.is_null() {
-        return crate::device::STATUS_INVALID_PARAMETER;
+unsafe extern "C" fn dispatch_irp(device: PDEVICE_OBJECT, irp: *mut IRP) -> NTSTATUS {
+    // SAFETY: I/O manager supplies live device and IRP pointers throughout dispatch.
+    let current = unsafe { stack(irp) };
+    let major = unsafe { (*current).MajorFunction };
+    if device == CONTROL.load(Ordering::Acquire) {
+        return unsafe { control_irp(irp, major) };
     }
-
-    // SAFETY: SystemBuffer is kernel-allocated and valid for the input length.
-    // We verify the size matches StartMonitorRequest before reading.
-    let request = unsafe { &*(input as *const crate::shared::StartMonitorRequest) };
-
-    let port_name = request.port_name_string();
-    match manager.start_monitor(&port_name) {
-        Ok(()) => STATUS_SUCCESS as NTSTATUS,
-        Err(e) => e,
+    let ext = unsafe { (*device).DeviceExtension as *mut Extension };
+    let lock = unsafe { ptr::addr_of_mut!((*ext).remove_lock) };
+    let status = unsafe {
+        IoAcquireRemoveLockEx(
+            lock,
+            irp.cast(),
+            c"serial-monitor".as_ptr().cast(),
+            line!(),
+            REMOVE_LOCK_SIZE,
+        )
+    };
+    if status < 0 {
+        return unsafe { finish(irp, status, 0) };
     }
-}
-
-/// Handles IOCTL_STOP_MONITOR: stops the current monitoring session.
-fn handle_stop_monitor(manager: &mut DeviceManager<WdkKernelApi>) -> NTSTATUS {
-    match manager.stop_monitor() {
-        Ok(()) => STATUS_SUCCESS as NTSTATUS,
-        Err(e) => e,
+    let lower = unsafe { (*ext).lower };
+    if u32::from(major) == PNP && unsafe { (*current).MinorFunction } == REMOVE {
+        with_state(|core, _| core.unregister_port(unsafe { (*ext).port_id }));
+        unsafe {
+            skip(irp);
+        }
+        let result = unsafe { IofCallDriver(lower, irp) };
+        // REMOVE is PASSIVE_LEVEL. Completion contexts retain their remove locks.
+        unsafe {
+            IoReleaseRemoveLockAndWaitEx(lock, irp.cast(), REMOVE_LOCK_SIZE);
+            IoDetachDevice(lower);
+            IoDeleteDevice(device);
+        }
+        return result;
     }
-}
-
-/// Handles IOCTL_GET_DATA: reads captured data from the ring buffer into
-/// the output buffer.
-fn handle_get_data(manager: &mut DeviceManager<WdkKernelApi>, irp: *mut IRP) -> NTSTATUS {
-    // SAFETY: irp is valid, accessing SystemBuffer for METHOD_BUFFERED IOCTL.
-    let output = unsafe { (*irp).AssociatedIrp.SystemBuffer };
-    if output.is_null() {
-        return crate::device::STATUS_INVALID_PARAMETER;
-    }
-
-    // Try to pop data from the ring buffer
-    match manager.buffer_mut().pop() {
-        Some((header, data)) => {
-            // Build GetDataResponse in the output buffer
-            // SAFETY: SystemBuffer is valid and large enough (kernel validates
-            // OutputBufferLength against our IOCTL definition).
-            let response = unsafe { &mut *(output as *mut crate::shared::GetDataResponse) };
-            response.header = header;
-            response.data[..data.len()].copy_from_slice(&data);
-            unsafe {
-                (*irp).IoStatus.Information =
-                    core::mem::size_of::<crate::shared::GetDataResponse>() as u64;
+    let capture = matches!(
+        u32::from(major),
+        IRP_MJ_READ | IRP_MJ_WRITE | IRP_MJ_DEVICE_CONTROL
+    );
+    let token = if capture {
+        with_state(|core, _| core.begin(unsafe { (*ext).port_id })).flatten()
+    } else {
+        None
+    };
+    let observe_create = u32::from(major) == IRP_MJ_CREATE;
+    // Observe completions even while idle so a read already pending when the
+    // user starts monitoring can be captured without reopening the COM handle.
+    if capture || observe_create {
+        let context = unsafe {
+            ExAllocatePool2(POOL_NON_PAGED, size_of::<CompletionContext>() as u64, TAG)
+                as *mut CompletionContext
+        };
+        if !context.is_null() {
+            let mut requested = 0;
+            let mut ioctl = 0;
+            if u32::from(major) == IRP_MJ_READ {
+                requested = unsafe { (*current).Parameters.Read.Length };
             }
-            STATUS_SUCCESS as NTSTATUS
+            if u32::from(major) == IRP_MJ_WRITE {
+                requested = unsafe { (*current).Parameters.Write.Length };
+            }
+            if u32::from(major) == IRP_MJ_DEVICE_CONTROL {
+                requested = unsafe { (*current).Parameters.DeviceIoControl.InputBufferLength };
+                ioctl = unsafe { (*current).Parameters.DeviceIoControl.IoControlCode };
+            }
+            unsafe {
+                context.write(CompletionContext {
+                    token,
+                    extension: ext,
+                    major,
+                    requested,
+                    ioctl,
+                    config_len: 0,
+                    config: [0; CONFIG_MAX],
+                });
+            }
+            // Snapshot supported serial SET_* input before buffered IOCTL completion.
+            if crate::filter::is_monitored_serial_ioctl(ioctl) && requested as usize <= CONFIG_MAX {
+                let buffer = unsafe { (*irp).AssociatedIrp.SystemBuffer as *const u8 };
+                if !buffer.is_null() {
+                    unsafe {
+                        ptr::copy_nonoverlapping(
+                            buffer,
+                            (*context).config.as_mut_ptr(),
+                            requested as usize,
+                        );
+                        (*context).config_len = requested as usize;
+                    }
+                }
+            }
+            unsafe {
+                copy_to_next(irp);
+            }
+            let installed = unsafe {
+                IoSetCompletionRoutineEx(device, irp, Some(completion), context.cast(), 1, 1, 1)
+            };
+            if installed >= 0 {
+                return unsafe { IofCallDriver(lower, irp) };
+            }
+            unsafe {
+                ExFreePoolWithTag(context.cast(), TAG);
+            }
         }
-        None => {
-            unsafe { (*irp).IoStatus.Information = 0 };
-            crate::device::STATUS_NO_DATA
+        // Capture allocation/registration failures do not change third-party I/O.
+        if let Some(token) = token {
+            with_state(|core, _| core.lost(token, 0));
         }
     }
-}
-
-/// Handles IOCTL_GET_STATUS: returns a DriverStatus snapshot.
-fn handle_get_status(manager: &DeviceManager<WdkKernelApi>, irp: *mut IRP) -> NTSTATUS {
-    // SAFETY: irp is valid, accessing SystemBuffer for METHOD_BUFFERED IOCTL.
-    let output = unsafe { (*irp).AssociatedIrp.SystemBuffer };
-    if output.is_null() {
-        return crate::device::STATUS_INVALID_PARAMETER;
-    }
-
-    // SAFETY: SystemBuffer is valid and sized for DriverStatus (kernel validates).
-    let status_out = unsafe { &mut *(output as *mut crate::shared::DriverStatus) };
-    *status_out = manager.status();
     unsafe {
-        (*irp).IoStatus.Information =
-            core::mem::size_of::<crate::shared::DriverStatus>() as u64;
+        skip(irp);
     }
-
-    STATUS_SUCCESS as NTSTATUS
+    let result = unsafe { IofCallDriver(lower, irp) };
+    unsafe {
+        IoReleaseRemoveLockEx(lock, irp.cast(), REMOVE_LOCK_SIZE);
+    }
+    result
+}
+unsafe fn data_buffer<'a>(irp: *mut IRP, ext: *mut Extension, length: usize) -> Option<&'a [u8]> {
+    // SAFETY: returned slice is used only while completion owns the live IRP.
+    let flags = unsafe { (*ext).io_flags };
+    if flags & DO_BUFFERED_IO != 0 {
+        let buffer = unsafe { (*irp).AssociatedIrp.SystemBuffer as *const u8 };
+        if !buffer.is_null() {
+            return Some(unsafe { core::slice::from_raw_parts(buffer, length) });
+        }
+    } else if flags & DO_DIRECT_IO != 0 {
+        let mdl = unsafe { (*irp).MdlAddress };
+        if !mdl.is_null() && unsafe { (*mdl).ByteCount as usize } >= length {
+            let mapped = if unsafe { (*mdl).MdlFlags as u32 }
+                & (MDL_MAPPED_TO_SYSTEM_VA | MDL_SOURCE_IS_NONPAGED_POOL)
+                != 0
+            {
+                unsafe { (*mdl).MappedSystemVa }
+            } else {
+                unsafe {
+                    MmMapLockedPagesSpecifyCache(
+                        mdl,
+                        0,
+                        _MEMORY_CACHING_TYPE::MmCached,
+                        ptr::null_mut(),
+                        0,
+                        _MM_PAGE_PRIORITY::NormalPagePriority as u32 | MdlMappingNoExecute,
+                    )
+                }
+            };
+            if !mapped.is_null() {
+                return Some(unsafe { core::slice::from_raw_parts(mapped.cast::<u8>(), length) });
+            }
+        }
+    }
+    // Never dereference neither-I/O user pointers at arbitrary completion IRQL.
+    None
+}
+unsafe extern "C" fn completion(
+    _device: PDEVICE_OBJECT,
+    irp: *mut IRP,
+    opaque: *mut c_void,
+) -> NTSTATUS {
+    // SAFETY: context is nonpaged, and its remove lock pins the device extension.
+    let context = unsafe { &*(opaque as *const CompletionContext) };
+    let status = unsafe { (*irp).IoStatus.__bindgen_anon_1.Status };
+    if u32::from(context.major) == IRP_MJ_CREATE {
+        with_state(|_, diag| {
+            diag.filter_create_count = diag.filter_create_count.saturating_add(1);
+            diag.last_filter_create_status = status;
+        });
+    }
+    if u32::from(context.major) != IRP_MJ_CREATE {
+        let port_id = unsafe { (*context.extension).port_id };
+        let mut time: LARGE_INTEGER = unsafe { core::mem::zeroed() };
+        unsafe {
+            KeQuerySystemTimePrecise(&mut time);
+        }
+        let timestamp = unsafe { time.QuadPart as u64 };
+        if matches!(u32::from(context.major), IRP_MJ_READ | IRP_MJ_WRITE) {
+            let actual = if status >= 0 {
+                unsafe { (*irp).IoStatus.Information }.min(u64::from(context.requested)) as u32
+            } else {
+                0
+            };
+            let data = unsafe { data_buffer(irp, context.extension, actual as usize) };
+            let info = EventInfo::data(
+                if u32::from(context.major) == IRP_MJ_WRITE {
+                    0
+                } else {
+                    1
+                },
+                context.requested,
+                actual,
+                status,
+                timestamp,
+            );
+            with_state(|core, _| core.observe_completion(context.token, port_id, info, data));
+        } else {
+            let info = EventInfo {
+                flags: 0,
+                direction: 2,
+                kind: 1,
+                requested: context.requested,
+                transferred: 0,
+                status,
+                timestamp,
+                ioctl: context.ioctl,
+            };
+            with_state(|core, _| {
+                core.observe_completion(
+                    context.token,
+                    port_id,
+                    info,
+                    Some(&context.config[..context.config_len]),
+                )
+            });
+        }
+    }
+    // IoMarkIrpPending equivalent: preserve asynchronous completion semantics.
+    if unsafe { (*irp).PendingReturned } != 0 {
+        unsafe {
+            (*stack(irp)).Control |= SL_PENDING_RETURNED as u8;
+        }
+    }
+    let lock = unsafe { ptr::addr_of_mut!((*context.extension).remove_lock) };
+    unsafe {
+        ExFreePoolWithTag(opaque, TAG);
+        IoReleaseRemoveLockEx(lock, irp.cast(), REMOVE_LOCK_SIZE);
+    }
+    0
+}
+unsafe fn control_irp(irp: *mut IRP, major: u8) -> NTSTATUS {
+    // SAFETY: METHOD_BUFFERED memory is touched only after validating both lengths.
+    let current = unsafe { stack(irp) };
+    let owner = unsafe { (*current).FileObject as u64 };
+    if matches!(
+        u32::from(major),
+        IRP_MJ_CREATE | IRP_MJ_CLOSE | IRP_MJ_CLEANUP
+    ) {
+        if u32::from(major) != IRP_MJ_CREATE {
+            with_state(|core, _| core.cleanup(owner));
+        }
+        return unsafe { finish(irp, 0, 0) };
+    }
+    if u32::from(major) != IRP_MJ_DEVICE_CONTROL {
+        return unsafe { finish(irp, monitor::STATUS_INVALID_PARAMETER, 0) };
+    }
+    let params = unsafe { (*current).Parameters.DeviceIoControl };
+    if let Err(status) = monitor::validate_ioctl(
+        params.IoControlCode,
+        params.InputBufferLength as usize,
+        params.OutputBufferLength as usize,
+    ) {
+        return unsafe { finish(irp, status, 0) };
+    }
+    let buffer = unsafe { (*irp).AssociatedIrp.SystemBuffer as *mut u8 };
+    if buffer.is_null() && params.IoControlCode != monitor::IOCTL_STOP {
+        return unsafe { finish(irp, monitor::STATUS_INVALID_PARAMETER, 0) };
+    }
+    let result = with_state(|core, diag| -> Result<usize, i32> {
+        match params.IoControlCode {
+            monitor::IOCTL_START => {
+                let mut name = [0u16; 64];
+                for (i, ch) in name.iter_mut().enumerate() {
+                    *ch = unsafe { ptr::read_unaligned(buffer.add(i * 2).cast::<u16>()) };
+                }
+                let result = core.start(owner, &name);
+                diag.last_start_status = result.as_ref().err().copied().unwrap_or(0);
+                diag.last_start_stage = if result.is_ok() { 5 } else { 2 };
+                result.map(|_| 0)
+            }
+            monitor::IOCTL_STOP => core.stop(owner).map(|_| 0),
+            monitor::IOCTL_DATA => core.read(owner, unsafe {
+                core::slice::from_raw_parts_mut(buffer, monitor::RECORD_SIZE)
+            }),
+            monitor::IOCTL_STATUS => {
+                core.status().encode(unsafe {
+                    core::slice::from_raw_parts_mut(buffer, monitor::STATUS_SIZE)
+                });
+                Ok(monitor::STATUS_SIZE)
+            }
+            monitor::IOCTL_DIAGNOSTICS => {
+                diag.pnp_filter_count = core.status().attached_ports;
+                for (i, value) in [
+                    diag.last_start_stage,
+                    diag.last_start_status as u32,
+                    diag.pnp_filter_count,
+                    diag.filter_create_count,
+                    diag.last_filter_create_status as u32,
+                ]
+                .iter()
+                .enumerate()
+                {
+                    unsafe {
+                        ptr::write_unaligned(buffer.add(i * 4).cast::<u32>(), *value);
+                    }
+                }
+                Ok(20)
+            }
+            _ => Err(monitor::STATUS_INVALID_PARAMETER),
+        }
+    })
+    .unwrap_or(Err(monitor::STATUS_NOT_FOUND));
+    match result {
+        Ok(bytes) => unsafe { finish(irp, 0, bytes) },
+        Err(status) => unsafe { finish(irp, status, 0) },
+    }
 }

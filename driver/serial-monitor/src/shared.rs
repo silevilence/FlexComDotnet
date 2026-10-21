@@ -49,6 +49,18 @@ pub enum MonitorState {
     Running = 1,
 }
 
+/// The latest stage reached while starting the monitor.
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MonitorStartStage {
+    Idle = 0,
+    CreatingFilter = 1,
+    AttachingFilter = 2,
+    ConfiguringFilter = 3,
+    EnablingFilter = 4,
+    Running = 5,
+}
+
 impl MonitorState {
     /// Creates a `MonitorState` from a raw `u8` value.
     pub fn from_u8(value: u8) -> Option<Self> {
@@ -340,6 +352,36 @@ impl Default for DriverStatus {
     }
 }
 
+/// Driver-side diagnostics returned to the UI when a monitoring attempt or
+/// an external application's open request fails.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DriverDiagnostics {
+    pub last_start_stage: u32,
+    pub last_start_status: i32,
+    pub pnp_filter_count: u32,
+    pub filter_create_count: u32,
+    pub last_filter_create_status: i32,
+}
+
+impl DriverDiagnostics {
+    pub fn new() -> Self {
+        Self {
+            last_start_stage: MonitorStartStage::Idle as u32,
+            last_start_status: 0,
+            pnp_filter_count: 0,
+            filter_create_count: 0,
+            last_filter_create_status: 0,
+        }
+    }
+}
+
+impl Default for DriverDiagnostics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -501,6 +543,15 @@ mod tests {
         // + total_bytes_rx(8) + total_bytes_tx(8) = 24
         assert_eq!(core::mem::size_of::<DriverStatus>(), 24);
         assert_eq!(core::mem::align_of::<DriverStatus>(), 8);
+    }
+
+    #[test]
+    fn test_driver_diagnostics_layout_and_default() {
+        assert_eq!(core::mem::size_of::<DriverDiagnostics>(), 20);
+        assert_eq!(
+            DriverDiagnostics::default().last_start_stage,
+            MonitorStartStage::Idle as u32
+        );
     }
 
     #[test]

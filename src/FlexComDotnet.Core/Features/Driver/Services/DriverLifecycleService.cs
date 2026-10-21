@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Security.Principal;
+using Microsoft.Win32;
+using System.Management;
 
 namespace FlexComDotnet.Core.Features.Driver.Services;
 
@@ -15,20 +17,26 @@ public sealed class DriverLifecycleService
     private readonly string? _packageDirectory;
     private readonly Func<string, IReadOnlyList<string>, DriverCommandResult> _runCommand;
     private readonly Func<bool> _isAdministrator;
+    private readonly IPnpFilterRegistration _pnpFilterRegistration;
+    private readonly Func<string, string?> _resolvePnpInstanceId;
 
     public DriverLifecycleService()
-        : this(null, RunCommand, IsCurrentProcessAdministrator)
+        : this(null, RunCommand, IsCurrentProcessAdministrator, new DeviceInstanceUpperFilterRegistration(), ResolvePnpInstanceId)
     {
     }
 
     internal DriverLifecycleService(
         string? packageDirectory,
         Func<string, IReadOnlyList<string>, DriverCommandResult> runCommand,
-        Func<bool> isAdministrator)
+        Func<bool> isAdministrator,
+        IPnpFilterRegistration? pnpFilterRegistration = null,
+        Func<string, string?>? resolvePnpInstanceId = null)
     {
         _packageDirectory = packageDirectory;
         _runCommand = runCommand;
         _isAdministrator = isAdministrator;
+        _pnpFilterRegistration = pnpFilterRegistration ?? NoopPnpFilterRegistration.Instance;
+        _resolvePnpInstanceId = resolvePnpInstanceId ?? ResolvePnpInstanceId;
     }
 
     /// <summary>
@@ -46,14 +54,7 @@ public sealed class DriverLifecycleService
 
         if (serviceExists && package is not null && DriverNeedsUpdate(package.SysPath))
         {
-            StopDriverCore();
-            var delete = DeleteDriverCore();
-            if (!delete.Succeeded)
-            {
-                return delete;
-            }
-
-            serviceExists = false;
+            return DriverLifecycleResult.Failure("检测到新版驱动。请在停止业务通信并卸载旧过滤器后部署新版驱动；检测和启动监控不会自动停止或替换正在使用的驱动。");
         }
 
         if (!serviceExists)
@@ -87,6 +88,33 @@ public sealed class DriverLifecycleService
     }
 
     /// <summary>
+    /// Registers only the selected device for its next enumeration.
+    /// Does not restart the port or interrupt an application's active handle.
+    /// </summary>
+    public DriverLifecycleResult ReenumeratePort(string portName)
+    {
+        if (!_isAdministrator())
+        {
+            return DriverLifecycleResult.Failure("重新枚举串口需要管理员权限。");
+        }
+
+        var instanceId = _resolvePnpInstanceId(portName);
+        if (string.IsNullOrWhiteSpace(instanceId))
+        {
+            return DriverLifecycleResult.Failure($"无法找到 {portName} 对应的 PnP 设备实例。请重新插拔或重启虚拟机。");
+        }
+
+        var registerFilter = _pnpFilterRegistration.EnsureRegistered(ServiceName, instanceId);
+        if (!registerFilter.Succeeded)
+        {
+            return registerFilter;
+        }
+
+        return DriverLifecycleResult.Success(
+            $"已登记：{portName} -> {instanceId}。不会自动重启串口。请在停止业务通信后重新插拔设备或重启系统，随后启动监控。");
+    }
+
+    /// <summary>
     /// 内部卸载接口：停止并删除驱动服务。
     /// </summary>
     public DriverLifecycleResult UninstallDriver()
@@ -96,13 +124,22 @@ public sealed class DriverLifecycleService
             return DriverLifecycleResult.Failure("SerialMonitor 驱动操作需要管理员权限。");
         }
 
+        var removeRegistration = _pnpFilterRegistration.RemoveRegistration(ServiceName);
+        if (!removeRegistration.Succeeded) return removeRegistration;
+
         var stop = StopDriverCore();
         if (!stop.Succeeded)
         {
-            return stop;
+            return DriverLifecycleResult.Failure($"过滤器登记已移除。请在业务停止后重新枚举相关端口或重启系统，再卸载驱动。{stop.Message}");
         }
 
-        return DeleteDriverCore();
+        var delete = DeleteDriverCore();
+        if (!delete.Succeeded)
+        {
+            return delete;
+        }
+
+        return delete;
     }
 
     private bool DriverServiceExists() =>
@@ -111,7 +148,7 @@ public sealed class DriverLifecycleService
     private DriverLifecycleResult InstallDriverCore(DriverPackage package)
     {
         var pnputil = _runCommand("pnputil", ["/add-driver", package.InfPath, "/install"]);
-        if (pnputil.ExitCode == 0)
+        if (pnputil.ExitCode == 0 && DriverServiceExists())
         {
             return DriverLifecycleResult.Success("SerialMonitor 驱动已通过 pnputil 安装。");
         }
@@ -251,6 +288,9 @@ public sealed class DriverLifecycleService
         return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
     }
 
+    internal static string? ResolvePnpInstanceId(string portName) =>
+        SerialMonitorPortIdentity.ResolveInstanceId(portName);
+
     private static DriverCommandResult RunCommand(string fileName, IReadOnlyList<string> arguments)
     {
         using var process = new Process();
@@ -280,6 +320,15 @@ public sealed class DriverLifecycleService
     private static string MergeOutput(DriverCommandResult result) =>
         $"{result.StandardOutput} {result.StandardError}".Trim();
 
+    private static string FormatDiagnosticOutput(DriverCommandResult result)
+    {
+        var output = string.Join(' ', MergeOutput(result)
+            .Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return string.IsNullOrWhiteSpace(output)
+            ? "（无输出）"
+            : output.Length <= 500 ? output : $"{output[..500]}…";
+    }
+
     private static bool IsServiceAlreadyRunning(DriverCommandResult result) =>
         ContainsAny(result, "1056", "already been started", "已启动", "已在运行");
 
@@ -293,6 +342,147 @@ public sealed class DriverLifecycleService
     }
 
     private sealed record DriverPackage(string InfPath, string SysPath);
+}
+
+internal interface IPnpFilterRegistration
+{
+    DriverLifecycleResult EnsureRegistered(string serviceName, string deviceInstanceId);
+
+    DriverLifecycleResult RemoveRegistration(string serviceName);
+}
+
+internal sealed class NoopPnpFilterRegistration : IPnpFilterRegistration
+{
+    public static NoopPnpFilterRegistration Instance { get; } = new();
+
+    public DriverLifecycleResult EnsureRegistered(string serviceName, string deviceInstanceId) =>
+        DriverLifecycleResult.Success("SerialMonitor PnP 过滤器注册已跳过。");
+
+    public DriverLifecycleResult RemoveRegistration(string serviceName) =>
+        DriverLifecycleResult.Success("SerialMonitor PnP 过滤器注册已跳过。");
+}
+
+/// <summary>
+/// Registers SerialMonitor as an upper filter on one serial device instance.
+/// This keeps unrelated Ports-class devices out of the filter stack while the
+/// selected COM device is re-enumerated through DriverEntry.AddDevice.
+/// </summary>
+internal sealed class DeviceInstanceUpperFilterRegistration : IPnpFilterRegistration
+{
+    private const string EnumKey = @"SYSTEM\CurrentControlSet\Enum";
+    private const string PortsClassKey = @"SYSTEM\CurrentControlSet\Control\Class\{4D36E978-E325-11CE-BFC1-08002BE10318}";
+    private const string UpperFiltersValue = "UpperFilters";
+
+    public DriverLifecycleResult EnsureRegistered(string serviceName, string deviceInstanceId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(deviceInstanceId))
+            {
+                return DriverLifecycleResult.Failure("PnP 设备实例不能为空。无法注册串口过滤器。");
+            }
+
+            // Migration from earlier builds: remove the class-wide registration
+            // before registering the selected device, otherwise every Ports
+            // device would continue receiving this filter.
+            using (var classKey = Registry.LocalMachine.OpenSubKey(PortsClassKey, writable: true))
+            {
+                if (classKey is not null)
+                {
+                    RemoveFilter(classKey, serviceName);
+                }
+            }
+
+            using var key = Registry.LocalMachine.OpenSubKey($"{EnumKey}\\{deviceInstanceId}", writable: true);
+            if (key is null)
+            {
+                return DriverLifecycleResult.Failure($"无法打开 PnP 设备实例 {deviceInstanceId} 以注册 SerialMonitor 过滤器。");
+            }
+
+            var filters = ReadFilters(key);
+            if (!filters.Contains(serviceName, StringComparer.OrdinalIgnoreCase))
+            {
+                key.SetValue(UpperFiltersValue, filters.Append(serviceName).ToArray(), RegistryValueKind.MultiString);
+            }
+
+            return DriverLifecycleResult.Success($"SerialMonitor 已注册到 PnP 实例 {deviceInstanceId}；下次枚举设备时生效。");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return DriverLifecycleResult.Failure("注册 SerialMonitor PnP 过滤器需要管理员权限。");
+        }
+        catch (Exception ex)
+        {
+            return DriverLifecycleResult.Failure($"注册 SerialMonitor PnP 过滤器失败：{ex.Message}");
+        }
+    }
+
+    public DriverLifecycleResult RemoveRegistration(string serviceName)
+    {
+        try
+        {
+            using (var classKey = Registry.LocalMachine.OpenSubKey(PortsClassKey, writable: true))
+            {
+                if (classKey is not null)
+                {
+                    RemoveFilter(classKey, serviceName);
+                }
+            }
+
+            foreach (var instanceId in FindPortsDeviceInstanceIds())
+            {
+                using var deviceKey = Registry.LocalMachine.OpenSubKey($"{EnumKey}\\{instanceId}", writable: true);
+                if (deviceKey is not null)
+                {
+                    RemoveFilter(deviceKey, serviceName);
+                }
+            }
+
+            return DriverLifecycleResult.Success("SerialMonitor PnP 过滤器注册已移除；重新枚举目标串口后完全卸载。");
+        }
+        catch (Exception ex)
+        {
+            return DriverLifecycleResult.Failure($"移除 SerialMonitor PnP 过滤器注册失败：{ex.Message}");
+        }
+    }
+
+    private static string[] ReadFilters(RegistryKey key) =>
+        key.GetValue(UpperFiltersValue) switch
+        {
+            string[] values => values.Where(value => !string.IsNullOrWhiteSpace(value)).ToArray(),
+            string value when !string.IsNullOrWhiteSpace(value) => [value],
+            _ => []
+        };
+
+    private static void RemoveFilter(RegistryKey key, string serviceName)
+    {
+        var filters = ReadFilters(key)
+            .Where(filter => !StringComparer.OrdinalIgnoreCase.Equals(filter, serviceName))
+            .ToArray();
+        if (filters.Length == 0)
+        {
+            key.DeleteValue(UpperFiltersValue, throwOnMissingValue: false);
+        }
+        else
+        {
+            key.SetValue(UpperFiltersValue, filters, RegistryValueKind.MultiString);
+        }
+    }
+
+    private static IEnumerable<string> FindPortsDeviceInstanceIds()
+    {
+        using var searcher = new ManagementObjectSearcher(
+            "SELECT PNPDeviceID FROM Win32_PnPEntity " +
+            "WHERE ClassGuid='{4D36E978-E325-11CE-BFC1-08002BE10318}'");
+        foreach (var device in searcher.Get())
+        {
+            var instanceId = device["PNPDeviceID"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(instanceId))
+            {
+                yield return instanceId;
+            }
+        }
+    }
 }
 
 internal readonly record struct DriverCommandResult(int ExitCode, string StandardOutput, string StandardError);

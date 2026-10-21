@@ -12,14 +12,11 @@
 
 // In kernel (no_std) mode, String/format! come from alloc instead of std.
 #[cfg(feature = "kernel")]
-use alloc::{
-    format,
-    string::{String, ToString},
-};
+use alloc::string::{String, ToString};
 
 use crate::ioctl;
 use crate::ring_buffer::RingBuffer;
-use crate::shared::MonitorState;
+use crate::shared::{DriverDiagnostics, MonitorStartStage, MonitorState};
 
 /// NTSTATUS-compatible result type.
 /// In Windows kernel, NTSTATUS is a 32-bit signed integer.
@@ -36,6 +33,8 @@ pub const STATUS_ALREADY_MONITORING: NtStatus = -1; // Custom: already monitorin
 pub const STATUS_NOT_MONITORING: NtStatus = -2; // Custom: not currently monitoring
 pub const STATUS_BUFFER_TOO_SMALL: NtStatus = -3; // Custom: output buffer too small
 pub const STATUS_NO_DATA: NtStatus = -4; // Custom: no data available
+
+const FILTER_DEVICE_NAME: &str = "\\Device\\SerialMonitorFilter";
 
 /// Opaque handle representing a kernel device object.
 /// In actual kernel code, this wraps a `PDEVICE_OBJECT`.
@@ -77,6 +76,19 @@ pub trait KernelApi {
         lower_device: DeviceHandle,
     ) -> Result<(), NtStatus>;
 
+    /// Configures the filter device with the I/O characteristics inherited
+    /// from the device it is attached to.
+    fn configure_filter_device(
+        &mut self,
+        filter_device: DeviceHandle,
+        lower_device: DeviceHandle,
+    ) -> Result<(), NtStatus>;
+
+    /// Clears the initialization gate only after a device has been fully
+    /// configured. Until this succeeds, the I/O manager must not dispatch
+    /// requests to the device.
+    fn mark_device_ready(&mut self, device: DeviceHandle) -> Result<(), NtStatus>;
+
     /// Gets the current system timestamp (100-nanosecond intervals).
     fn get_timestamp(&self) -> u64;
 }
@@ -101,6 +113,8 @@ pub struct DeviceManager<K: KernelApi> {
     total_bytes_rx: u64,
     /// Statistics: total TX bytes.
     total_bytes_tx: u64,
+    /// Most recent failure and filter-open diagnostics exposed to user mode.
+    diagnostics: DriverDiagnostics,
 }
 
 impl<K: KernelApi> DeviceManager<K> {
@@ -116,6 +130,7 @@ impl<K: KernelApi> DeviceManager<K> {
             buffer: RingBuffer::new(buffer_capacity),
             total_bytes_rx: 0,
             total_bytes_tx: 0,
+            diagnostics: DriverDiagnostics::default(),
         }
     }
 
@@ -139,6 +154,16 @@ impl<K: KernelApi> DeviceManager<K> {
         }
 
         Ok(())
+    }
+
+    /// Makes the user-mode control device available after the driver has
+    /// installed its dispatch table and published the device manager.
+    pub fn activate_control_device(&mut self) -> Result<(), NtStatus> {
+        let Some(device) = self.control_device else {
+            return Err(STATUS_INVALID_PARAMETER);
+        };
+
+        self.kernel.mark_device_ready(device)
     }
 
     /// Cleans up all resources. Called during driver unload.
@@ -165,24 +190,51 @@ impl<K: KernelApi> DeviceManager<K> {
     /// device stack.
     pub fn start_monitor(&mut self, port_name: &str) -> Result<(), NtStatus> {
         if self.state == MonitorState::Running {
+            self.set_start_diagnostic(MonitorStartStage::Idle, STATUS_ALREADY_MONITORING);
             return Err(STATUS_ALREADY_MONITORING);
         }
 
         if port_name.is_empty() {
+            self.set_start_diagnostic(MonitorStartStage::Idle, STATUS_INVALID_PARAMETER);
             return Err(STATUS_INVALID_PARAMETER);
         }
 
         // Create filter device
-        let filter_device_name = format!("\\Device\\SerialMonitorFilter_{}", port_name);
-        let filter_dev = self.kernel.create_device(&filter_device_name)?;
+        self.diagnostics = DriverDiagnostics::default();
+        self.diagnostics.last_start_stage = MonitorStartStage::CreatingFilter as u32;
+        let filter_dev = match self.kernel.create_device(FILTER_DEVICE_NAME) {
+            Ok(device) => device,
+            Err(error) => {
+                self.set_start_diagnostic(MonitorStartStage::CreatingFilter, error);
+                return Err(error);
+            }
+        };
         self.filter_device = Some(filter_dev);
 
         // Attach to target serial port device stack
+        self.diagnostics.last_start_stage = MonitorStartStage::AttachingFilter as u32;
         match self.kernel.attach_device(filter_dev, port_name) {
             Ok(lower_dev) => {
+                self.diagnostics.last_start_stage = MonitorStartStage::ConfiguringFilter as u32;
+                if let Err(e) = self.kernel.configure_filter_device(filter_dev, lower_dev) {
+                    self.set_start_diagnostic(MonitorStartStage::ConfiguringFilter, e);
+                    let _ = self.kernel.detach_device(filter_dev, lower_dev);
+                    let _ = self.kernel.delete_device(filter_dev);
+                    self.filter_device = None;
+                    return Err(e);
+                }
+                self.diagnostics.last_start_stage = MonitorStartStage::EnablingFilter as u32;
+                if let Err(e) = self.kernel.mark_device_ready(filter_dev) {
+                    self.set_start_diagnostic(MonitorStartStage::EnablingFilter, e);
+                    let _ = self.kernel.detach_device(filter_dev, lower_dev);
+                    let _ = self.kernel.delete_device(filter_dev);
+                    self.filter_device = None;
+                    return Err(e);
+                }
                 self.lower_device = Some(lower_dev);
             }
             Err(e) => {
+                self.set_start_diagnostic(MonitorStartStage::AttachingFilter, e);
                 // Clean up filter device on attach failure
                 let _ = self.kernel.delete_device(filter_dev);
                 self.filter_device = None;
@@ -195,8 +247,40 @@ impl<K: KernelApi> DeviceManager<K> {
         self.buffer.reset();
         self.total_bytes_rx = 0;
         self.total_bytes_tx = 0;
+        self.set_start_diagnostic(MonitorStartStage::Running, STATUS_SUCCESS);
 
         Ok(())
+    }
+
+    /// Starts capture after a PnP filter device has already been inserted into
+    /// the serial device stack by the Plug and Play manager. Unlike
+    /// `start_monitor`, this does not attach to a named device at runtime.
+    pub fn start_pnp_monitor(&mut self, port_name: &str) -> Result<(), NtStatus> {
+        if self.state == MonitorState::Running {
+            self.set_start_diagnostic(MonitorStartStage::Idle, STATUS_ALREADY_MONITORING);
+            return Err(STATUS_ALREADY_MONITORING);
+        }
+        if port_name.is_empty() {
+            self.set_start_diagnostic(MonitorStartStage::Idle, STATUS_INVALID_PARAMETER);
+            return Err(STATUS_INVALID_PARAMETER);
+        }
+
+        self.diagnostics = DriverDiagnostics::default();
+        self.monitored_port = Some(port_name.to_string());
+        self.state = MonitorState::Running;
+        self.buffer.reset();
+        self.total_bytes_rx = 0;
+        self.total_bytes_tx = 0;
+        self.set_start_diagnostic(MonitorStartStage::Running, STATUS_SUCCESS);
+        Ok(())
+    }
+
+    /// Records that no PnP filter device was attached to the selected serial
+    /// stack. This is reported to user mode instead of pretending monitoring
+    /// started successfully.
+    pub fn report_pnp_filter_unavailable(&mut self) {
+        self.diagnostics = DriverDiagnostics::default();
+        self.set_start_diagnostic(MonitorStartStage::AttachingFilter, STATUS_UNSUCCESSFUL);
     }
 
     /// Stops monitoring the current serial port.
@@ -239,6 +323,11 @@ impl<K: KernelApi> DeviceManager<K> {
         self.lower_device
     }
 
+    /// Returns whether a device object is the user-mode control device.
+    pub fn is_control_device(&self, device: DeviceHandle) -> bool {
+        self.control_device == Some(device)
+    }
+
     /// Returns a mutable reference to the ring buffer.
     pub fn buffer_mut(&mut self) -> &mut RingBuffer {
         &mut self.buffer
@@ -274,6 +363,24 @@ impl<K: KernelApi> DeviceManager<K> {
             total_bytes_rx: self.total_bytes_rx,
             total_bytes_tx: self.total_bytes_tx,
         }
+    }
+
+    /// Returns the latest startup and external-open diagnostic state.
+    pub fn diagnostics(&self) -> DriverDiagnostics {
+        self.diagnostics
+    }
+
+    /// Records the completion result of an external application's CREATE IRP
+    /// that passed through the filter device.
+    pub fn record_filter_create_completion(&mut self, status: NtStatus) {
+        self.diagnostics.filter_create_count =
+            self.diagnostics.filter_create_count.saturating_add(1);
+        self.diagnostics.last_filter_create_status = status;
+    }
+
+    fn set_start_diagnostic(&mut self, stage: MonitorStartStage, status: NtStatus) {
+        self.diagnostics.last_start_stage = stage as u32;
+        self.diagnostics.last_start_status = status;
     }
 
     /// Adds to the RX byte counter.
@@ -315,6 +422,9 @@ mod tests {
         fail_attach: Option<NtStatus>,
         /// If set, create_symbolic_link will fail with this status.
         fail_symlink: Option<NtStatus>,
+        configured_filter: Option<(DeviceHandle, DeviceHandle)>,
+        ready_devices: Vec<DeviceHandle>,
+        operation_log: Vec<String>,
     }
 
     impl MockKernel {
@@ -328,6 +438,9 @@ mod tests {
                 fail_create_device: None,
                 fail_attach: None,
                 fail_symlink: None,
+                configured_filter: None,
+                ready_devices: Vec::new(),
+                operation_log: Vec::new(),
             }
         }
 
@@ -335,8 +448,20 @@ mod tests {
             self.devices.len()
         }
 
+        fn device_names(&self) -> impl Iterator<Item = &str> {
+            self.devices.values().map(String::as_str)
+        }
+
         fn symlink_count(&self) -> usize {
             self.symlinks.len()
+        }
+
+        fn configured_filter(&self) -> Option<(DeviceHandle, DeviceHandle)> {
+            self.configured_filter
+        }
+
+        fn operation_log(&self) -> &[String] {
+            &self.operation_log
         }
     }
 
@@ -348,6 +473,7 @@ mod tests {
             let handle = self.next_handle;
             self.next_handle += 1;
             self.devices.insert(handle, name.to_string());
+            self.operation_log.push(format!("create:{handle}"));
             Ok(handle)
         }
 
@@ -385,6 +511,7 @@ mod tests {
             let lower_handle = self.next_handle;
             self.next_handle += 1;
             self.attachments.insert(filter_device, lower_handle);
+            self.operation_log.push(format!("attach:{filter_device}"));
             Ok(lower_handle)
         }
 
@@ -394,6 +521,23 @@ mod tests {
             _lower_device: DeviceHandle,
         ) -> Result<(), NtStatus> {
             self.attachments.remove(&filter_device);
+            Ok(())
+        }
+
+        fn configure_filter_device(
+            &mut self,
+            filter_device: DeviceHandle,
+            lower_device: DeviceHandle,
+        ) -> Result<(), NtStatus> {
+            self.configured_filter = Some((filter_device, lower_device));
+            self.operation_log
+                .push(format!("configure:{filter_device}"));
+            Ok(())
+        }
+
+        fn mark_device_ready(&mut self, device: DeviceHandle) -> Result<(), NtStatus> {
+            self.ready_devices.push(device);
+            self.operation_log.push(format!("ready:{device}"));
             Ok(())
         }
 
@@ -449,6 +593,75 @@ mod tests {
         assert_eq!(mgr.state(), MonitorState::Running);
         assert_eq!(mgr.monitored_port(), Some("\\Device\\Serial0"));
         assert!(mgr.lower_device().is_some());
+    }
+
+    #[test]
+    fn test_start_monitor_uses_a_valid_filter_device_name() {
+        let mut mgr = create_manager();
+        mgr.initialize().unwrap();
+
+        mgr.start_monitor("\\Device\\USBSER000").unwrap();
+
+        assert!(mgr
+            .kernel()
+            .device_names()
+            .any(|name| name == "\\Device\\SerialMonitorFilter"));
+    }
+
+    #[test]
+    fn test_start_monitor_configures_filter_for_the_attached_serial_device() {
+        let mut mgr = create_manager();
+        mgr.initialize().unwrap();
+
+        mgr.start_monitor("\\Device\\USBSER000").unwrap();
+
+        assert!(mgr.kernel().configured_filter().is_some());
+    }
+
+    #[test]
+    fn test_start_monitor_marks_filter_ready_only_after_attach_and_configuration() {
+        let mut mgr = create_manager();
+        mgr.initialize().unwrap();
+
+        mgr.start_monitor("\\Device\\USBSER000").unwrap();
+
+        assert_eq!(
+            mgr.kernel().operation_log(),
+            ["create:1", "create:2", "attach:2", "configure:2", "ready:2"]
+        );
+    }
+
+    #[test]
+    fn test_start_monitor_attach_failure_exposes_stage_and_ntstatus() {
+        let mut kernel = MockKernel::new();
+        kernel.fail_attach = Some(STATUS_UNSUCCESSFUL);
+        let mut mgr = DeviceManager::new(kernel, 1024);
+        mgr.initialize().unwrap();
+
+        mgr.start_monitor("\\Device\\USBSER000").unwrap_err();
+
+        let diagnostic = mgr.diagnostics();
+        assert_eq!(
+            diagnostic.last_start_stage,
+            MonitorStartStage::AttachingFilter as u32
+        );
+        assert_eq!(diagnostic.last_start_status, STATUS_UNSUCCESSFUL);
+    }
+
+    #[test]
+    fn test_start_pnp_monitor_does_not_create_or_attach_a_runtime_filter() {
+        let mut mgr = create_manager();
+        mgr.initialize().unwrap();
+
+        mgr.start_pnp_monitor("COM10").unwrap();
+
+        assert_eq!(mgr.state(), MonitorState::Running);
+        assert!(mgr.filter_device.is_none());
+        assert!(mgr.lower_device.is_none());
+        assert_eq!(
+            mgr.diagnostics().last_start_stage,
+            MonitorStartStage::Running as u32
+        );
     }
 
     #[test]

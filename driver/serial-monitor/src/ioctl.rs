@@ -53,6 +53,7 @@ const FUNCTION_GET_DATA: u32 = 0x802;
 
 /// Function code for querying driver status.
 const FUNCTION_GET_STATUS: u32 = 0x803;
+const FUNCTION_GET_DIAGNOSTICS: u32 = 0x804;
 
 /// IOCTL to start monitoring a specific serial port.
 ///
@@ -100,6 +101,14 @@ pub const IOCTL_GET_DATA: u32 = ctl_code(
 pub const IOCTL_GET_STATUS: u32 = ctl_code(
     FILE_DEVICE_SERIAL_MONITOR,
     FUNCTION_GET_STATUS,
+    METHOD_BUFFERED,
+    FILE_READ_ACCESS,
+);
+
+/// IOCTL to retrieve the last driver diagnostic state.
+pub const IOCTL_GET_DIAGNOSTICS: u32 = ctl_code(
+    FILE_DEVICE_SERIAL_MONITOR,
+    FUNCTION_GET_DIAGNOSTICS,
     METHOD_BUFFERED,
     FILE_READ_ACCESS,
 );
@@ -195,6 +204,7 @@ mod tests {
             IOCTL_STOP_MONITOR,
             IOCTL_GET_DATA,
             IOCTL_GET_STATUS,
+            IOCTL_GET_DIAGNOSTICS,
         ];
         for i in 0..codes.len() {
             for j in (i + 1)..codes.len() {
@@ -232,6 +242,7 @@ mod tests {
         assert_eq!(IOCTL_STOP_MONITOR, 0x8000E004);
         assert_eq!(IOCTL_GET_DATA, 0x80006008);
         assert_eq!(IOCTL_GET_STATUS, 0x8000600C);
+        assert_eq!(IOCTL_GET_DIAGNOSTICS, 0x80006010);
     }
 
     #[test]

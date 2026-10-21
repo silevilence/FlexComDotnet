@@ -54,7 +54,7 @@ pub mod serial_ioctl {
     /// IOCTL_SERIAL_SET_LINE_CONTROL
     pub const SET_LINE_CONTROL: u32 = 0x001B000C;
     /// IOCTL_SERIAL_SET_HANDFLOW
-    pub const SET_HANDFLOW: u32 = 0x001B0060;
+    pub const SET_HANDFLOW: u32 = 0x001B0064;
 }
 
 /// Represents a captured IRP event for processing.

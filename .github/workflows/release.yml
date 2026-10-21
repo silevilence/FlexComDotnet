@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest
+    runs-on: windows-2022
     
     steps:
       - name: Checkout repository
@@ -27,6 +27,23 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Windows Driver Kit
+        shell: pwsh
+        run: |
+          # Microsoft.WindowsWDK.10.0.26100 10.1.26100.6584, pinned to its WinGet manifest.
+          $installer = Join-Path $env:RUNNER_TEMP 'wdksetup.exe'
+          Invoke-WebRequest 'https://download.microsoft.com/download/41fb59c2-1723-45f9-a270-96b73ad58233/KIT_BUNDLE_WDK_MEDIACREATION/wdksetup.exe' -OutFile $installer
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne 'ED82C46BD98E0F1D07FD6E5075900E42AEDC3FA5E68C06A8764B3DC5303CFF1B') {
+            throw 'WDK installer checksum mismatch.'
+          }
+          $process = Start-Process -FilePath $installer -ArgumentList '/q', '/norestart' -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -notin @(0, 3010)) { throw "WDK installation failed: $($process.ExitCode)" }
+          if (-not (Test-Path 'C:\Program Files\LLVM\bin\libclang.dll')) { throw 'LLVM libclang is missing.' }
+          'LIBCLANG_PATH=C:\Program Files\LLVM\bin' >> $env:GITHUB_ENV
 
       - name: Extract version from tag
         id: version
@@ -72,6 +89,18 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
+      - name: Test C# and Rust
+        shell: pwsh
+        run: |
+          dotnet test tests/FlexComDotnet.Tests -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Push-Location driver/serial-monitor
+          cargo test --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --all-targets -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Pop-Location
+
       - name: Build Release
         run: |
           dotnet publish ${{ env.PROJECT_PATH }} `
@@ -81,6 +110,18 @@ jobs:
             -p:PublishSingleFile=true `
             -p:Version=${{ steps.version.outputs.VERSION }} `
             -o ./publish/portable
+
+      - name: Verify bundled test-signed driver
+        shell: pwsh
+        run: |
+          $driver = './publish/portable/driver/serial-monitor'
+          foreach ($file in @('serial_monitor.sys', 'serial_monitor.inf', 'serial_monitor.cat', 'WDRLocalTestCert.cer')) {
+            if (-not (Test-Path "$driver/$file")) { throw "Missing driver asset: $file" }
+          }
+          $expectedVersion = '${{ steps.version.outputs.VERSION }}.0'
+          if ((Get-Content "$driver/serial_monitor.inf" -Raw) -notmatch ([regex]::Escape($expectedVersion))) {
+            throw 'Bundled driver version does not match the release.'
+          }
 
       - name: Create portable ZIP
         shell: pwsh

@@ -15,7 +15,7 @@ Class       = System
 ClassGuid   = {4D36E97D-E325-11CE-BFC1-08002BE10318}
 Provider    = %ProviderName%
 CatalogFile = serial_monitor.cat
-DriverVer   = ; Stamped by Stampinf
+DriverVer = 10/21/2026,1.6.0.0
 PnpLockdown = 1
 
 [DestinationDirs]
@@ -32,10 +32,10 @@ serial_monitor.sys = 1,,
 ; Default install sections
 ; ----------------------------------------------------------------
 
-[DefaultInstall.NT$ARCH$]
+[DefaultInstall.NTamd64]
 CopyFiles = SerialMonitor.CopyFiles
 
-[DefaultInstall.NT$ARCH$.Services]
+[DefaultInstall.NTamd64.Services]
 AddService = SerialMonitor,,SerialMonitor.Service
 
 ; ----------------------------------------------------------------

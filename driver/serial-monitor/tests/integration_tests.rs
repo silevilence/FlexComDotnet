@@ -86,6 +86,18 @@ impl KernelApi for MockKernel {
         Ok(())
     }
 
+    fn configure_filter_device(
+        &mut self,
+        _filter: DeviceHandle,
+        _lower: DeviceHandle,
+    ) -> Result<(), NtStatus> {
+        Ok(())
+    }
+
+    fn mark_device_ready(&mut self, _device: DeviceHandle) -> Result<(), NtStatus> {
+        Ok(())
+    }
+
     fn get_timestamp(&self) -> u64 {
         self.timestamp_counter
     }
