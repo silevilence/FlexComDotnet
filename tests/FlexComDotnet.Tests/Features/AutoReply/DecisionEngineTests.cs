@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using FlexComDotnet.Core.Features.AutoReply.Models;
 using FlexComDotnet.Core.Features.AutoReply.Services;
 using FlexComDotnet.Core.Features.Serial.Services;
@@ -7,23 +8,28 @@ using MatchType = FlexComDotnet.Core.Features.AutoReply.Models.MatchType;
 
 namespace FlexComDotnet.Tests.Features.AutoReply;
 
-public class DecisionEngineTests
+public class DecisionEngineTests : IDisposable
 {
     private readonly Mock<ISerialPortService> _mockSerial;
     private readonly AutoReplyService _service;
-    private readonly List<byte[]> _sentReplies = [];
+    private readonly ConcurrentQueue<byte[]> _sentReplies = new();
+    private readonly TaskCompletionSource _replySent = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public DecisionEngineTests()
     {
         _mockSerial = new Mock<ISerialPortService>();
         _mockSerial.Setup(s => s.Send(It.IsAny<byte[]>()))
-            .Callback<byte[]>(data => _sentReplies.Add(data))
+            .Callback<byte[]>(data =>
+            {
+                _sentReplies.Enqueue(data);
+                _replySent.TrySetResult();
+            })
             .Returns(true);
         _service = new AutoReplyService(_mockSerial.Object);
     }
 
     [Fact]
-    public void LAST_Mode_LastFrameMatches_ShouldReply()
+    public async Task LAST_Mode_LastFrameMatches_ShouldReply()
     {
         _service.UpdateConfig(new AutoReplyConfig
         {
@@ -54,14 +60,14 @@ public class DecisionEngineTests
 
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame1);
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame2);
-        Thread.Sleep(100);
+        await _replySent.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         _sentReplies.Should().HaveCount(1);
-        _sentReplies[0].Should().Equal(0xCC);
+        _sentReplies.Single().Should().Equal(0xCC);
     }
 
     [Fact]
-    public void LAST_Mode_LastFrameNoMatch_ShouldNotReply()
+    public async Task LAST_Mode_LastFrameNoMatch_ShouldNotReply()
     {
         _service.UpdateConfig(new AutoReplyConfig
         {
@@ -92,14 +98,14 @@ public class DecisionEngineTests
 
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame1);
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame2);
-        Thread.Sleep(100);
+        await Task.Delay(150);
 
         // LAST 模式只检查最后一帧（0xAA），不匹配 → 不回复
         _sentReplies.Should().BeEmpty();
     }
 
     [Fact]
-    public void OR_Mode_AnyFrameMatches_ShouldReply()
+    public async Task OR_Mode_AnyFrameMatches_ShouldReply()
     {
         _service.UpdateConfig(new AutoReplyConfig
         {
@@ -130,14 +136,14 @@ public class DecisionEngineTests
 
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame1);
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame2);
-        Thread.Sleep(100);
+        await _replySent.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         // OR 模式：任一帧匹配即可
         _sentReplies.Should().HaveCount(1);
     }
 
     [Fact]
-    public void AND_Mode_AllFramesMustMatch()
+    public async Task AND_Mode_AllFramesMustMatch()
     {
         _service.UpdateConfig(new AutoReplyConfig
         {
@@ -168,14 +174,14 @@ public class DecisionEngineTests
 
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame1);
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame2);
-        Thread.Sleep(100);
+        await _replySent.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         // AND 模式：所有帧必须全部匹配
         _sentReplies.Should().HaveCount(1);
     }
 
     [Fact]
-    public void AND_Mode_AnyFrameNoMatch_ShouldNotReply()
+    public async Task AND_Mode_AnyFrameNoMatch_ShouldNotReply()
     {
         _service.UpdateConfig(new AutoReplyConfig
         {
@@ -206,14 +212,14 @@ public class DecisionEngineTests
 
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame1);
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame2);
-        Thread.Sleep(100);
+        await Task.Delay(150);
 
         // AND 模式：frame2 不匹配 → 不回复
         _sentReplies.Should().BeEmpty();
     }
 
     [Fact]
-    public void Sequential_ShouldExecuteRegardlessOfDecisionMode()
+    public async Task Sequential_ShouldExecuteRegardlessOfDecisionMode()
     {
         _service.UpdateConfig(new AutoReplyConfig
         {
@@ -243,14 +249,14 @@ public class DecisionEngineTests
 
         var frame = new byte[] { 0xAA };
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame);
-        Thread.Sleep(100);
+        await _replySent.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         // 顺序回复不受决策模式约束
         _sentReplies.Should().HaveCount(1);
     }
 
     [Fact]
-    public void FIRST_Mode_OnlyFirstFrameChecked()
+    public async Task FIRST_Mode_OnlyFirstFrameChecked()
     {
         _service.UpdateConfig(new AutoReplyConfig
         {
@@ -281,14 +287,14 @@ public class DecisionEngineTests
 
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame1);
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame2);
-        Thread.Sleep(100);
+        await _replySent.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         // FIRST 模式只检查第一帧
         _sentReplies.Should().HaveCount(1);
     }
 
     [Fact]
-    public void NoMatchRules_ShouldNotReply()
+    public async Task NoMatchRules_ShouldNotReply()
     {
         _service.UpdateConfig(new AutoReplyConfig
         {
@@ -301,8 +307,10 @@ public class DecisionEngineTests
 
         var frame = new byte[] { 0xAA };
         _mockSerial.Raise(s => s.FrameReceived += null, _mockSerial.Object, frame);
-        Thread.Sleep(100);
+        await Task.Delay(150);
 
         _sentReplies.Should().BeEmpty();
     }
+
+    public void Dispose() => _service.Dispose();
 }
