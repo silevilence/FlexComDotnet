@@ -746,7 +746,7 @@ public class ModbusRtuParser : IProtocolParser
         byte[] calculatedCrc = _checksumService.Calculate(ChecksumAlgorithmType.Crc16Modbus, dataWithoutCrc);
 
         // CRC-16/MODBUS: 低字节在前，高字节在后
-        return frame[^2] == calculatedCrc[^1] && frame[^1] == calculatedCrc[^2];
+        return frame[^2] == calculatedCrc[0] && frame[^1] == calculatedCrc[1];
     }
 
     private byte[] AppendCrc(byte[] data)
@@ -754,8 +754,8 @@ public class ModbusRtuParser : IProtocolParser
         var crc = _checksumService.Calculate(ChecksumAlgorithmType.Crc16Modbus, data);
         var result = new byte[data.Length + CrcLength];
         Array.Copy(data, result, data.Length);
-        result[data.Length] = crc[^1];       // CRC Lo
-        result[data.Length + 1] = crc[^2];   // CRC Hi
+        result[data.Length] = crc[0];       // CRC Lo
+        result[data.Length + 1] = crc[1];    // CRC Hi
         return result;
     }
 

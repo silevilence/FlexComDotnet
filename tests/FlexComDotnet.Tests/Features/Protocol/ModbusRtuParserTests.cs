@@ -44,8 +44,8 @@ public class ModbusRtuParserTests
         // CRC-16/MODBUS: low byte first, then high byte
         var result = new byte[data.Length + 2];
         Array.Copy(data, result, data.Length);
-        result[data.Length] = crc[^1];       // CRC Lo
-        result[data.Length + 1] = crc[^2];   // CRC Hi
+        result[data.Length] = crc[0];       // CRC Lo
+        result[data.Length + 1] = crc[1];    // CRC Hi
         return result;
     }
 
@@ -379,8 +379,8 @@ public class ModbusRtuParserTests
 
         // 验证 CRC
         var crc = _checksumService.Calculate(ChecksumAlgorithmType.Crc16Modbus, frame[..6]);
-        frame[6].Should().Be(crc[^1]); // CRC Lo
-        frame[7].Should().Be(crc[^2]); // CRC Hi
+        frame[6].Should().Be(crc[0]); // CRC Lo
+        frame[7].Should().Be(crc[1]); // CRC Hi
     }
 
     [Fact]
@@ -578,8 +578,8 @@ public class ModbusRtuParserTests
         // 验证 CRC 正确性：用 frame 去除最后2字节重新计算
         var dataWithoutCrc = frame[..^2];
         var expectedCrc = _checksumService.Calculate(ChecksumAlgorithmType.Crc16Modbus, dataWithoutCrc);
-        frame[^2].Should().Be(expectedCrc[^1]); // CRC Lo
-        frame[^1].Should().Be(expectedCrc[^2]); // CRC Hi
+        frame[^2].Should().Be(expectedCrc[0]); // CRC Lo
+        frame[^1].Should().Be(expectedCrc[1]); // CRC Hi
     }
 
     [Fact]
