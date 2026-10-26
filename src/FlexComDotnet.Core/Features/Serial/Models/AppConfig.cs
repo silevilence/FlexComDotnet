@@ -13,6 +13,9 @@ namespace FlexComDotnet.Core.Features.Serial.Models;
 /// </summary>
 public class AppConfig
 {
+    public ProcessMonitor.Models.ProcessMonitorConfig ProcessMonitor { get; set; } = new();
+    public UsbCapture.Models.UsbCaptureConfig UsbCapture { get; set; } = new();
+
     /// <summary>
     /// 串口配置
     /// </summary>

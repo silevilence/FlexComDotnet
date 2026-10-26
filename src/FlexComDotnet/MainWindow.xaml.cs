@@ -61,6 +61,8 @@ public partial class MainWindow : Window
         public const string DataVisualization = "data-visualization";
         public const string LogPanel = "log-panel";
         public const string SerialMonitor = "serial-monitor";
+        public const string ProcessMonitor = "process-monitor";
+        public const string UsbCapture = "usb-capture";
     }
 
     public MainWindow()
@@ -290,6 +292,17 @@ public partial class MainWindow : Window
         );
 
         // 添加数据可视化面板（可移动，默认在底部）
+        MultiZoneLayout.AddPanel(PanelIds.ProcessMonitor, "进程串口监控（API Hook）",
+            new Features.ProcessMonitor.Views.ProcessMonitorView
+            { DataContext = App.Services.GetRequiredService<Core.Features.ProcessMonitor.ViewModels.ProcessMonitorViewModel>() },
+            _panelManager.GetPanel(PanelIds.ProcessMonitor)?.Zone ?? PanelZone.Bottom,
+            isMovable: true, order: _panelManager.GetPanel(PanelIds.ProcessMonitor)?.Order ?? 3);
+        MultiZoneLayout.AddPanel(PanelIds.UsbCapture, "USB 抓包（USBPcap）",
+            new Features.UsbCapture.Views.UsbCaptureView
+            { DataContext = App.Services.GetRequiredService<Core.Features.UsbCapture.ViewModels.UsbCaptureViewModel>() },
+            _panelManager.GetPanel(PanelIds.UsbCapture)?.Zone ?? PanelZone.Bottom,
+            isMovable: true, order: _panelManager.GetPanel(PanelIds.UsbCapture)?.Order ?? 4);
+
         var savedVisualization = _panelManager.GetPanel(PanelIds.DataVisualization);
         MultiZoneLayout.AddPanel(
             PanelIds.DataVisualization,

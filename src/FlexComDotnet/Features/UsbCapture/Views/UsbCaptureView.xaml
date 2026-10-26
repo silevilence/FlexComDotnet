@@ -1,0 +1,12 @@
+<UserControl x:Class="FlexComDotnet.Features.UsbCapture.Views.UsbCaptureView"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  Background="{DynamicResource BackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
+  <StackPanel Margin="16">
+    <TextBlock Text="USB 抓包（USBPcap）" FontSize="18" FontWeight="SemiBold"/>
+    <TextBlock Margin="0,8" TextWrapping="Wrap" Text="按设备观察 USB 传输。USB 记录不等同于串口调用，不包含可靠的进程归属或线路时序。仅经验证的适配器可以还原串口数据。"/>
+    <TextBlock Text="设备筛选偏好"/><TextBox Text="{Binding DeviceFilter, UpdateSourceTrigger=PropertyChanged}"/>
+    <Button Content="保存偏好" Command="{Binding SaveConfigurationCommand}" HorizontalAlignment="Left" Padding="12,6" Margin="0,12"/>
+    <TextBlock Text="{Binding OperationStatus}" TextWrapping="Wrap"/>
+  </StackPanel>
+</UserControl>

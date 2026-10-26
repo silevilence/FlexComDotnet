@@ -92,6 +92,12 @@
         
         <!-- 主要按钮区域（预留扩展） -->
         <StackPanel x:Name="MainButtons" Grid.Row="0">
+            <Button Content="串" ToolTip="串口监控" AutomationProperties.Name="串口监控"
+                    Style="{StaticResource TechActivityBarRegularButtonStyle}" Tag="serial-monitor" Click="MonitorButton_Click"/>
+            <Button Content="进" ToolTip="进程串口监控（API Hook）" AutomationProperties.Name="进程串口监控（API Hook）"
+                    Style="{StaticResource TechActivityBarRegularButtonStyle}" Tag="process-monitor" Click="MonitorButton_Click"/>
+            <Button Content="USB" ToolTip="USB 抓包（USBPcap）" AutomationProperties.Name="USB 抓包（USBPcap）"
+                    FontSize="12" Style="{StaticResource TechActivityBarRegularButtonStyle}" Tag="usb-capture" Click="MonitorButton_Click"/>
         </StackPanel>
         
         <!-- 底部功能区域 -->

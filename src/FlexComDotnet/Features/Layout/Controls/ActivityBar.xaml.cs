@@ -89,6 +89,12 @@ public partial class ActivityBar : UserControl
         SettingsClicked?.Invoke(this, EventArgs.Empty);
     }
 
+    private void MonitorButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string panelId })
+            PanelVisibilityToggled?.Invoke(this, new PanelVisibilityEventArgs(panelId));
+    }
+
     private void ThemeCycleButton_Click(object sender, RoutedEventArgs e)
     {
         _themeService?.CycleMode();
