@@ -1,0 +1,13 @@
+mode=baseline pointerBits=32 records=0 dropped=0
+mode=startup pointerBits=32 records=5 dropped=0
+handle=320 direction=0 requested=7 completed=7 succeeded=1 lastError=12345 fileTime=134374736517290329 bytes=0 1 2 7f 80 fe ff
+handle=324 direction=1 requested=7 completed=7 succeeded=1 lastError=12345 fileTime=134374736517290405 bytes=0 1 2 7f 80 fe ff
+handle=324 direction=0 requested=7 completed=7 succeeded=1 lastError=12345 fileTime=134374736517290944 bytes=0 1 2 7f 80 fe ff
+handle=320 direction=1 requested=7 completed=7 succeeded=1 lastError=12345 fileTime=134374736517291036 bytes=0 1 2 7f 80 fe ff
+handle=320 direction=0 requested=0 completed=0 succeeded=1 lastError=12345 fileTime=134374736517291104 bytes=
+mode=attach pointerBits=32 records=5 dropped=0
+handle=424 direction=0 requested=7 completed=7 succeeded=1 lastError=12345 fileTime=134374736517900061 bytes=0 1 2 7f 80 fe ff
+handle=428 direction=1 requested=7 completed=7 succeeded=1 lastError=12345 fileTime=134374736517900143 bytes=0 1 2 7f 80 fe ff
+handle=428 direction=0 requested=7 completed=7 succeeded=1 lastError=12345 fileTime=134374736517900507 bytes=0 1 2 7f 80 fe ff
+handle=424 direction=1 requested=7 completed=7 succeeded=1 lastError=12345 fileTime=134374736517900670 bytes=0 1 2 7f 80 fe ff
+handle=424 direction=0 requested=0 completed=0 succeeded=1 lastError=12345 fileTime=134374736517900758 bytes=

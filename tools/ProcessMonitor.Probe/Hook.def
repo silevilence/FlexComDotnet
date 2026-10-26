@@ -1,0 +1,3 @@
+LIBRARY FlexComProbeHook
+EXPORTS
+    DetourFinishHelperProcess @1
