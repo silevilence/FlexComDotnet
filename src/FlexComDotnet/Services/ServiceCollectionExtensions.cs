@@ -42,6 +42,9 @@ public static class ServiceCollectionExtensions
         // 驱动生命周期服务 (单例)
         services.AddSingleton<DriverLifecycleService>();
         services.AddSingleton<SerialMonitorService>();
+        services.AddSingleton<Core.Features.ProcessMonitor.Services.ProcessMonitorTargets>();
+        services.AddSingleton<Core.Features.ProcessMonitor.Services.ProcessMonitorSession>(_ =>
+            new(new Core.Features.ProcessMonitor.Services.NativeProcessMonitorTransport()));
         services.AddTransient<Core.Features.ProcessMonitor.ViewModels.ProcessMonitorViewModel>();
         services.AddTransient<Core.Features.UsbCapture.ViewModels.UsbCaptureViewModel>();
 

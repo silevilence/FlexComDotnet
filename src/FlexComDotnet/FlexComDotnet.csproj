@@ -91,4 +91,5 @@
           SkipUnchangedFiles="true" />
   </Target>
 
+  <Import Project="..\FlexCom.ProcessHook\ProcessHook.targets" />
 </Project>

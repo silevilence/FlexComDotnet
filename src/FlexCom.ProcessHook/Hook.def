@@ -1,0 +1,4 @@
+LIBRARY "FlexCom.ProcessHook.dll"
+EXPORTS
+    DetourFinishHelperProcess @1
+    InitializeProcessMonitor

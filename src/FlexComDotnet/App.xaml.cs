@@ -55,6 +55,18 @@ public partial class App : Application
         mainWindow.Show();
     }
 
+    protected override void OnExit(ExitEventArgs e)
+    {
+        // The capture service has no Dispatcher dependency; finish ownership cleanup before process exit.
+        try
+        {
+            var session = Services.GetService<Core.Features.ProcessMonitor.Services.ProcessMonitorSession>();
+            if (session is not null) Task.Run(async () => await session.DisposeAsync()).GetAwaiter().GetResult();
+        }
+        catch (Exception error) { WriteCrashLog("ProcessMonitorShutdown", error); }
+        base.OnExit(e);
+    }
+
     /// <summary>
     /// 修复 MenuDropAlignment 导致的菜单弹出方向问题
     /// </summary>

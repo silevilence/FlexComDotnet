@@ -1,0 +1,53 @@
+<Project>
+  <PropertyGroup>
+    <ProcessHookSource>$(MSBuildThisFileDirectory)</ProcessHookSource>
+    <ProcessHookArtifacts>$(ProcessHookSource)artifacts</ProcessHookArtifacts>
+  </PropertyGroup>
+  <ItemGroup>
+    <_ProcessHookSource Include="$(ProcessHookSource)*.cpp;$(ProcessHookSource)*.h;$(ProcessHookSource)*.def;$(ProcessHookSource)Build-Hook.ps1;$(MSBuildThisFileFullPath);$(ProcessHookSource)..\..\tools\ProcessMonitor.Probe\NativeTests.cpp;$(ProcessHookSource)..\..\tests\FlexCom.ProcessHook.Tests\HookContractTests.cpp"/>
+  </ItemGroup>
+  <Target Name="BuildProcessHookAssets"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildProcessHook)' != 'false' and '$(UseExistingProcessHookAssets)' != 'true'"
+          Inputs="@(_ProcessHookSource)"
+          Outputs="$(ProcessHookArtifacts)\x86\FlexCom.ProcessHook.dll;$(ProcessHookArtifacts)\x86\FlexCom.ProcessHook.Helper.exe;$(ProcessHookArtifacts)\x86\Detours-LICENSE.md;$(ProcessHookArtifacts)\x64\FlexCom.ProcessHook.dll;$(ProcessHookArtifacts)\x64\FlexCom.ProcessHook.Helper.exe;$(ProcessHookArtifacts)\x64\Detours-LICENSE.md">
+    <Exec Command="powershell -NoProfile -File &quot;$(ProcessHookSource)Build-Hook.ps1&quot; -Architecture x86"/>
+    <Exec Command="powershell -NoProfile -File &quot;$(ProcessHookSource)Build-Hook.ps1&quot; -Architecture x64"/>
+  </Target>
+  <Target Name="IncludeProcessHookAssets" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildProcessHookAssets"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildProcessHook)' != 'false'">
+    <ItemGroup>
+      <Content Include="$(ProcessHookArtifacts)\x86\FlexCom.ProcessHook.dll">
+        <Link>ProcessHook\x86\FlexCom.ProcessHook.dll</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+      <Content Include="$(ProcessHookArtifacts)\x86\FlexCom.ProcessHook.Helper.exe">
+        <Link>ProcessHook\x86\FlexCom.ProcessHook.Helper.exe</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+      <Content Include="$(ProcessHookArtifacts)\x86\Detours-LICENSE.md">
+        <Link>ProcessHook\x86\Detours-LICENSE.md</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+      <Content Include="$(ProcessHookArtifacts)\x64\FlexCom.ProcessHook.dll">
+        <Link>ProcessHook\x64\FlexCom.ProcessHook.dll</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+      <Content Include="$(ProcessHookArtifacts)\x64\FlexCom.ProcessHook.Helper.exe">
+        <Link>ProcessHook\x64\FlexCom.ProcessHook.Helper.exe</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+      <Content Include="$(ProcessHookArtifacts)\x64\Detours-LICENSE.md">
+        <Link>ProcessHook\x64\Detours-LICENSE.md</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+      <Content Include="$(ProcessHookSource)README.md"><Link>ProcessHook\README.md</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory><ExcludeFromSingleFile>true</ExcludeFromSingleFile></Content>
+    </ItemGroup>
+    <Error Condition="!Exists('%(Content.Identity)')" Text="缺少打包内容：%(Content.Identity)"/>
+  </Target>
+</Project>

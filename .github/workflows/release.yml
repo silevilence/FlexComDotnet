@@ -101,6 +101,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Pop-Location
 
+      - name: Build and test API Hook without serial hardware
+        shell: pwsh
+        run: |
+          foreach ($architecture in @('x86', 'x64')) {
+            & ./src/FlexCom.ProcessHook/Build-Hook.ps1 -Architecture $architecture
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & "./src/FlexCom.ProcessHook/artifacts/$architecture/HookContractTests.exe"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & "./src/FlexCom.ProcessHook/artifacts/$architecture/NativeTests.exe"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          dotnet run --project tools/ProcessMonitor.HostTests -- src/FlexCom.ProcessHook/artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build Release
         run: |
           dotnet publish ${{ env.PROJECT_PATH }} `
@@ -108,6 +122,7 @@ jobs:
             -r win-x64 `
             --self-contained true `
             -p:PublishSingleFile=true `
+            -p:UseExistingProcessHookAssets=true `
             -p:Version=${{ steps.version.outputs.VERSION }} `
             -o ./publish/portable
 
