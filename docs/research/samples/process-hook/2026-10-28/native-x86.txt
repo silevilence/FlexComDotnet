@@ -1,0 +1,5 @@
+stage=initial ports
+stage=event ports
+stage=callback ports
+stage=extended ports after cancelled close
+PASS architecture=32 serial=1 initialization/exclusion, sync, event/IOCP/deduplication, callback/cancel/close/session, extended result/batch IOCP

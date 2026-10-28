@@ -1,0 +1,109 @@
+Copying fixed test bundle to VM: C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-0a6992267be64aee830ef9b69b9a8a07
+06:59:37 START UTC=2026-10-28T06:59:37.2060588Z OS=Microsoft Windows NT 10.0.19045.0 architecture=X64 local=C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-0a6992267be64aee830ef9b69b9a8a07\
+06:59:37 Dedicated ports COM10/20, COM11/21, COM12/22; system security and drivers unchanged.
+06:59:37 BEGIN native full serial x64
+06:59:38 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+06:59:38 PASS native full serial x64
+06:59:38 BEGIN native full serial x86
+06:59:40 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+06:59:40 PASS native full serial x86
+06:59:40 BEGIN .NET SerialPort x64
+06:59:41 managed x64: business bytes PASS; captured completions=2, bytes=14
+06:59:41 FAIL .NET SerialPort x64: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 155
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 82
+06:59:41 BEGIN .NET SerialPort x86
+06:59:42 managed x86: business bytes PASS; captured completions=3, bytes=21
+06:59:42 FAIL .NET SerialPort x86: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 155
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 82
+06:59:42 SHORT SERIAL TESTS COMPLETE. Both architectures now run on separate port pairs concurrently.
+06:59:42 BEGIN native lifecycle/performance x64
+06:59:42 BEGIN native lifecycle/performance x86
+06:59:46 x86 cycle=1 capture=False cycles=192 elapsedMs=3000 p99us=2089 records=0/768 gaps=0 invalid=0
+06:59:46 x64 cycle=1 capture=False cycles=192 elapsedMs=3000 p99us=2236 records=0/768 gaps=0 invalid=0
+06:59:49 x64 cycle=2 capture=True cycles=192 elapsedMs=3000 p99us=2181 records=759/768 gaps=9 invalid=0
+06:59:49 x86 cycle=2 capture=True cycles=192 elapsedMs=3000 p99us=1995 records=722/768 gaps=46 invalid=0
+06:59:50 x64 cycle=3 capture=False cycles=63 elapsedMs=1000 p99us=2088 records=0/252 gaps=0 invalid=0
+06:59:50 x86 cycle=3 capture=False cycles=64 elapsedMs=1000 p99us=1996 records=0/256 gaps=0 invalid=0
+06:59:52 x64 cycle=4 capture=True cycles=64 elapsedMs=1000 p99us=2117 records=255/256 gaps=1 invalid=0
+06:59:52 x86 cycle=4 capture=True cycles=64 elapsedMs=1000 p99us=1933 records=233/256 gaps=23 invalid=0
+06:59:52 x64 lifecycle and bytes PASS; entering 30-minute paced bidirectional run at configured 115200 baud.
+06:59:52 x86 lifecycle and bytes PASS; entering 30-minute paced bidirectional run at configured 115200 baud.
+07:00:52 x64 long run minute=1 records=16278 gaps=49 targetPrivate=4390912
+07:00:52 x86 long run minute=1 records=15876 gaps=420 targetPrivate=4784128
+07:01:52 x64 long run minute=2 records=31536 gaps=111 targetPrivate=4390912
+07:01:52 x86 long run minute=2 records=30825 gaps=785 targetPrivate=4784128
+07:02:52 x64 long run minute=3 records=46814 gaps=153 targetPrivate=4390912
+07:02:52 x86 long run minute=3 records=45564 gaps=1376 targetPrivate=4784128
+07:03:52 x64 long run minute=4 records=62093 gaps=202 targetPrivate=4390912
+07:03:52 x86 long run minute=4 records=60429 gaps=1831 targetPrivate=4784128
+07:04:52 x64 long run minute=5 records=77391 gaps=244 targetPrivate=4452352
+07:04:52 x86 long run minute=5 records=75358 gaps=2244 targetPrivate=4927488
+07:05:52 x64 long run minute=6 records=92674 gaps=309 targetPrivate=4452352
+07:05:52 x86 long run minute=6 records=90329 gaps=2615 targetPrivate=4927488
+07:06:52 x86 long run minute=7 records=105354 gaps=2938 targetPrivate=4784128
+07:06:52 x64 long run minute=7 records=107966 gaps=365 targetPrivate=4390912
+07:07:52 x64 long run minute=8 records=123267 gaps=416 targetPrivate=4390912
+07:07:52 x86 long run minute=8 records=120290 gaps=3348 targetPrivate=4784128
+07:08:52 x64 long run minute=9 records=138541 gaps=486 targetPrivate=4390912
+07:08:52 x86 long run minute=9 records=135302 gaps=3684 targetPrivate=4784128
+07:09:52 x64 long run minute=10 records=153829 gaps=542 targetPrivate=4423680
+07:09:52 x86 long run minute=10 records=150212 gaps=4118 targetPrivate=4853760
+07:10:52 x64 long run minute=11 records=168913 gaps=586 targetPrivate=4423680
+07:10:52 x86 long run minute=11 records=164792 gaps=4697 targetPrivate=4853760
+07:11:52 x86 long run minute=12 records=179537 gaps=5161 targetPrivate=4784128
+07:11:52 x64 long run minute=12 records=184051 gaps=660 targetPrivate=4390912
+07:12:52 x86 long run minute=13 records=194285 gaps=5507 targetPrivate=4784128
+07:12:52 x64 long run minute=13 records=199093 gaps=714 targetPrivate=4390912
+07:13:52 x86 long run minute=14 records=208947 gaps=6001 targetPrivate=4784128
+07:13:52 x64 long run minute=14 records=214202 gaps=769 targetPrivate=4390912
+07:14:52 x64 long run minute=15 records=229307 gaps=832 targetPrivate=4390912
+07:14:52 x86 long run minute=15 records=223584 gaps=6524 targetPrivate=4784128
+07:15:52 x64 long run minute=16 records=244016 gaps=887 targetPrivate=4390912
+07:15:52 x86 long run minute=16 records=237974 gaps=6896 targetPrivate=4784128
+07:16:52 x86 long run minute=17 records=252482 gaps=7382 targetPrivate=4784128
+07:16:52 x64 long run minute=17 records=258914 gaps=981 targetPrivate=4390912
+07:17:52 x86 long run minute=18 records=267387 gaps=7733 targetPrivate=4784128
+07:17:52 x64 long run minute=18 records=274099 gaps=1054 targetPrivate=4390912
+07:18:53 x64 long run minute=19 records=289284 gaps=1135 targetPrivate=4390912
+07:18:53 x86 long run minute=19 records=282356 gaps=8033 targetPrivate=4784128
+07:19:53 x86 long run minute=20 records=297039 gaps=8335 targetPrivate=4784128
+07:19:53 x64 long run minute=20 records=304224 gaps=1183 targetPrivate=4390912
+07:20:53 x86 long run minute=21 records=311812 gaps=8592 targetPrivate=4784128
+07:20:53 x64 long run minute=21 records=319170 gaps=1265 targetPrivate=4390912
+07:21:53 x64 long run minute=22 records=334078 gaps=1353 targetPrivate=4390912
+07:21:53 x86 long run minute=22 records=326498 gaps=8902 targetPrivate=4784128
+07:22:53 x64 long run minute=23 records=349363 gaps=1412 targetPrivate=4390912
+07:22:53 x86 long run minute=23 records=341344 gaps=9394 targetPrivate=4784128
+07:23:53 x86 long run minute=24 records=356275 gaps=9791 targetPrivate=4784128
+07:23:53 x64 long run minute=24 records=364641 gaps=1462 targetPrivate=4390912
+07:24:53 x64 long run minute=25 records=379889 gaps=1554 targetPrivate=4390912
+07:24:53 x86 long run minute=25 records=371108 gaps=10296 targetPrivate=4784128
+07:25:53 x64 long run minute=26 records=395148 gaps=1631 targetPrivate=4390912
+07:25:53 x86 long run minute=26 records=385864 gaps=10884 targetPrivate=4784128
+07:26:53 x64 long run minute=27 records=410406 gaps=1713 targetPrivate=4390912
+07:26:53 x86 long run minute=27 records=400820 gaps=11268 targetPrivate=4784128
+07:27:53 x86 long run minute=28 records=415838 gaps=11595 targetPrivate=4784128
+07:27:53 x64 long run minute=28 records=425692 gaps=1779 targetPrivate=4390912
+07:28:53 x86 long run minute=29 records=430868 gaps=11910 targetPrivate=4784128
+07:28:53 x64 long run minute=29 records=440956 gaps=1863 targetPrivate=4390912
+07:29:52 x64 cycle=5 capture=True cycles=114181 elapsedMs=1800000 p99us=2324 records=454801/456724 gaps=1923 invalid=0
+07:29:52 x86 cycle=5 capture=True cycles=114178 elapsedMs=1800000 p99us=2049 records=444113/456712 gaps=12599 invalid=0
+07:29:52 x64 long run minute=30 records=455815 gaps=1924 targetPrivate=4390912
+07:29:52 x86 long run minute=30 records=445068 gaps=12622 targetPrivate=3981312
+07:29:55 x64 cycle=6 capture=False cycles=184 elapsedMs=3000 p99us=2153 records=0/736 gaps=0 invalid=0
+07:29:55 x86 cycle=6 capture=False cycles=182 elapsedMs=3000 p99us=2093 records=0/728 gaps=0 invalid=0
+07:29:55 x64 pacedThroughputRatio=1.0000, p99IncreaseUs=-55, longCycles=114181; paced virtual-port result, not saturation benchmark.
+07:29:56 x86 pacedThroughputRatio=1.0000, p99IncreaseUs=-94, longCycles=114178; paced virtual-port result, not saturation benchmark.
+07:29:58 PASS native lifecycle/performance x64
+07:29:58 PASS native lifecycle/performance x86
+07:29:58 FINISHED failures=2 UTC=2026-10-28T07:29:58.3851758Z

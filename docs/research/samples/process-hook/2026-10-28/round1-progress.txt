@@ -1,0 +1,51 @@
+Copying fixed test bundle to VM: C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-1986e5fe4d1a4f69b3b00f846ce3c9e4
+06:09:52 START UTC=2026-10-28T06:09:52.6159724Z OS=Microsoft Windows NT 10.0.19045.0 architecture=X64 local=C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-1986e5fe4d1a4f69b3b00f846ce3c9e4\
+06:09:52 Dedicated ports COM10/20, COM11/21, COM12/22; system security and drivers unchanged.
+06:09:52 BEGIN native full serial x64
+06:09:58 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+06:09:58 PASS native full serial x64
+06:09:58 BEGIN native full serial x86
+06:10:04 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+06:10:04 PASS native full serial x86
+06:10:04 BEGIN .NET SerialPort x64
+06:10:10 managed x64: business bytes PASS; captured completions=4, bytes=25
+06:10:10 FAIL .NET SerialPort x64: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 155
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 82
+06:10:10 BEGIN .NET SerialPort x86
+06:10:19 managed x86: business bytes PASS; captured completions=1, bytes=7
+06:10:20 FAIL .NET SerialPort x86: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 155
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 82
+06:10:20 SHORT SERIAL TESTS COMPLETE. Both architectures now run on separate port pairs concurrently.
+06:10:20 BEGIN native lifecycle/performance x64
+06:10:20 BEGIN native lifecycle/performance x86
+06:10:23 x64 cycle=1 capture=False cycles=187 elapsedMs=3000 p99us=2231 records=0/748 gaps=0 invalid=0
+06:10:23 x86 cycle=1 capture=False cycles=188 elapsedMs=3000 p99us=2015 records=0/752 gaps=0 invalid=0
+06:10:26 x64 cycle=2 capture=True cycles=192 elapsedMs=3000 p99us=2201 records=762/768 gaps=3 invalid=0
+06:10:26 x86 cycle=2 capture=True cycles=192 elapsedMs=3000 p99us=1947 records=722/768 gaps=34 invalid=0
+06:10:26 FAIL native lifecycle/performance x64: System.InvalidOperationException: paced capture has missing records
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+   at Program.<>c__DisplayClass19_0.<<NativeCase>g__Cycle|0>d.MoveNext() in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 198
+--- End of stack trace from previous location ---
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 206
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 230
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 242
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 82
+06:10:26 FAIL native lifecycle/performance x86: System.InvalidOperationException: paced capture has missing records
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+   at Program.<>c__DisplayClass19_0.<<NativeCase>g__Cycle|0>d.MoveNext() in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 198
+--- End of stack trace from previous location ---
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 206
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 230
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 242
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 82
+06:10:26 FINISHED failures=4 UTC=2026-10-28T06:10:26.7574727Z

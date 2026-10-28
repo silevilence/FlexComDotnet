@@ -2,6 +2,12 @@
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
+#include <vector>
+#include <algorithm>
+
+// Fixed-purpose VM workload, controlled by files so suspended-start tests need no console.
+// No shell, remote command execution, driver installation, or security configuration.
+static int Traffic(const std::wstring& directory, const wchar_t* targetName, const wchar_t* peerName);
 
 static std::wstring OutputPath() {
     wchar_t path[MAX_PATH]{}; GetModuleFileNameW(nullptr, path, MAX_PATH);
@@ -221,6 +227,7 @@ static void EmitWireFixture() {
     ReleaseMutex(mutex); CloseHandle(mutex); UnmapViewOfFile(queue); CloseHandle(mapping);
 }
 int wmain(int argc, wchar_t** argv) {
+    if (argc == 5 && std::wstring(argv[1]) == L"--traffic") return Traffic(argv[2], argv[3], argv[4]);
     if (argc > 1 && std::wstring(argv[1]) == L"--launch-worker") { Sleep(3000); return 0; }
     if (argc > 1 && std::wstring(argv[1]) == L"--host-worker") {
         std::cout << "READY" << std::endl;
@@ -241,4 +248,58 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     int result = Run(true);
     MessageBoxW(nullptr, result ? L"FAIL: native-results.txt" : L"PASS: native-results.txt", L"FlexCom Hook tests", MB_OK);
     return result;
+}
+
+static int Traffic(const std::wstring& directory, const wchar_t* targetName, const wchar_t* peerName) {
+    HANDLE target = INVALID_HANDLE_VALUE, peer = INVALID_HANDLE_VALUE;
+    try {
+        target = OpenPort(targetName); peer = OpenPort(peerName);
+        std::ofstream(directory + L"\\ready.txt") << GetCurrentProcessId();
+        LARGE_INTEGER frequency{}; QueryPerformanceFrequency(&frequency);
+        for (unsigned command = 1; command < 100; ++command) {
+            auto input = directory + L"\\go-" + std::to_wstring(command) + L".txt";
+            auto idle = GetTickCount64();
+            while (GetFileAttributesW(input.c_str()) == INVALID_FILE_ATTRIBUTES) {
+                if (GetFileAttributesW((directory + L"\\stop.txt").c_str()) != INVALID_FILE_ATTRIBUTES) {
+                    CloseHandle(target); CloseHandle(peer); return 0;
+                }
+                Check(GetTickCount64() - idle < 120000, "traffic command timeout"); Sleep(10);
+            }
+            unsigned duration = 0, pause = 0; std::ifstream(input) >> duration >> pause;
+            Check(duration > 0 && duration <= 1800000, "traffic duration");
+            std::vector<uint64_t> latency(100001, 0); uint64_t cycles = 0, calls = 0;
+            BYTE bytes[64]{}, received[64]{};
+            auto started = GetTickCount64();
+            do {
+                for (unsigned i = 0; i < 64; ++i) bytes[i] = static_cast<BYTE>((cycles + i) % 256);
+                for (int direction = 0; direction < 2; ++direction) {
+                    DWORD count = 0; LARGE_INTEGER before{}, after{};
+                    QueryPerformanceCounter(&before);
+                    Check(WriteFile(direction ? peer : target, bytes, 64, &count, nullptr) && count == 64, "traffic write");
+                    QueryPerformanceCounter(&after);
+                    auto us = static_cast<uint64_t>((after.QuadPart - before.QuadPart) * 1000000 / frequency.QuadPart);
+                    ++latency[static_cast<size_t>((std::min)(us, uint64_t(100000)))]; ++calls;
+                    QueryPerformanceCounter(&before);
+                    Check(ReadFile(direction ? target : peer, received, 64, &count, nullptr) && count == 64
+                        && !memcmp(bytes, received, 64), "traffic read bytes");
+                    QueryPerformanceCounter(&after);
+                    us = static_cast<uint64_t>((after.QuadPart - before.QuadPart) * 1000000 / frequency.QuadPart);
+                    ++latency[static_cast<size_t>((std::min)(us, uint64_t(100000)))]; ++calls;
+                }
+                ++cycles;
+                if (pause) Sleep(pause);
+            } while (GetTickCount64() - started < duration);
+            auto elapsed = GetTickCount64() - started;
+            uint64_t cumulative = 0, p99 = 0;
+            for (; p99 < latency.size(); ++p99) { cumulative += latency[static_cast<size_t>(p99)]; if (cumulative * 100 >= calls * 99) break; }
+            std::ofstream(directory + L"\\done-" + std::to_wstring(command) + L".txt")
+                << cycles << ' ' << elapsed << ' ' << p99 << ' ' << calls;
+        }
+        CloseHandle(target); CloseHandle(peer); return 0;
+    } catch (const std::exception& error) {
+        std::ofstream(directory + L"\\error.txt") << error.what();
+        if (target != INVALID_HANDLE_VALUE) CloseHandle(target);
+        if (peer != INVALID_HANDLE_VALUE) CloseHandle(peer);
+        return 1;
+    }
 }
