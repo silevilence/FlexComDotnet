@@ -1,0 +1,142 @@
+Copying fixed test bundle to VM: C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-f62430e896304d9aa3251b76c3fafaf2
+01:25:10 START UTC=2026-11-03T01:25:10.0959178Z OS=Microsoft Windows NT 10.0.19045.0 architecture=X64 local=C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-f62430e896304d9aa3251b76c3fafaf2\
+01:25:10 Dedicated ports COM10/20, COM11/21, COM12/22; system security and drivers unchanged.
+01:25:10 BEGIN native full serial x64
+01:25:11 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+01:25:11 PASS native full serial x64
+01:25:11 BEGIN native full serial x86
+01:25:12 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+01:25:12 PASS native full serial x86
+01:25:12 BEGIN .NET SerialPort x64
+01:25:13 managed x64-attach-1: business bytes PASS; captured completions=3/4, bytes=21
+01:25:13 FAIL .NET SerialPort x64: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 97
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 211
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 94
+01:25:13 BEGIN .NET SerialPort x86
+01:25:14 managed x86-attach-1: business bytes PASS; captured completions=3/4, bytes=21
+01:25:14 FAIL .NET SerialPort x86: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 97
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 211
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 94
+01:25:14 BEGIN .NET launch x64
+01:25:15 managed x64-launch-1: business bytes PASS; captured completions=4/4, bytes=28
+01:25:15 PASS .NET launch x64
+01:25:15 BEGIN .NET attach concurrent reuse x64
+01:25:18 managed x64-attach-200: business bytes PASS; captured completions=798/800, bytes=5586
+01:25:19 FAIL .NET attach concurrent reuse x64: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 97
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 211
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 94
+01:25:19 BEGIN .NET launch concurrent reuse x64
+01:25:23 managed x64-launch-200: business bytes PASS; captured completions=800/800, bytes=5600
+01:25:23 PASS .NET launch concurrent reuse x64
+01:25:23 BEGIN .NET launch x86
+01:25:23 managed x86-launch-1: business bytes PASS; captured completions=4/4, bytes=28
+01:25:23 PASS .NET launch x86
+01:25:23 BEGIN .NET attach concurrent reuse x86
+01:25:27 managed x86-attach-200: business bytes PASS; captured completions=797/800, bytes=5579
+01:25:27 FAIL .NET attach concurrent reuse x86: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 211
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 218
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 94
+01:25:27 BEGIN .NET launch concurrent reuse x86
+01:25:31 managed x86-launch-200: business bytes PASS; captured completions=800/800, bytes=5600
+01:25:31 PASS .NET launch concurrent reuse x86
+01:25:31 SHORT SERIAL TESTS COMPLETE. Both architectures now run on separate port pairs concurrently.
+01:25:31 BEGIN native lifecycle/performance x64
+01:25:31 BEGIN native lifecycle/performance x86
+01:25:35 x64 cycle=1 capture=False cycles=188 elapsedMs=3000 p99us=1360 records=0/752 gaps=0 invalid=0
+01:25:35 x86 cycle=1 capture=False cycles=188 elapsedMs=3000 p99us=1729 records=0/752 gaps=0 invalid=0
+01:25:38 x64 cycle=2 capture=True cycles=192 elapsedMs=3000 p99us=1252 records=768/768 gaps=0 invalid=0
+01:25:38 x86 cycle=2 capture=True cycles=192 elapsedMs=3000 p99us=1594 records=768/768 gaps=0 invalid=0
+01:25:39 x64 cycle=3 capture=False cycles=64 elapsedMs=1000 p99us=1427 records=0/256 gaps=0 invalid=0
+01:25:39 x86 cycle=3 capture=False cycles=64 elapsedMs=1000 p99us=1909 records=0/256 gaps=0 invalid=0
+01:25:41 x64 cycle=4 capture=True cycles=64 elapsedMs=1000 p99us=1291 records=256/256 gaps=0 invalid=0
+01:25:41 x86 cycle=4 capture=True cycles=64 elapsedMs=1000 p99us=1747 records=256/256 gaps=0 invalid=0
+01:25:41 x64 lifecycle and bytes PASS; entering 1800000 ms paced bidirectional run at configured 115200 baud.
+01:25:41 x86 lifecycle and bytes PASS; entering 1800000 ms paced bidirectional run at configured 115200 baud.
+01:26:41 x64 long run minute=1 records=16134 gaps=0 targetPrivate=4403200
+01:26:41 x86 long run minute=1 records=16128 gaps=0 targetPrivate=4767744
+01:27:41 x64 long run minute=2 records=31490 gaps=0 targetPrivate=4403200
+01:27:41 x86 long run minute=2 records=31488 gaps=0 targetPrivate=4767744
+01:28:41 x64 long run minute=3 records=46838 gaps=0 targetPrivate=4403200
+01:28:41 x86 long run minute=3 records=46830 gaps=0 targetPrivate=4767744
+01:29:41 x64 long run minute=4 records=62180 gaps=0 targetPrivate=4403200
+01:29:41 x86 long run minute=4 records=62184 gaps=0 targetPrivate=4767744
+01:30:41 x64 long run minute=5 records=77544 gaps=0 targetPrivate=4464640
+01:30:41 x86 long run minute=5 records=77528 gaps=0 targetPrivate=4911104
+01:31:41 x64 long run minute=6 records=92897 gaps=0 targetPrivate=4464640
+01:31:41 x86 long run minute=6 records=92892 gaps=0 targetPrivate=4911104
+01:32:41 x64 long run minute=7 records=108266 gaps=0 targetPrivate=4403200
+01:32:41 x86 long run minute=7 records=108252 gaps=0 targetPrivate=4767744
+01:33:41 x64 long run minute=8 records=123620 gaps=0 targetPrivate=4403200
+01:33:41 x86 long run minute=8 records=123616 gaps=0 targetPrivate=4767744
+01:34:41 x64 long run minute=9 records=138981 gaps=0 targetPrivate=4403200
+01:34:41 x86 long run minute=9 records=138976 gaps=0 targetPrivate=4767744
+01:35:41 x86 long run minute=10 records=154332 gaps=0 targetPrivate=4837376
+01:35:41 x64 long run minute=10 records=154346 gaps=0 targetPrivate=4431872
+01:36:41 x86 long run minute=11 records=169692 gaps=0 targetPrivate=4837376
+01:36:41 x64 long run minute=11 records=169705 gaps=0 targetPrivate=4431872
+01:37:41 x86 long run minute=12 records=185052 gaps=0 targetPrivate=4767744
+01:37:41 x64 long run minute=12 records=185073 gaps=0 targetPrivate=4403200
+01:38:41 x86 long run minute=13 records=200412 gaps=0 targetPrivate=4767744
+01:38:41 x64 long run minute=13 records=200440 gaps=0 targetPrivate=4403200
+01:39:41 x86 long run minute=14 records=215764 gaps=0 targetPrivate=4767744
+01:39:42 x64 long run minute=14 records=215784 gaps=0 targetPrivate=4403200
+01:40:42 x64 long run minute=15 records=231181 gaps=0 targetPrivate=4403200
+01:40:42 x86 long run minute=15 records=231164 gaps=0 targetPrivate=4767744
+01:41:42 x64 long run minute=16 records=246616 gaps=0 targetPrivate=4403200
+01:41:42 x86 long run minute=16 records=246608 gaps=0 targetPrivate=4767744
+01:42:42 x64 long run minute=17 records=262128 gaps=0 targetPrivate=4403200
+01:42:42 x86 long run minute=17 records=262132 gaps=0 targetPrivate=4767744
+01:43:42 x64 long run minute=18 records=277556 gaps=0 targetPrivate=4403200
+01:43:42 x86 long run minute=18 records=277556 gaps=0 targetPrivate=4767744
+01:44:42 x64 long run minute=19 records=292892 gaps=0 targetPrivate=4403200
+01:44:42 x86 long run minute=19 records=292888 gaps=0 targetPrivate=4767744
+01:45:42 x64 long run minute=20 records=308058 gaps=0 targetPrivate=4403200
+01:45:43 x86 long run minute=20 records=308056 gaps=0 targetPrivate=4767744
+01:46:43 x64 long run minute=21 records=323474 gaps=0 targetPrivate=4403200
+01:46:43 x86 long run minute=21 records=323464 gaps=0 targetPrivate=4767744
+01:47:43 x86 long run minute=22 records=338908 gaps=0 targetPrivate=4767744
+01:47:43 x64 long run minute=22 records=338926 gaps=0 targetPrivate=4403200
+01:48:43 x86 long run minute=23 records=354388 gaps=0 targetPrivate=4767744
+01:48:43 x64 long run minute=23 records=354414 gaps=0 targetPrivate=4403200
+01:49:43 x86 long run minute=24 records=369692 gaps=0 targetPrivate=4767744
+01:49:43 x64 long run minute=24 records=369726 gaps=0 targetPrivate=4403200
+01:50:43 x86 long run minute=25 records=385084 gaps=0 targetPrivate=4767744
+01:50:43 x64 long run minute=25 records=385116 gaps=0 targetPrivate=4403200
+01:51:44 x64 long run minute=26 records=400534 gaps=0 targetPrivate=4403200
+01:51:44 x86 long run minute=26 records=400508 gaps=0 targetPrivate=4767744
+01:52:44 x64 long run minute=27 records=415974 gaps=0 targetPrivate=4403200
+01:52:44 x86 long run minute=27 records=415964 gaps=0 targetPrivate=4767744
+01:53:44 x64 long run minute=28 records=431464 gaps=0 targetPrivate=4403200
+01:53:44 x86 long run minute=28 records=431452 gaps=0 targetPrivate=4767744
+01:54:44 x64 long run minute=29 records=446892 gaps=0 targetPrivate=4403200
+01:54:44 x86 long run minute=29 records=446876 gaps=0 targetPrivate=4767744
+01:55:41 x64 cycle=5 capture=True cycles=115106 elapsedMs=1800000 p99us=1144 records=460424/460424 gaps=0 invalid=0
+01:55:41 x86 cycle=5 capture=True cycles=115102 elapsedMs=1800000 p99us=1559 records=460408/460408 gaps=0 invalid=0
+01:55:41 x64 long run minute=30 records=461448 gaps=0 targetPrivate=4403200
+01:55:41 x86 long run minute=30 records=461432 gaps=0 targetPrivate=3964928
+01:55:44 x64 cycle=6 capture=False cycles=193 elapsedMs=3000 p99us=1019 records=0/772 gaps=0 invalid=0
+01:55:44 x86 cycle=6 capture=False cycles=193 elapsedMs=3000 p99us=1332 records=0/772 gaps=0 invalid=0
+02:00:45 x86 pacedThroughputRatio=1.0213, p99IncreaseUs=-135, longCycles=115102; paced virtual-port result, not saturation benchmark.
+02:00:45 x86 longThroughputRatio=1.0204, longP99IncreaseUs=-170; compared with the same short unmonitored baseline, includes scheduling variation over the long run.
+02:00:45 x64 pacedThroughputRatio=1.0213, p99IncreaseUs=-108, longCycles=115106; paced virtual-port result, not saturation benchmark.
+02:00:45 x64 longThroughputRatio=1.0204, longP99IncreaseUs=-216; compared with the same short unmonitored baseline, includes scheduling variation over the long run.
+02:00:47 PASS native lifecycle/performance x86
+02:00:47 PASS native lifecycle/performance x64
+02:00:47 FINISHED failures=4 UTC=2026-11-03T02:00:47.4350350Z
