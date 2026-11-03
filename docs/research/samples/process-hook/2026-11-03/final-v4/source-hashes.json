@@ -1,0 +1,26 @@
+[
+  {
+    "file": "src/FlexCom.ProcessHook/Hook.cpp",
+    "sha256": "CB02C1F9C89385B1B07345E95AB66A83CC63E4F6F1C3F0E71FF15E847A665C15"
+  },
+  {
+    "file": "src/FlexCom.ProcessHook/Shared.h",
+    "sha256": "6FE34C69AC708CD9DF4BEB6ACD46B3E02E06B1C75155E8256EE4EDD7B029A1D5"
+  },
+  {
+    "file": "src/FlexComDotnet.Core/Features/ProcessMonitor/Services/NativeProcessMonitorTransport.cs",
+    "sha256": "32A96B9A432AA4535BD27C68BA0090A9643D0D2D78349078D761FF8C58C220F1"
+  },
+  {
+    "file": "src/FlexComDotnet.Core/Features/ProcessMonitor/Models/ProcessMonitorDiagnostics.cs",
+    "sha256": "EF7D2B09558392D184F94A51BF367AE46F3BCB4E9FFFB90B2E0D224C7C7CFF80"
+  },
+  {
+    "file": "tools/ProcessMonitor.VmTests/Program.cs",
+    "sha256": "A5AC34C85B2D05BB98DE4EF93DEADC2188A25EB2DD00EF3F0F2213C75427DD37"
+  },
+  {
+    "file": "tools/ProcessMonitor.Probe/NativeTests.cpp",
+    "sha256": "97C57A3629324A3C2B0406D64011DAE40729CEDDD2E50B000D5C09834A7B829E"
+  }
+]

@@ -9,6 +9,7 @@
 #include <deque>
 #include <atomic>
 #include <set>
+#include <functional>
 
 namespace TestOs {
 static HANDLE port = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x1234));
@@ -23,6 +24,16 @@ static DWORD writeLimit = MAXDWORD;
 static bool failWrite = false;
 static HANDLE writeEntered = nullptr, writeReleased = nullptr;
 static bool immediateRead = false;
+static bool immediateWrite = false;
+static DWORD recycledResultCount = MAXDWORD;
+static void (*consumeBeforeWriteReturns)(OVERLAPPED*) = nullptr;
+static DWORD resultQueries = 0;
+static bool skipSuccessfulPacket = false;
+static std::function<void()> beforeQueueWait;
+static DWORD WINAPI Wait(HANDLE handle, DWORD timeout) {
+    if (beforeQueueWait) { auto callback = std::move(beforeQueueWait); beforeQueueWait = {}; callback(); }
+    return WaitForSingleObject(handle, timeout);
+}
 static std::deque<OVERLAPPED_ENTRY> packets;
 static Request* Find(OVERLAPPED* overlapped) {
     for (auto& r : requests) if (r.overlapped == overlapped) return &r;
@@ -36,7 +47,7 @@ __declspec(noinline) BOOL WINAPI State(HANDLE handle, DCB* state) {
 }
 __declspec(noinline) HANDLE WINAPI OpenW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security, DWORD disposition, DWORD flags, HANDLE templ) {
     if (!wcscmp(name, L"\\\\.\\COM404")) { SetLastError(ERROR_FILE_NOT_FOUND); return INVALID_HANDLE_VALUE; }
-    if (!wcscmp(name, L"\\\\.\\COM10")) { portOpen = true; hasCompletionPort = false; return port; }
+    if (!wcscmp(name, L"\\\\.\\COM10")) { portOpen = true; hasCompletionPort = false; skipSuccessfulPacket = false; return port; }
     return CreateFileW(name, access, share, security, disposition, flags, templ);
 }
 __declspec(noinline) HANDLE WINAPI OpenA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security, DWORD disposition, DWORD flags, HANDLE templ) {
@@ -86,9 +97,11 @@ static void Complete(OVERLAPPED* overlapped, DWORD error = 0) {
 }
 __declspec(noinline) BOOL WINAPI Result(HANDLE handle, OVERLAPPED* overlapped, DWORD* count, BOOL wait) {
     if (handle != port) return GetOverlappedResult(handle, overlapped, count, wait);
+    ++resultQueries;
     auto r = Find(overlapped);
     if (!r || !r->ready) { SetLastError(ERROR_IO_INCOMPLETE); return FALSE; }
-    *count = r->count; SetLastError(r->error); return r->error == 0;
+    *count = recycledResultCount == MAXDWORD ? r->count : recycledResultCount;
+    SetLastError(r->error); return r->error == 0;
 }
 __declspec(noinline) BOOL WINAPI ReadEx(HANDLE handle, void* data, DWORD length, OVERLAPPED* overlapped, LPOVERLAPPED_COMPLETION_ROUTINE callback) {
     if (handle != port) return ReadFileEx(handle, data, length, overlapped, callback);
@@ -101,7 +114,16 @@ __declspec(noinline) BOOL WINAPI Write(HANDLE handle, const void* data, DWORD le
     if (failWrite) { if (count) *count = 0; SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
     if (overlapped) {
         Read(handle, const_cast<void*>(data), length, count, overlapped);
-        Find(overlapped)->write = true; return FALSE;
+        auto r = Find(overlapped); r->write = true;
+        if (immediateWrite) {
+            r->ready = true; r->count = length; overlapped->Internal = 0;
+            if (hasCompletionPort && !skipSuccessfulPacket && !(reinterpret_cast<ULONG_PTR>(overlapped->hEvent) & 1))
+                packets.push_back({0, overlapped, 0, length});
+            if (count) *count = length;
+            if (consumeBeforeWriteReturns) consumeBeforeWriteReturns(overlapped);
+            return TRUE;
+        }
+        return FALSE;
     }
     *count = length < writeLimit ? length : writeLimit;
     if (writeEntered) { SetEvent(writeEntered); WaitForSingleObject(writeReleased, INFINITE); }
@@ -155,6 +177,18 @@ __declspec(noinline) BOOL WINAPI CancelEx(HANDLE handle, OVERLAPPED* overlapped)
     if (handle != port) return CancelIoEx(handle, overlapped);
     Complete(overlapped, ERROR_OPERATION_ABORTED); return TRUE;
 }
+__declspec(noinline) BOOL WINAPI WaitComm(HANDLE handle, DWORD* events, OVERLAPPED* overlapped) {
+    if (handle != port) return WaitCommEvent(handle, events, overlapped);
+    auto r = Find(overlapped);
+    if (r) { r->ready = true; r->count = sizeof(DWORD); r->buffer = events; }
+    *events = EV_RXCHAR;
+    packets.push_back({0, overlapped, 0, sizeof(DWORD)});
+    return TRUE;
+}
+__declspec(noinline) BOOL WINAPI NotificationModes(HANDLE handle, UCHAR flags) {
+    if (handle != port) return SetFileCompletionNotificationModes(handle, flags);
+    skipSuccessfulPacket = (flags & FILE_SKIP_COMPLETION_PORT_ON_SUCCESS) != 0; return TRUE;
+}
 }
 #define GetFileType TestOs::FileType
 #define GetCommState TestOs::State
@@ -175,7 +209,11 @@ __declspec(noinline) BOOL WINAPI CancelEx(HANDLE handle, OVERLAPPED* overlapped)
 #define CreateFileW TestOs::OpenW
 #define CreateFileA TestOs::OpenA
 #define CloseHandle TestOs::Close
+#define WaitCommEvent TestOs::WaitComm
+#define SetFileCompletionNotificationModes TestOs::NotificationModes
+#define WaitForSingleObject TestOs::Wait
 #include "../../src/FlexCom.ProcessHook/Hook.cpp"
+#undef WaitForSingleObject
 #undef GetFileType
 #undef GetCommState
 #undef SetCommState
@@ -195,6 +233,8 @@ __declspec(noinline) BOOL WINAPI CancelEx(HANDLE handle, OVERLAPPED* overlapped)
 #undef CreateFileW
 #undef CreateFileA
 #undef CloseHandle
+#undef WaitCommEvent
+#undef SetFileCompletionNotificationModes
 
 static void Require(bool ok, const char* description) { if (!ok) throw std::runtime_error(description); }
 static DWORD callbackCount = 0, callbackError = 0, callbackBytes = 0;
@@ -309,6 +349,136 @@ static void DiagnosticTests(HookShared* queue, HANDLE mutex) {
     Require(queue->diagnostics.handleCapacity == 1 && queue->dropped == 1, "handle tracking saturation has an independent counter");
     std::cout << "PASS: independent pending, retirement and handle capacity diagnostics\n";
 }
+static void ReuseTests(HookShared* queue, HANDLE mutex) {
+    auto advanceSession = [&] {
+        ++queue->session.Data1;
+        auto epoch = queue->dropped.Epoch() + 1;
+        SessionCounter* counters[] = {&queue->dropped, &queue->diagnostics.snapshotContention, &queue->diagnostics.publishContention,
+            &queue->diagnostics.completionContention, &queue->diagnostics.queueFull, &queue->diagnostics.handleCapacity,
+            &queue->diagnostics.pendingCapacity, &queue->diagnostics.ambiguousCompletion,
+            &queue->diagnostics.retirementCapacity, &queue->diagnostics.notificationLoss};
+        for (auto counter : counters) InterlockedExchange64(&counter->value,
+            static_cast<LONG64>((static_cast<uint64_t>(epoch) << 32) | static_cast<uint32_t>(*counter)));
+    };
+    const BYTE payload[] = {0, 1, 2, 0x7f, 0x80, 0xfe, 0xff};
+    OVERLAPPED request{};
+    TestOs::immediateWrite = true;
+    // A runtime completion consumer can recycle the result storage before the submitting API returns.
+    // Its completion packet remains the authoritative 7-byte result; a late observer query sees 4.
+    TestOs::recycledResultCount = 4;
+    SetLastError(12345);
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &request), "immediate business write");
+    OVERLAPPED_ENTRY entry{}; ULONG removed = 0;
+    Require(TestOs::CompletionEx(nullptr, &entry, 1, &removed, 0, FALSE), "runtime consumes authoritative completion");
+    Require(queue->count == 1 && queue->records[0].completed == 7 && queue->records[0].dataLength == 7
+        && !memcmp(queue->records[0].data, payload, 7),
+        "seven-byte IOCP write must not become a successful four-byte record through a late result query");
+    std::cout << "PASS: immediate IOCP result is not re-queried after storage reuse\n";
+    for (int i = 0; i < 200; ++i) {
+        queue->count = queue->readIndex = queue->writeIndex = 0;
+        TestOs::consumeBeforeWriteReturns = [](OVERLAPPED*) {
+            OVERLAPPED_ENTRY packet{}; ULONG received = 0;
+            Require(TestOs::CompletionEx(nullptr, &packet, 1, &received, 0, FALSE), "early runtime completion consumption");
+        };
+        Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &request), "repeated early completion business write");
+        Require(queue->count == 1 && queue->records[0].completed == 7 && queue->records[0].dataLength == 7
+            && queue->dropped == 0, "completion consumption before API return and subsequent reuse emit exactly one valid record");
+    }
+    TestOs::consumeBeforeWriteReturns = nullptr;
+    queue->count = queue->readIndex = queue->writeIndex = 0;
+    TestOs::recycledResultCount = MAXDWORD;
+    OVERLAPPED reused{};
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &reused), "second immediate business write");
+    // An IOCP wait entered before attachment returns through the original API, outside the new hook.
+    Require(realGetCompletionEx(nullptr, &entry, 1, &removed, 0, FALSE), "pre-attachment waiter consumes old packet");
+    DWORD events = 0, count = 0;
+    SetLastError(12345);
+    Require(TestOs::WaitComm(TestOs::port, &events, &reused) && GetLastError() == 12345,
+        "runtime control reuse preserves business return and LastError");
+    Require(TestOs::Result(TestOs::port, &reused, &count, FALSE) && count == 4, "control query still returns its own four-byte result");
+    Require(queue->count == 1 && queue->records[0].api == ApiGap && queue->records[0].dataLength == 0 && queue->dropped == 1,
+        "WaitCommEvent reuse after an unobserved packet must report a gap, never a four-byte serial write");
+    std::cout << "PASS: control-operation reuse cannot consume a stale serial request\n";
+    queue->count = queue->readIndex = queue->writeIndex = 0; TestOs::packets.clear();
+    OVERLAPPED crossHandle{};
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &crossHandle), "cross-handle old serial write");
+    Require(realGetCompletionEx(nullptr, &entry, 1, &removed, 0, FALSE), "cross-handle pre-existing waiter");
+    auto originalPort = TestOs::port;
+    TestOs::port = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x4321));
+    Require(TestOs::WaitComm(TestOs::port, &events, &crossHandle), "other serial handle reuses same runtime address");
+    Require(TestOs::CompletionEx(nullptr, &entry, 1, &removed, 0, FALSE), "other handle control packet");
+    TestOs::port = originalPort;
+    Require(queue->count == 1 && queue->records[0].api == ApiGap && queue->records[0].dataLength == 0,
+        "cross-handle control reuse cannot be attributed to the old serial write");
+    queue->count = queue->readIndex = queue->writeIndex = 0;
+    OVERLAPPED oldSession{};
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &oldSession), "old-session submission");
+    advanceSession();
+    Require(TestOs::WaitComm(TestOs::port, &events, &oldSession), "late old-session control reuse");
+    auto lossesBeforeLateCompletion = static_cast<uint32_t>(queue->dropped);
+    Require(queue->count == 0 && lossesBeforeLateCompletion == 2, "old-session reuse cannot publish or charge a loss to the new session");
+    OVERLAPPED contendedOldSession{};
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &contendedOldSession), "old-session request before collector contention");
+    advanceSession();
+    WaitForSingleObject(mutex, INFINITE);
+    std::thread lateCompletion([&] { DWORD actual = 0; TestOs::Result(TestOs::port, &contendedOldSession, &actual, FALSE); });
+    lateCompletion.join(); ReleaseMutex(mutex);
+    Require(queue->dropped == lossesBeforeLateCompletion, "an old-session completion timing out on the new collector lock cannot charge the new session");
+    Require(TestOs::OpenW(L"\\\\.\\COM10", GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr) == TestOs::port,
+        "event-only handle observed from open");
+    queue->count = queue->readIndex = queue->writeIndex = 0;
+    OVERLAPPED eventOnly{};
+    TestOs::consumeBeforeWriteReturns = [](OVERLAPPED* pointer) {
+        bool completed = false;
+        std::thread consumer([&] { DWORD actual = 0; completed = TestOs::Result(TestOs::port, pointer, &actual, FALSE) && actual == 7; });
+        consumer.join(); Require(completed, "event consumer completes before submitting API returns");
+    };
+    auto queriesBefore = TestOs::resultQueries;
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &eventOnly), "early event completion");
+    TestOs::consumeBeforeWriteReturns = nullptr;
+    Require(queue->count == 1 && queue->records[0].completed == 7 && TestOs::resultQueries == queriesBefore + 1,
+        "already-consumed event-only request must not be queried again after its storage may have been freed");
+    Require(TestOs::Associate(TestOs::port, nullptr, 0, 0) != nullptr, "IOCP for suppressed packet mode");
+    Require(TestOs::NotificationModes(TestOs::port, FILE_SKIP_COMPLETION_PORT_ON_SUCCESS), "enable legal immediate-success packet suppression");
+    queue->count = queue->readIndex = queue->writeIndex = 0;
+    OVERLAPPED suppressed{};
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &suppressed), "suppressed packet immediate write");
+    Require(queue->count == 1 && queue->records[0].completed == 7 && queue->records[0].dataLength == 7,
+        "immediate success with IOCP packet suppression must still capture the actual result");
+    queue->count = queue->readIndex = queue->writeIndex = 0;
+    BYTE readBuffer[8]{}; OVERLAPPED readRequest{};
+    Require(!TestOs::Read(TestOs::port, readBuffer, 8, &count, &readRequest), "competing read completion submission");
+    TestOs::Complete(&readRequest);
+    TestOs::beforeQueueWait = [&] {
+        std::thread otherConsumer([&] {
+            DWORD actual = 0;
+            Require(TestOs::Result(TestOs::port, &readRequest, &actual, FALSE) && actual == 3, "second completed result consumer");
+            memset(readBuffer, 0x55, sizeof(readBuffer));
+        });
+        otherConsumer.join();
+    };
+    Require(TestOs::Result(TestOs::port, &readRequest, &count, FALSE), "first completed result consumer");
+    const BYTE readExpected[] = {0, 0x7f, 0xff};
+    Require(queue->count == 1 && queue->records[0].dataLength == 3 && !memcmp(queue->records[0].data, readExpected, 3),
+        "read payload must be snapshotted before another completion consumer returns and recycles it");
+    TestOs::OpenW(L"\\\\.\\COM10", GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
+    TestOs::Associate(TestOs::port, nullptr, 0, 0); TestOs::packets.clear();
+    queue->count = queue->readIndex = queue->writeIndex = 0;
+    OVERLAPPED lowEvent{}; lowEvent.hEvent = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &lowEvent), "low-bit event suppresses packet");
+    Require(queue->count == 1 && queue->records[0].completed == 7 && TestOs::packets.empty(), "event-suppressed immediate result captured once");
+    queue->count = queue->readIndex = queue->writeIndex = 0;
+    OVERLAPPED changedMode{};
+    TestOs::consumeBeforeWriteReturns = [](OVERLAPPED*) {
+        std::thread modeChange([] { TestOs::NotificationModes(TestOs::port, FILE_SKIP_COMPLETION_PORT_ON_SUCCESS); });
+        modeChange.join();
+    };
+    TestOs::recycledResultCount = 4;
+    Require(TestOs::Write(TestOs::port, payload, 7, nullptr, &changedMode), "mode changes after original I/O completed");
+    TestOs::consumeBeforeWriteReturns = nullptr; TestOs::recycledResultCount = MAXDWORD;
+    Require(TestOs::CompletionEx(nullptr, &entry, 1, &removed, 0, FALSE), "old-mode packet remains authoritative");
+    Require(queue->count == 1 && queue->records[0].completed == 7, "later notification mode cannot justify querying an earlier completion");
+}
 int main(int argc, char** argv) {
     try {
         auto name = MappingName(GetCurrentProcessId(), ProcessCreationTime(GetCurrentProcess()));
@@ -325,6 +495,7 @@ int main(int argc, char** argv) {
             queue->enabled = 0;
             return 0;
         }
+        if (argc == 2 && !strcmp(argv[1], "--reuse")) { ReuseTests(queue, mutex); queue->enabled = 0; return 0; }
         OVERLAPPED request{}; BYTE data[8]; memset(data, 0xcc, sizeof(data)); DWORD count = 0;
         Require(!TestOs::Read(TestOs::port, data, 8, &count, &request) && GetLastError() == ERROR_IO_PENDING, "pending business result");
         Require(queue->count == 0, "pending buffer is never captured");
@@ -486,22 +657,28 @@ int main(int argc, char** argv) {
         TestOs::immediateRead = true;
         OVERLAPPED immediate{}; BYTE immediateData[8]{}; auto beforeImmediate = queue->count;
         Require(TestOs::Read(TestOs::port, immediateData, 8, nullptr, &immediate), "immediate overlapped success with null byte-count pointer");
-        Require(queue->count == beforeImmediate + 1 && queue->records[beforeImmediate].completed == 3
-            && queue->records[beforeImmediate].dataLength == 3, "immediate completion uses actual result length");
+        Require(queue->count == beforeImmediate, "IOCP immediate return waits for authoritative completion instead of re-querying runtime storage");
         Require(TestOs::ResultEx(TestOs::port, &immediate, &count, 20, FALSE), "immediate repeat query");
+        Require(queue->count == beforeImmediate + 1 && queue->records[beforeImmediate].completed == 3
+            && queue->records[beforeImmediate].dataLength == 3, "explicit immediate result query uses actual result length");
         Require(TestOs::CompletionEx(nullptr, mixedEntries, 32, &removed, 20, FALSE), "immediate completion packet");
         Require(queue->count == beforeImmediate + 1, "immediate/query/packet paths emit one record");
         TestOs::immediateRead = false;
         queue->count = queue->readIndex = queue->writeIndex = 0; queue->dropped = 0;
-        std::vector<CallbackWork> concurrent(16);
+        std::vector<CallbackWork> concurrent(128);
         for (auto& item : concurrent) { Require(!TestOs::Read(TestOs::port, item.data, 8, &count, &item.request), "concurrent submission"); TestOs::Complete(&item.request); }
         std::atomic<int> completedThreads{0}; std::vector<std::thread> observers;
-        for (auto& item : concurrent) observers.emplace_back([&item, &completedThreads] {
+        HANDLE startObservers = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        for (auto& item : concurrent) observers.emplace_back([&item, &completedThreads, startObservers] {
+            WaitForSingleObject(startObservers, INFINITE);
             DWORD actual = 0;
             if (TestOs::ResultEx(TestOs::port, &item.request, &actual, 20, FALSE) && actual == 3) ++completedThreads;
         });
+        SetEvent(startObservers);
         for (auto& observer : observers) observer.join();
-        Require(completedThreads == 16 && queue->count + queue->dropped == 16, "concurrent completions retain business results and account for any lock contention loss");
+        CloseHandle(startObservers);
+        Require(completedThreads == 128 && queue->count == 128 && queue->dropped == 0,
+            "below-capacity concurrent completions must not lose records to brief producer lock contention");
         std::set<uint64_t> identities;
         for (uint32_t i = 0; i < queue->count; ++i) {
             Require(queue->records[i].completed == 3 && queue->records[i].dataLength == 3, "concurrent completion payload bounds");

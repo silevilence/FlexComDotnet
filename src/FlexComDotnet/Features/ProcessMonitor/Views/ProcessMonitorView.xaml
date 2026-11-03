@@ -34,7 +34,7 @@
     </Grid.RowDefinitions>
     <Expander Header="进程串口监控（API Hook） · 实验性功能" IsExpanded="True">
       <StackPanel Margin="0,8">
-        <TextBlock TextWrapping="Wrap" Text="仅观察所选进程，不跟踪子进程。记录时间是 API 完成时间，不是线路时序。无需 SerialMonitor 驱动。扩展异步、压力与干净环境验收尚未完成。"/>
+        <TextBlock TextWrapping="Wrap" Text="仅观察所选进程，不跟踪子进程。记录时间是 API 完成时间，不是线路时序。无需 SerialMonitor 驱动。运行中附加可能漏掉已在等待的异步完成；.NET SerialPort 请使用“启动并监控”。物理线路与干净环境验收尚未完成。"/>
         <Grid Margin="0,8,0,0">
           <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <TextBlock Text="程序路径" VerticalAlignment="Center" Margin="0,0,8,0"/>

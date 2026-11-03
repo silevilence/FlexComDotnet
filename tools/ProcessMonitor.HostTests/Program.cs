@@ -20,11 +20,15 @@ foreach (var architecture in new[] { "x64", "x86" })
         await using var session = new ProcessMonitorSession(transport);
         await session.AttachAsync(target);
         if (!session.IsMonitoring) throw new Exception("Attach failed.");
+        var warning = session.Records.SingleOrDefault(r => r.Api == "能力提示");
+        if (warning is null || warning.Integrity != FlexComDotnet.Core.Features.Capture.Models.CaptureIntegrity.Unavailable
+            || warning.DroppedRecords != 0 || warning.Data.Length != 0 || !warning.Detail.Contains("启动并监控"))
+            throw new Exception("Attachment must visibly disclose pre-existing async waits without inventing a lost completion count.");
         await worker.StandardInput.WriteLineAsync("EMIT");
         if (await worker.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(5)) != "EMITTED") throw new Exception("Native wire fixture did not run.");
-        for (var i = 0; i < 100 && session.Records.Count < 3; i++) await Task.Delay(20);
-        var received = session.Records;
-        if (received.Count != 3 || received[0].Api != "ReadFile" || received[0].Handle != 0x12345678
+        for (var i = 0; i < 100 && session.Records.Count < 4; i++) await Task.Delay(20);
+        var received = session.Records.Where(r => r.Api != "能力提示").ToArray();
+        if (received.Length != 3 || received[0].Api != "ReadFile" || received[0].Handle != 0x12345678
             || received[0].RequestedLength != 16 || received[0].CompletedLength != 3
             || !received[0].Data.SequenceEqual(new byte[] { 0, 0x7f, 0xff })
             || received[1].Integrity != FlexComDotnet.Core.Features.Capture.Models.CaptureIntegrity.Gap

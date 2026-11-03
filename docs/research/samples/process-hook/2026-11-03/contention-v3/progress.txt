@@ -1,0 +1,117 @@
+Copying fixed test bundle to VM: C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-3b8be842a2514a49813754b8ebef486d
+00:32:02 START UTC=2026-11-03T00:32:02.6515118Z OS=Microsoft Windows NT 10.0.19045.0 architecture=X64 local=C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-3b8be842a2514a49813754b8ebef486d\
+00:32:02 Dedicated ports COM10/20, COM11/21, COM12/22; system security and drivers unchanged.
+00:32:02 BEGIN native full serial x64
+00:32:03 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+00:32:03 PASS native full serial x64
+00:32:03 BEGIN native full serial x86
+00:32:04 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+00:32:04 PASS native full serial x86
+00:32:04 BEGIN .NET SerialPort x64
+00:32:05 managed x64: business bytes PASS; captured completions=4, bytes=25
+00:32:05 FAIL .NET SerialPort x64: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 88
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 158
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 164
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 164
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+00:32:05 BEGIN .NET SerialPort x86
+00:32:06 managed x86: business bytes PASS; captured completions=3, bytes=21
+00:32:06 FAIL .NET SerialPort x86: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 88
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 158
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 164
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 164
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+00:32:07 SHORT SERIAL TESTS COMPLETE. Both architectures now run on separate port pairs concurrently.
+00:32:07 BEGIN native lifecycle/performance x64
+00:32:07 BEGIN native lifecycle/performance x86
+00:32:10 x64 cycle=1 capture=False cycles=186 elapsedMs=3000 p99us=1010 records=0/744 gaps=0 invalid=0
+00:32:10 x86 cycle=1 capture=False cycles=187 elapsedMs=3000 p99us=1446 records=0/748 gaps=0 invalid=0
+00:32:13 x64 cycle=2 capture=True cycles=186 elapsedMs=3000 p99us=1286 records=744/744 gaps=0 invalid=0
+00:32:13 x86 cycle=2 capture=True cycles=186 elapsedMs=3000 p99us=1767 records=744/744 gaps=0 invalid=0
+00:32:14 x64 cycle=3 capture=False cycles=63 elapsedMs=1000 p99us=617 records=0/252 gaps=0 invalid=0
+00:32:14 x86 cycle=3 capture=False cycles=63 elapsedMs=1000 p99us=1321 records=0/252 gaps=0 invalid=0
+00:32:16 x64 cycle=4 capture=True cycles=61 elapsedMs=1000 p99us=684 records=244/244 gaps=0 invalid=0
+00:32:16 x86 cycle=4 capture=True cycles=61 elapsedMs=1000 p99us=1443 records=244/244 gaps=0 invalid=0
+00:32:16 x64 lifecycle and bytes PASS; entering 1800000 ms paced bidirectional run at configured 115200 baud.
+00:32:16 x86 lifecycle and bytes PASS; entering 1800000 ms paced bidirectional run at configured 115200 baud.
+00:33:16 x64 long run minute=1 records=16058 gaps=0 targetPrivate=4370432
+00:33:16 x86 long run minute=1 records=16044 gaps=0 targetPrivate=4739072
+00:34:16 x64 long run minute=2 records=31468 gaps=0 targetPrivate=4370432
+00:34:16 x86 long run minute=2 records=31464 gaps=0 targetPrivate=4739072
+00:35:16 x64 long run minute=3 records=46904 gaps=0 targetPrivate=4370432
+00:35:16 x86 long run minute=3 records=46896 gaps=0 targetPrivate=4739072
+00:36:16 x64 long run minute=4 records=62088 gaps=0 targetPrivate=4370432
+00:36:16 x86 long run minute=4 records=62080 gaps=0 targetPrivate=4739072
+00:37:16 x64 long run minute=5 records=77248 gaps=0 targetPrivate=4435968
+00:37:16 x86 long run minute=5 records=77248 gaps=0 targetPrivate=4882432
+00:38:16 x64 long run minute=6 records=92302 gaps=0 targetPrivate=4435968
+00:38:17 x86 long run minute=6 records=92312 gaps=0 targetPrivate=4882432
+00:39:17 x64 long run minute=7 records=107533 gaps=0 targetPrivate=4370432
+00:39:17 x86 long run minute=7 records=107536 gaps=0 targetPrivate=4739072
+00:40:17 x64 long run minute=8 records=122724 gaps=0 targetPrivate=4370432
+00:40:17 x86 long run minute=8 records=122708 gaps=0 targetPrivate=4739072
+00:41:17 x64 long run minute=9 records=138078 gaps=0 targetPrivate=4370432
+00:41:17 x86 long run minute=9 records=138072 gaps=0 targetPrivate=4739072
+00:42:17 x64 long run minute=10 records=153433 gaps=0 targetPrivate=4395008
+00:42:17 x86 long run minute=10 records=153444 gaps=0 targetPrivate=4808704
+00:43:17 x64 long run minute=11 records=168792 gaps=0 targetPrivate=4370432
+00:43:17 x86 long run minute=11 records=168792 gaps=0 targetPrivate=4739072
+00:44:17 x64 long run minute=12 records=184152 gaps=0 targetPrivate=4370432
+00:44:17 x86 long run minute=12 records=184156 gaps=0 targetPrivate=4739072
+00:45:17 x64 long run minute=13 records=199500 gaps=0 targetPrivate=4370432
+00:45:17 x86 long run minute=13 records=199504 gaps=0 targetPrivate=4739072
+00:46:17 x64 long run minute=14 records=214860 gaps=0 targetPrivate=4370432
+00:46:17 x86 long run minute=14 records=214856 gaps=0 targetPrivate=4739072
+00:47:17 x64 long run minute=15 records=230196 gaps=0 targetPrivate=4370432
+00:47:17 x86 long run minute=15 records=230192 gaps=0 targetPrivate=4739072
+00:48:17 x64 long run minute=16 records=245524 gaps=0 targetPrivate=4370432
+00:48:17 x86 long run minute=16 records=245528 gaps=0 targetPrivate=4739072
+00:49:17 x64 long run minute=17 records=260890 gaps=0 targetPrivate=4370432
+00:49:17 x86 long run minute=17 records=260884 gaps=0 targetPrivate=4739072
+00:50:17 x64 long run minute=18 records=276250 gaps=0 targetPrivate=4370432
+00:50:17 x86 long run minute=18 records=276236 gaps=0 targetPrivate=4739072
+00:51:17 x64 long run minute=19 records=291622 gaps=0 targetPrivate=4370432
+00:51:17 x86 long run minute=19 records=291632 gaps=0 targetPrivate=4739072
+00:52:17 x64 long run minute=20 records=306948 gaps=0 targetPrivate=4370432
+00:52:17 x86 long run minute=20 records=306952 gaps=0 targetPrivate=4739072
+00:53:17 x64 long run minute=21 records=322312 gaps=0 targetPrivate=4370432
+00:53:17 x86 long run minute=21 records=322320 gaps=0 targetPrivate=4739072
+00:54:17 x64 long run minute=22 records=337666 gaps=0 targetPrivate=4370432
+00:54:17 x86 long run minute=22 records=337656 gaps=0 targetPrivate=4739072
+00:55:17 x64 long run minute=23 records=353036 gaps=0 targetPrivate=4370432
+00:55:18 x86 long run minute=23 records=353036 gaps=0 targetPrivate=4739072
+00:56:17 x64 long run minute=24 records=368380 gaps=0 targetPrivate=4370432
+00:56:18 x86 long run minute=24 records=368392 gaps=0 targetPrivate=4739072
+00:57:17 x64 long run minute=25 records=383738 gaps=0 targetPrivate=4370432
+00:57:18 x86 long run minute=25 records=383752 gaps=0 targetPrivate=4739072
+00:58:18 x64 long run minute=26 records=399108 gaps=0 targetPrivate=4370432
+00:58:18 x86 long run minute=26 records=399124 gaps=0 targetPrivate=4739072
+00:59:18 x64 long run minute=27 records=414476 gaps=0 targetPrivate=4370432
+00:59:18 x86 long run minute=27 records=414488 gaps=0 targetPrivate=4739072
+01:00:18 x64 long run minute=28 records=429792 gaps=0 targetPrivate=4370432
+01:00:18 x86 long run minute=28 records=429820 gaps=0 targetPrivate=4739072
+01:01:18 x64 long run minute=29 records=445136 gaps=0 targetPrivate=4370432
+01:01:18 x86 long run minute=29 records=445148 gaps=0 targetPrivate=4739072
+01:02:16 x64 cycle=5 capture=True cycles=114755 elapsedMs=1800000 p99us=1286 records=459020/459020 gaps=0 invalid=0
+01:02:16 x86 cycle=5 capture=True cycles=114757 elapsedMs=1800000 p99us=1703 records=459028/459028 gaps=0 invalid=0
+01:02:16 x64 long run minute=30 records=460008 gaps=0 targetPrivate=4370432
+01:02:16 x86 long run minute=30 records=460016 gaps=0 targetPrivate=3936256
+01:02:19 x86 cycle=6 capture=False cycles=192 elapsedMs=3000 p99us=1378 records=0/768 gaps=0 invalid=0
+01:02:20 x64 cycle=6 capture=False cycles=192 elapsedMs=3000 p99us=1194 records=0/768 gaps=0 invalid=0
+01:04:20 FAIL native lifecycle/performance x86: System.InvalidOperationException: Process has exited, so the requested information is not available.
+   at System.Diagnostics.Process.get_PrivateMemorySize64()
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 239
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 251
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 263
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+01:04:20 FAIL native lifecycle/performance x64: System.InvalidOperationException: Process has exited, so the requested information is not available.
+   at System.Diagnostics.Process.get_PrivateMemorySize64()
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 239
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 251
+   at Program.NativeCase(String architecture, String targetPort, String peerPort) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 263
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+01:04:20 FINISHED failures=4 UTC=2026-11-03T01:04:20.2927653Z

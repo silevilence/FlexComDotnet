@@ -1,0 +1,1 @@
+{"SnapshotContention":0,"PublishContention":0,"CompletionContention":0,"QueueFull":0,"HandleCapacity":0,"PendingCapacity":0,"AmbiguousCompletion":3,"RetirementCapacity":0,"QueueHighWater":11,"NotificationLoss":0,"PublishCalls":800,"PublishTicks":31184,"MaxPublishTicks":1055,"LostObservations":3}

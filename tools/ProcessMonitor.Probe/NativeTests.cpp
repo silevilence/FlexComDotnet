@@ -220,10 +220,10 @@ static void EmitWireFixture() {
     record.api = ApiRead; record.direction = 1; record.requested = 16; record.completed = record.dataLength = 3; record.succeeded = 1;
     wcscpy_s(record.port, L"ABI fixture"); wcscpy_s(record.detail, L"synthetic IPC record, no serial device");
     record.data[0] = 0; record.data[1] = 0x7f; record.data[2] = 0xff;
-    queue->records[0] = record;
+    queue->records[QueueCapacity - 1] = record;
     record.sequence = record.request = 2; record.dropped = 2; record.completed = record.dataLength = 1; record.data[0] = 0x11;
-    queue->records[1] = record;
-    queue->readIndex = 0; queue->writeIndex = queue->count = 2; queue->sequence = 2; queue->dropped = 2;
+    queue->records[0] = record;
+    queue->readIndex = QueueCapacity - 1; queue->writeIndex = 1; queue->count = 2; queue->sequence = 2; queue->dropped = 2;
     queue->diagnostics.queueFull = 2; queue->diagnostics.highWater = 2;
     ReleaseMutex(mutex); CloseHandle(mutex); UnmapViewOfFile(queue); CloseHandle(mapping);
 }
@@ -264,7 +264,8 @@ static int Traffic(const std::wstring& directory, const wchar_t* targetName, con
                 if (GetFileAttributesW((directory + L"\\stop.txt").c_str()) != INVALID_FILE_ATTRIBUTES) {
                     CloseHandle(target); CloseHandle(peer); return 0;
                 }
-                Check(GetTickCount64() - idle < 120000, "traffic command timeout"); Sleep(10);
+                // The controller samples stopped memory for five minutes before sending stop.
+                Check(GetTickCount64() - idle < 600000, "traffic command timeout"); Sleep(10);
             }
             unsigned duration = 0, pause = 0; std::ifstream(input) >> duration >> pause;
             Check(duration > 0 && duration <= 1800000, "traffic duration");

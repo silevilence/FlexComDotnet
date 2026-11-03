@@ -38,13 +38,25 @@ internal static class Program
         Log("Dedicated ports COM10/20, COM11/21, COM12/22; system security and drivers unchanged.");
         try
         {
-            foreach (var architecture in new[] { "x64", "x86" })
-                await Case($"native full serial {architecture}", () => RunProcess(Path.Combine(AppContext.BaseDirectory, "native", architecture, "NativeTests.exe"), ["--serial"], 90));
+            var managedOnly = File.Exists(Path.Combine(AppContext.BaseDirectory, "managed-only.txt"));
+            if (!managedOnly)
+                foreach (var architecture in new[] { "x64", "x86" })
+                    await Case($"native full serial {architecture}", () => RunProcess(Path.Combine(AppContext.BaseDirectory, "native", architecture, "NativeTests.exe"), ["--serial"], 90));
             foreach (var architecture in new[] { "x64", "x86" })
                 await Case($".NET SerialPort {architecture}", () => ManagedCase(architecture));
-            Log("SHORT SERIAL TESTS COMPLETE. Both architectures now run on separate port pairs concurrently.");
-            await Task.WhenAll(Case("native lifecycle/performance x64", () => NativeCase("x64", "COM10", "COM20")),
-                Case("native lifecycle/performance x86", () => NativeCase("x86", "COM11", "COM21")));
+            if (File.Exists(Path.Combine(AppContext.BaseDirectory, "managed-stress.txt")))
+                foreach (var architecture in new[] { "x64", "x86" })
+                {
+                    await Case($".NET launch {architecture}", () => ManagedCase(architecture, true));
+                    await Case($".NET attach concurrent reuse {architecture}", () => ManagedCase(architecture, false, 200));
+                    await Case($".NET launch concurrent reuse {architecture}", () => ManagedCase(architecture, true, 200));
+                }
+            if (!managedOnly)
+            {
+                Log("SHORT SERIAL TESTS COMPLETE. Both architectures now run on separate port pairs concurrently.");
+                await Task.WhenAll(Case("native lifecycle/performance x64", () => NativeCase("x64", "COM10", "COM20")),
+                    Case("native lifecycle/performance x86", () => NativeCase("x86", "COM11", "COM21")));
+            }
         }
         catch (Exception error) { Log("RUNNER ERROR " + error); Interlocked.Increment(ref s_failures); }
         Log($"FINISHED failures={s_failures} UTC={DateTime.UtcNow:O}");
@@ -123,9 +135,22 @@ internal static class Program
             File.WriteAllText(Path.Combine(directory, "ready.txt"), Environment.ProcessId.ToString());
             var wait = Stopwatch.StartNew();
             while (!File.Exists(Path.Combine(directory, "go.txt"))) { if (wait.Elapsed.TotalSeconds > 30) throw new TimeoutException(); Thread.Sleep(10); }
-            var received = new byte[7];
-            target.Write(s_payload, 0, 7); ReadExact(peer, received); Require(received.SequenceEqual(s_payload), "managed peer bytes");
-            peer.Write(s_payload, 0, 7); ReadExact(target, received); Require(received.SequenceEqual(s_payload), "managed target bytes");
+            var roundsFile = Path.Combine(directory, "rounds.txt");
+            var rounds = File.Exists(roundsFile) ? int.Parse(File.ReadAllText(roundsFile)) : 1;
+            void Transfer(SerialPort writer, SerialPort reader, byte[] expected)
+            {
+                var received = new byte[7];
+                writer.Write(expected, 0, 7); ReadExact(reader, received);
+                Require(received.SequenceEqual(expected), "managed business bytes");
+            }
+            if (rounds == 1) { Transfer(target, peer, s_payload); Transfer(peer, target, s_payload); }
+            else
+            {
+                // Independent directions overlap and repeatedly recycle the runtime's native request storage.
+                var outgoing = Task.Run(() => { for (var i = 0; i < rounds; ++i) { Transfer(target, peer, StressPayload(0, i)); Thread.Sleep(1); } });
+                var incoming = Task.Run(() => { for (var i = 0; i < rounds; ++i) { Transfer(peer, target, StressPayload(1, i)); Thread.Sleep(1); } });
+                Task.WaitAll(outgoing, incoming);
+            }
             File.WriteAllText(Path.Combine(directory, "done.txt"), "business bytes PASS");
             while (!File.Exists(Path.Combine(directory, "stop.txt"))) { if (wait.Elapsed.TotalSeconds > 60) break; Thread.Sleep(20); }
             return 0;
@@ -136,23 +161,55 @@ internal static class Program
     {
         var offset = 0; while (offset < data.Length) offset += port.Read(data, offset, data.Length - offset);
     }
-    private static async Task ManagedCase(string architecture)
+    private static byte[] StressPayload(int direction, int round) =>
+        [(byte)(0xa0 + direction), (byte)round, (byte)(round >> 8), 0x7f, 0x80, (byte)(round ^ 0xa5), 0xff];
+
+    private static bool ManagedPayloadsMatch(ProcessMonitorRecord[] data, int rounds)
+    {
+        if (data.Length != 4 * rounds || data.Any(r => !r.Succeeded || r.CompletedLength != 7 || r.Data.Length != 7)
+            || data.Select(r => r.RequestId).Distinct().Count() != data.Length) return false;
+        if (rounds == 1) return data.All(r => r.Data.SequenceEqual(s_payload));
+        var grouped = data.GroupBy(r => Convert.ToHexString(r.Data)).ToDictionary(g => g.Key, g => g.ToArray());
+        if (grouped.Count != rounds * 2) return false;
+        var transmitHandles = new ulong[2];
+        var receiveHandles = new ulong[2];
+        for (var direction = 0; direction < 2; ++direction)
+        for (var round = 0; round < rounds; ++round)
+        {
+            if (!grouped.TryGetValue(Convert.ToHexString(StressPayload(direction, round)), out var pair) || pair.Length != 2) return false;
+            var sent = pair.SingleOrDefault(r => r.Direction == CaptureDirection.Transmit);
+            var received = pair.SingleOrDefault(r => r.Direction == CaptureDirection.Receive);
+            if (sent is null || received is null || sent.Handle == received.Handle) return false;
+            if (round == 0) { transmitHandles[direction] = sent.Handle; receiveHandles[direction] = received.Handle; }
+            else if (transmitHandles[direction] != sent.Handle || receiveHandles[direction] != received.Handle) return false;
+        }
+        return transmitHandles[0] == receiveHandles[1] && transmitHandles[1] == receiveHandles[0];
+    }
+    private static async Task ManagedCase(string architecture, bool launchMode = false, int rounds = 1)
     {
         var directory = Path.Combine(Path.GetTempPath(), "FlexComManaged-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
         var executable = architecture == "x64" ? Environment.ProcessPath! : Path.Combine(AppContext.BaseDirectory, "worker-x86", "ProcessMonitor.VmTests.exe");
         var start = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true };
         start.ArgumentList.Add("--managed-worker"); start.ArgumentList.Add(directory);
-        using var child = Process.Start(start)!;
-        await using var session = new ProcessMonitorSession(new NativeProcessMonitorTransport(Path.Combine(AppContext.BaseDirectory, "native")));
+        await File.WriteAllTextAsync(Path.Combine(directory, "rounds.txt"), rounds.ToString());
+        var targets = new ProcessMonitorTargets(Path.Combine(AppContext.BaseDirectory, "native"));
+        await using var launch = launchMode ? await targets.PrepareLaunchAsync(executable, $"--managed-worker \"{directory}\"") : null;
+        using var child = launch is null ? Process.Start(start)! : Process.GetProcessById(launch.Target.ProcessId);
+        var transport = new NativeProcessMonitorTransport(Path.Combine(AppContext.BaseDirectory, "native"));
+        await using var session = new ProcessMonitorSession(transport);
         try
         {
+            if (launch is not null) await session.StartAsync(launch);
             await WaitFile(directory, "ready.txt", child);
-            await session.AttachAsync(new ProcessMonitorTargets().GetTarget(child.Id));
+            if (launch is null) await session.AttachAsync(targets.GetTarget(child.Id));
             await Signal(directory, "go.txt"); await WaitFile(directory, "done.txt", child); await Task.Delay(250);
             var data = session.Records.Where(r => r.Api is "ReadFile" or "WriteFile" or "ReadFileEx" or "WriteFileEx").ToArray();
-            await File.WriteAllTextAsync(Path.Combine(s_output, "managed-" + architecture + ".json"), JsonSerializer.Serialize(session.Records));
-            Log($"managed {architecture}: business bytes PASS; captured completions={data.Length}, bytes={data.Sum(r => r.Data.Length)}");
-            Require(data.Length == 4 && data.All(r => r.Succeeded && r.Data.SequenceEqual(s_payload)), ".NET SerialPort completion capture incomplete; do not declare this runtime supported");
+            var label = architecture + (launchMode ? "-launch" : "-attach") + "-" + rounds;
+            await File.WriteAllTextAsync(Path.Combine(s_output, "managed-" + label + ".json"), JsonSerializer.Serialize(session.Records));
+            await File.WriteAllTextAsync(Path.Combine(s_output, "managed-diagnostics-" + label + ".json"), JsonSerializer.Serialize(transport.Diagnostics));
+            Log($"managed {label}: business bytes PASS; captured completions={data.Length}/{4 * rounds}, bytes={data.Sum(r => r.Data.Length)}");
+            Require(ManagedPayloadsMatch(data, rounds) && transport.Diagnostics?.LostObservations == 0,
+                ".NET SerialPort completion capture incomplete; do not declare this runtime supported");
         }
         finally
         {
@@ -163,11 +220,12 @@ internal static class Program
     }
     private sealed class CaptureCounter
     {
-        public long Records, Invalid, Gaps;
+        public long Records, Invalid, Gaps, LastRequest, Duplicates;
         public void Receive(object? sender, ProcessMonitorRecord record)
         {
             if (record.Integrity == CaptureIntegrity.Gap) Interlocked.Exchange(ref Gaps, record.DroppedRecords);
             if (record.Api is not ("ReadFile" or "WriteFile")) return;
+            if (record.RequestId <= Interlocked.Exchange(ref LastRequest, record.RequestId)) Interlocked.Increment(ref Duplicates);
             Interlocked.Increment(ref Records);
             if (!record.Succeeded || record.CompletedLength != 64 || record.Data.Length != 64
                 || record.Data.Where((value, index) => value != (byte)(record.Data[0] + index)).Any()) Interlocked.Increment(ref Invalid);
@@ -198,7 +256,10 @@ internal static class Program
             await File.WriteAllTextAsync(Path.Combine(s_output, $"diagnostics-{architecture}-{id}.json"),
                 JsonSerializer.Serialize(new { metrics, records, gaps, qpcFrequency = Stopwatch.Frequency, diagnostics = transport.Diagnostics }));
             Require(counter.Invalid == beforeInvalid, "captured payload or completion mismatch");
-            if (capture && pause > 0) Require(records + gaps == metrics[3], "capture has unaccounted missing records");
+            if (capture) Require(records + gaps == metrics[3], "capture has unaccounted missing records");
+            if (capture && pause > 0 && !File.Exists(Path.Combine(AppContext.BaseDirectory, "diagnostic-baseline.txt")))
+                Require(gaps == 0, "normal paced capture must have zero loss");
+            Require(counter.Duplicates == 0, "duplicate or out-of-order synchronous request identity");
             if (!capture) Require(records == 0, "capture continued after stop");
             return metrics;
         }
@@ -225,9 +286,20 @@ internal static class Program
             var duration = await longRun;
             await File.WriteAllTextAsync(Path.Combine(s_output, "memory-" + architecture + ".json"), JsonSerializer.Serialize(samples));
             await session.StopAsync(); await Cycle(3000, 6, false);
+            var stoppedSamples = new List<object>();
+            for (var i = 0; i < (durationMs == 1800000 ? 60 : 2); ++i)
+            {
+                await Task.Delay(5000); child.Refresh(); using var self = Process.GetCurrentProcess();
+                stoppedSamples.Add(new { utc = DateTime.UtcNow, targetPrivate = child.PrivateMemorySize64,
+                    collectorPrivate = self.PrivateMemorySize64, retained = session.Records.Count });
+            }
+            await File.WriteAllTextAsync(Path.Combine(s_output, "stopped-memory-" + architecture + ".json"), JsonSerializer.Serialize(stoppedSamples));
             var ratio = (double)monitored[0] / monitored[1] / ((double)baseline[0] / baseline[1]);
+            var longRatio = (double)duration[0] / duration[1] / ((double)baseline[0] / baseline[1]);
             Log($"{architecture} pacedThroughputRatio={ratio:F4}, p99IncreaseUs={monitored[2] - baseline[2]}, longCycles={duration[0]}; paced virtual-port result, not saturation benchmark.");
+            Log($"{architecture} longThroughputRatio={longRatio:F4}, longP99IncreaseUs={duration[2] - baseline[2]}; compared with the same short unmonitored baseline, includes scheduling variation over the long run.");
             Require(ratio >= .9 && monitored[2] - baseline[2] <= 1000, "paced performance threshold exceeded");
+            Require(longRatio >= .9 && duration[2] - baseline[2] <= 1000, "long-run paced performance threshold exceeded");
         }
         finally
         {

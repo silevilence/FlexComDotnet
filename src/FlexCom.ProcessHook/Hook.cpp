@@ -9,9 +9,11 @@ static HANDLE queueMutex = nullptr;
 static HANDLE mappingHandle = nullptr;
 static SRWLOCK initializationLock = SRWLOCK_INIT;
 static bool installed = false;
-static void Lose(volatile LONG& reason) {
-    InterlockedIncrement(&reason);
-    InterlockedIncrement(&shared->dropped);
+// Brief consumer/producer hand-offs may wait; a stopped collector cannot block business I/O indefinitely.
+constexpr DWORD QueueWaitMilliseconds = 10;
+struct CaptureRecord : HookRecord { uint32_t epoch = 0; bool suppressesPacket = false; bool skipsSuccessfulPacket = false; };
+static void Lose(SessionCounter& reason, uint32_t epoch) {
+    if (reason.Add(epoch)) shared->dropped.Add(epoch);
 }
 static std::wstring ownerName;
 alignas(8) static volatile LONG64 nextOwnerCheck = 0;
@@ -36,6 +38,8 @@ static decltype(&EscapeCommFunction) realEscape = EscapeCommFunction;
 static decltype(&PurgeComm) realPurge = PurgeComm;
 static decltype(&CancelIo) realCancel = CancelIo;
 static decltype(&CancelIoEx) realCancelEx = CancelIoEx;
+static decltype(&WaitCommEvent) realWaitComm = WaitCommEvent;
+static decltype(&SetFileCompletionNotificationModes) realNotificationModes = SetFileCompletionNotificationModes;
 static thread_local unsigned observationDepth = 0;
 struct SuppressNested {
     SuppressNested() { ++observationDepth; }
@@ -43,11 +47,11 @@ struct SuppressNested {
 };
 template<typename F> static auto CallOriginal(F operation) { SuppressNested scope; return operation(); }
 static SRWLOCK handleLock = SRWLOCK_INIT;
-struct SerialHandle { HANDLE value; uint64_t generation; wchar_t port[32]; bool portKnown; HANDLE completionPort; };
+struct SerialHandle { HANDLE value; uint64_t generation; wchar_t port[32]; bool portKnown; HANDLE completionPort; bool skipSuccessfulPacket; };
 static SerialHandle handles[1024]{};
 static uint64_t nextGeneration = 0;
 alignas(8) static volatile LONG64 nextRequest = 0;
-struct PendingRequest { OVERLAPPED* overlapped; HANDLE handle; const void* buffer; HookRecord record; LPOVERLAPPED_COMPLETION_ROUTINE callback; bool ambiguousPacket; };
+struct PendingRequest { OVERLAPPED* overlapped; HANDLE handle; const void* buffer; CaptureRecord record; LPOVERLAPPED_COMPLETION_ROUTINE callback; bool ambiguousPacket; };
 static PendingRequest pending[1024]{};
 static SRWLOCK pendingLock = SRWLOCK_INIT;
 // A result query does not dequeue an IOCP packet. Keep bounded tombstones until that packet arrives.
@@ -62,7 +66,7 @@ static void RememberRetired(OVERLAPPED* pointer, bool ambiguous, HANDLE handle, 
     }
     if (empty) *empty = {pointer, ambiguous, handle, generation};
     // Tracking saturation is a capability diagnostic, not another lost business completion.
-    else if (!retirementOverflow) { retirementOverflow = true; InterlockedIncrement(&shared->diagnostics.retirementCapacity); }
+    else if (!retirementOverflow) { retirementOverflow = true; shared->diagnostics.retirementCapacity.Add(shared->dropped.Epoch()); }
 }
 static bool KnownWithoutCompletionPort(HANDLE handle, uint64_t generation) {
     bool absent = false;
@@ -71,6 +75,14 @@ static bool KnownWithoutCompletionPort(HANDLE handle, uint64_t generation) {
         absent = entry.portKnown && !entry.completionPort; break;
     }
     ReleaseSRWLockShared(&handleLock); return absent;
+}
+static bool KnownSkipSuccessfulPacket(HANDLE handle, uint64_t generation) {
+    bool skip = false;
+    AcquireSRWLockShared(&handleLock);
+    for (const auto& entry : handles) if (entry.value == handle && entry.generation == generation) {
+        skip = entry.skipSuccessfulPacket; break;
+    }
+    ReleaseSRWLockShared(&handleLock); return skip;
 }
 static bool HasRetired(OVERLAPPED* pointer) {
     if (retirementOverflow) return true;
@@ -109,7 +121,7 @@ static bool Serial(HANDLE value, SerialHandle& result, bool newlyOpened = false)
     }
     if (empty) { empty->value = value; empty->generation = ++nextGeneration; wcscpy_s(empty->port, L"未知（附加前已打开）"); result = *empty; }
     ReleaseSRWLockExclusive(&handleLock);
-    if (!empty && shared) Lose(shared->diagnostics.handleCapacity);
+    if (!empty && shared) Lose(shared->diagnostics.handleCapacity, shared->dropped.Epoch());
     return empty != nullptr;
 }
 static bool ObservationEnabled() {
@@ -132,16 +144,17 @@ static bool ObservationEnabled() {
     }
     return shared->enabled != 0;
 }
-static bool SnapshotSession(HookRecord& record) {
+static bool SnapshotSession(CaptureRecord& record) {
     if (!ObservationEnabled()) return false;
-    DWORD lock = WaitForSingleObject(queueMutex, 0);
-    if (lock != WAIT_OBJECT_0 && lock != WAIT_ABANDONED) { Lose(shared->diagnostics.snapshotContention); return false; }
+    record.epoch = shared->dropped.Epoch();
+    DWORD lock = WaitForSingleObject(queueMutex, QueueWaitMilliseconds);
+    if (lock != WAIT_OBJECT_0 && lock != WAIT_ABANDONED) { Lose(shared->diagnostics.snapshotContention, record.epoch); return false; }
     bool enabled = shared->enabled != 0;
-    if (enabled) record.session = shared->session;
+    if (enabled) { record.session = shared->session; record.epoch = shared->dropped.Epoch(); }
     ReleaseMutex(queueMutex);
     return enabled;
 }
-static bool BeginRecord(HANDLE handle, Api api, DWORD requested, HookRecord& record) {
+static bool BeginRecord(HANDLE handle, Api api, DWORD requested, CaptureRecord& record) {
     SerialHandle serial{};
     if (!ObservationEnabled() || !Serial(handle, serial) || !SnapshotSession(record)) return false;
     record.handle = reinterpret_cast<ULONG_PTR>(handle); record.generation = serial.generation;
@@ -150,13 +163,13 @@ static bool BeginRecord(HANDLE handle, Api api, DWORD requested, HookRecord& rec
     record.requested = requested; record.request = static_cast<uint64_t>(InterlockedIncrement64(&nextRequest));
     return true;
 }
-static void Publish(HookRecord& record) {
+static void Publish(CaptureRecord& record) {
     LARGE_INTEGER started{}, ended{}; QueryPerformanceCounter(&started);
-    auto loseRecord = [&](volatile LONG& reason) {
-        if (record.api == ApiGap) InterlockedIncrement(&shared->diagnostics.notificationLoss);
-        else Lose(reason);
+    auto loseRecord = [&](SessionCounter& reason) {
+        if (record.api == ApiGap) shared->diagnostics.notificationLoss.Add(record.epoch);
+        else Lose(reason, record.epoch);
     };
-    DWORD lock = WaitForSingleObject(queueMutex, 0);
+    DWORD lock = WaitForSingleObject(queueMutex, QueueWaitMilliseconds);
     if (lock != WAIT_OBJECT_0 && lock != WAIT_ABANDONED) { loseRecord(shared->diagnostics.publishContention); return; }
     if (shared->enabled && !memcmp(&record.session, &shared->session, sizeof(GUID))) {
         if (shared->count >= QueueCapacity || shared->writeIndex >= QueueCapacity || shared->readIndex >= QueueCapacity)
@@ -176,7 +189,7 @@ static void Publish(HookRecord& record) {
     }
     ReleaseMutex(queueMutex);
 }
-static void Finish(HookRecord& record, const void* data, DWORD completed, BOOL success, DWORD error) {
+static void SnapshotCompletion(CaptureRecord& record, const void* data, DWORD completed, BOOL success, DWORD error) {
     FILETIME now{}; GetSystemTimePreciseAsFileTime(&now);
     record.time = (static_cast<uint64_t>(now.dwHighDateTime) << 32) | now.dwLowDateTime;
     record.succeeded = success; record.error = error; record.completed = completed;
@@ -187,14 +200,17 @@ static void Finish(HookRecord& record, const void* data, DWORD completed, BOOL s
             record.dataLength = 0; record.integrity = Unavailable;
         } else if (completed > PayloadCapacity) record.integrity = Truncated;
     }
+}
+static void Finish(CaptureRecord& record, const void* data, DWORD completed, BOOL success, DWORD error) {
+    SnapshotCompletion(record, data, completed, success, error);
     Publish(record);
 }
-static bool StorePending(OVERLAPPED* overlapped, HANDLE handle, const void* buffer, const HookRecord& record, LPOVERLAPPED_COMPLETION_ROUTINE callback = nullptr) {
+static bool StorePending(OVERLAPPED* overlapped, HANDLE handle, const void* buffer, const CaptureRecord& record, LPOVERLAPPED_COMPLETION_ROUTINE callback = nullptr) {
     AcquireSRWLockExclusive(&pendingLock);
     PendingRequest* slot = nullptr;
     for (auto& item : pending) {
         if (item.overlapped == overlapped) {
-            Lose(shared->diagnostics.ambiguousCompletion);
+            Lose(shared->diagnostics.ambiguousCompletion, item.callback ? record.epoch : item.record.epoch);
             // Never lose a business callback, even for an invalid early OVERLAPPED reuse.
             if (item.callback) { ReleaseSRWLockExclusive(&pendingLock); return false; }
             RememberRetired(overlapped, true, item.handle, item.record.generation);
@@ -202,12 +218,18 @@ static bool StorePending(OVERLAPPED* overlapped, HANDLE handle, const void* buff
         }
         if (!item.overlapped && !slot) slot = &item;
     }
-    if (slot) *slot = {overlapped, handle, buffer, record, callback, HasRetired(overlapped)};
-    else Lose(shared->diagnostics.pendingCapacity);
+    if (slot) {
+        *slot = {overlapped, handle, buffer, record, callback, HasRetired(overlapped)};
+        slot->record.skipsSuccessfulPacket = KnownSkipSuccessfulPacket(handle, record.generation);
+        HANDLE event = nullptr;
+        if (SafeCopy(&event, &overlapped->hEvent, sizeof(event)))
+            slot->record.suppressesPacket = (reinterpret_cast<ULONG_PTR>(event) & 1) != 0;
+    }
+    else Lose(shared->diagnostics.pendingCapacity, record.epoch);
     ReleaseSRWLockExclusive(&pendingLock);
     return slot != nullptr;
 }
-static LPOVERLAPPED_COMPLETION_ROUTINE CompletePending(OVERLAPPED* overlapped, HANDLE handle, DWORD count, BOOL success, DWORD error, uint64_t requestId = 0, bool callbackCompletion = false, bool packetCompletion = false) {
+static LPOVERLAPPED_COMPLETION_ROUTINE CompletePending(OVERLAPPED* overlapped, HANDLE handle, DWORD count, BOOL success, DWORD error, uint64_t requestId = 0, bool callbackCompletion = false, bool packetCompletion = false, bool noPacketExpected = false) {
     if (!overlapped) return nullptr;
     PendingRequest completed{};
     bool ambiguous = false;
@@ -218,8 +240,13 @@ static LPOVERLAPPED_COMPLETION_ROUTINE CompletePending(OVERLAPPED* overlapped, H
             ambiguous = packetCompletion && (item.ambiguousPacket || error == ERROR_IO_INCOMPLETE);
             if (ambiguous) RememberRetired(overlapped, true, item.handle, item.record.generation);
             else if (packetCompletion) ForgetRetired(overlapped);
-            else if (!item.callback && !KnownWithoutCompletionPort(item.handle, item.record.generation))
+            else if (!item.callback && !noPacketExpected && !item.record.suppressesPacket && !KnownWithoutCompletionPort(item.handle, item.record.generation))
                 RememberRetired(overlapped, false, item.handle, item.record.generation);
+            // Snapshot before removing ownership: another completion consumer may immediately
+            // return to business code and release/reuse the read buffer after this lock is released.
+            if (!ambiguous && shared->enabled && completed.record.epoch == shared->dropped.Epoch())
+                SnapshotCompletion(completed.record, completed.record.direction == 0 ? completed.record.attempt : completed.buffer,
+                    count, success, error);
             item = {}; break;
         }
     }
@@ -227,33 +254,45 @@ static LPOVERLAPPED_COMPLETION_ROUTINE CompletePending(OVERLAPPED* overlapped, H
     ReleaseSRWLockExclusive(&pendingLock);
     if (!completed.overlapped) return nullptr;
     // Old-session completions still dispatch callbacks, but their buffers are not inspected.
-    DWORD lock = WaitForSingleObject(queueMutex, 0);
+    DWORD lock = WaitForSingleObject(queueMutex, QueueWaitMilliseconds);
     bool active = false;
     if (lock == WAIT_OBJECT_0 || lock == WAIT_ABANDONED) {
         active = shared->enabled && !memcmp(&completed.record.session, &shared->session, sizeof(GUID));
         ReleaseMutex(queueMutex);
-    } else Lose(shared->diagnostics.completionContention);
+    } else Lose(shared->diagnostics.completionContention, completed.record.epoch);
     if (active && ambiguous) {
         FILETIME now{}; GetSystemTimePreciseAsFileTime(&now);
         completed.record.time = (static_cast<uint64_t>(now.dwHighDateTime) << 32) | now.dwLowDateTime;
         completed.record.api = ApiGap; completed.record.direction = 2; completed.record.integrity = Unavailable;
         wcscpy_s(completed.record.detail, L"完成来源不明确：OVERLAPPED 在旧完成包取出前被复用；此地址的 IOCP 记录需重启目标后恢复。");
-        Lose(shared->diagnostics.ambiguousCompletion); Publish(completed.record);
-    } else if (active) Finish(completed.record, completed.record.direction == 0 ? completed.record.attempt : completed.buffer, count, success, error);
+        Lose(shared->diagnostics.ambiguousCompletion, completed.record.epoch); Publish(completed.record);
+    } else if (active) Publish(completed.record);
     return completed.callback;
 }
-static void ImmediateResult(HANDLE handle, OVERLAPPED* overlapped, const HookRecord& record, BOOL success, DWORD error) {
+static void ImmediateResult(HANDLE handle, OVERLAPPED* overlapped, const CaptureRecord& record, BOOL success, DWORD error) {
     if (!success && error == ERROR_IO_PENDING) return;
     DWORD actual = 0;
     if (success) {
-        // The request is complete; a non-waiting result query gives its actual length even with a null count argument.
-        if (!realGetResult(handle, overlapped, &actual, FALSE)) return;
+        // IOCP consumers may already have dispatched/freed/reused this address before the API returns.
+        // Only an observed event-only handle permits an observer-owned result query.
+        // For associated or pre-attachment handles, use the caller's completion query or actual IOCP packet.
+        bool query = false, observed = false;
+        AcquireSRWLockExclusive(&pendingLock);
+        for (const auto& item : pending) if (item.overlapped == overlapped && item.handle == handle && item.record.request == record.request) {
+            query = item.record.suppressesPacket || KnownWithoutCompletionPort(handle, record.generation)
+                || item.record.skipsSuccessfulPacket;
+            break;
+        }
+        // Other covered consumers cannot return and recycle the storage during this non-waiting query.
+        if (query) observed = CallOriginal([&] { return realGetResult(handle, overlapped, &actual, FALSE); }) != FALSE;
+        ReleaseSRWLockExclusive(&pendingLock);
+        if (!observed) return;
     }
-    CompletePending(overlapped, handle, actual, success, error, record.request);
+    CompletePending(overlapped, handle, actual, success, error, record.request, false, false, true);
 }
 
 static BOOL WINAPI HookRead(HANDLE handle, LPVOID data, DWORD length, LPDWORD completed, LPOVERLAPPED overlapped) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = BeginRecord(handle, ApiRead, length, record);
     if (capture && overlapped) capture = StorePending(overlapped, handle, data, record);
     SetLastError(incoming);
@@ -264,7 +303,7 @@ static BOOL WINAPI HookRead(HANDLE handle, LPVOID data, DWORD length, LPDWORD co
     SetLastError(error); return result;
 }
 static BOOL WINAPI HookWrite(HANDLE handle, LPCVOID data, DWORD length, LPDWORD completed, LPOVERLAPPED overlapped) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = BeginRecord(handle, ApiWrite, length, record);
     if (capture) {
         record.attemptLength = (std::min<DWORD>)(length, PayloadCapacity);
@@ -280,6 +319,7 @@ static BOOL WINAPI HookWrite(HANDLE handle, LPCVOID data, DWORD length, LPDWORD 
     SetLastError(error); return result;
 }
 static BOOL WINAPI HookGetResult(HANDLE handle, LPOVERLAPPED overlapped, LPDWORD count, BOOL wait) {
+    if (observationDepth) return realGetResult(handle, overlapped, count, wait);
     DWORD incoming = GetLastError(); auto requestId = PendingId(overlapped, handle); SetLastError(incoming);
     BOOL result = realGetResult(handle, overlapped, count, wait); DWORD error = GetLastError();
     DWORD actual = 0;
@@ -296,6 +336,7 @@ static BOOL WINAPI HookGetCompletion(HANDLE port, LPDWORD count, PULONG_PTR key,
     SetLastError(error); return result;
 }
 static BOOL WINAPI HookGetResultEx(HANDLE handle, LPOVERLAPPED overlapped, LPDWORD count, DWORD timeout, BOOL alertable) {
+    if (observationDepth) return realGetResultEx(handle, overlapped, count, timeout, alertable);
     DWORD incoming = GetLastError(); auto requestId = PendingId(overlapped, handle); SetLastError(incoming);
     BOOL result = realGetResultEx(handle, overlapped, count, timeout, alertable); DWORD error = GetLastError();
     DWORD actual = 0;
@@ -349,7 +390,7 @@ static void WINAPI CompletionCallback(DWORD error, DWORD count, OVERLAPPED* over
     if (callback) callback(error, count, overlapped);
 }
 static BOOL WINAPI HookReadEx(HANDLE handle, LPVOID data, DWORD length, LPOVERLAPPED overlapped, LPOVERLAPPED_COMPLETION_ROUTINE callback) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = callback && overlapped && BeginRecord(handle, ApiReadEx, length, record);
     if (capture) capture = StorePending(overlapped, handle, data, record, callback);
     SetLastError(incoming);
@@ -359,7 +400,7 @@ static BOOL WINAPI HookReadEx(HANDLE handle, LPVOID data, DWORD length, LPOVERLA
     SetLastError(error); return result;
 }
 static BOOL WINAPI HookWriteEx(HANDLE handle, LPCVOID data, DWORD length, LPOVERLAPPED overlapped, LPOVERLAPPED_COMPLETION_ROUTINE callback) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = callback && overlapped && BeginRecord(handle, ApiWriteEx, length, record);
     if (capture) {
         record.attemptLength = (std::min<DWORD>)(length, PayloadCapacity);
@@ -374,7 +415,7 @@ static BOOL WINAPI HookWriteEx(HANDLE handle, LPCVOID data, DWORD length, LPOVER
     SetLastError(error); return result;
 }
 static BOOL WINAPI HookClose(HANDLE handle) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = BeginRecord(handle, ApiClose, 0, record);
     uint64_t generation = 0;
     AcquireSRWLockShared(&handleLock);
@@ -407,7 +448,7 @@ template<typename Character> static bool PortName(const Character* pointer, wcha
     wcsncpy_s(name, port, length); name[0] = L'C'; name[1] = L'O'; name[2] = L'M'; return true;
 }
 template<typename Character, typename F> static HANDLE ObserveOpen(const Character* path, const wchar_t* api, DWORD access, DWORD flags, F operation) {
-    DWORD incoming = GetLastError(); HookRecord record{}; wchar_t port[32]{};
+    DWORD incoming = GetLastError(); CaptureRecord record{}; wchar_t port[32]{};
     bool eligible = ObservationEnabled();
     bool namedPort = eligible && PortName(path, port);
     bool capture = namedPort && SnapshotSession(record);
@@ -445,7 +486,7 @@ static HANDLE WINAPI HookOpenW(LPCWSTR path, DWORD access, DWORD share, LPSECURI
 static HANDLE WINAPI HookOpenA(LPCSTR path, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security, DWORD disposition, DWORD flags, HANDLE templ) {
     return ObserveOpen(path, L"CreateFileA", access, flags, [&] { return realOpenA(path, access, share, security, disposition, flags, templ); });
 }
-static void DescribeState(HookRecord& record, const DCB* pointer) {
+static void DescribeState(CaptureRecord& record, const DCB* pointer) {
     DCB state{};
     if (!SafeCopy(&state, pointer, sizeof(state))) { wcscpy_s(record.detail, L"参数未知"); return; }
     _snwprintf_s(record.detail, _TRUNCATE, L"Baud=%lu Byte=%u Parity=%u Stop=%u CTS=%lu DSR=%lu OutX=%lu InX=%lu DTR=%lu RTS=%lu",
@@ -453,7 +494,7 @@ static void DescribeState(HookRecord& record, const DCB* pointer) {
         state.fOutX, state.fInX, state.fDtrControl, state.fRtsControl);
 }
 static BOOL WINAPI HookSetState(HANDLE handle, LPDCB state) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = BeginRecord(handle, ApiSetState, 0, record);
     if (capture) DescribeState(record, state);
     SetLastError(incoming);
@@ -462,14 +503,14 @@ static BOOL WINAPI HookSetState(HANDLE handle, LPDCB state) {
     SetLastError(error); return result;
 }
 static BOOL WINAPI HookGetState(HANDLE handle, LPDCB state) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = BeginRecord(handle, ApiGetState, 0, record);
     SetLastError(incoming);
     BOOL result = CallOriginal([&] { return realGetState(handle, state); }); DWORD error = GetLastError();
     if (capture) { if (result) DescribeState(record, state); else wcscpy_s(record.detail, L"参数未知"); Finish(record, nullptr, 0, result, error); }
     SetLastError(error); return result;
 }
-static void DescribeTimeouts(HookRecord& record, const COMMTIMEOUTS* pointer) {
+static void DescribeTimeouts(CaptureRecord& record, const COMMTIMEOUTS* pointer) {
     COMMTIMEOUTS value{};
     if (!SafeCopy(&value, pointer, sizeof(value))) { wcscpy_s(record.detail, L"参数未知"); return; }
     _snwprintf_s(record.detail, _TRUNCATE, L"Interval=%lu RMult=%lu RConst=%lu WMult=%lu WConst=%lu",
@@ -477,7 +518,7 @@ static void DescribeTimeouts(HookRecord& record, const COMMTIMEOUTS* pointer) {
         value.WriteTotalTimeoutMultiplier, value.WriteTotalTimeoutConstant);
 }
 static BOOL WINAPI HookSetTimeouts(HANDLE handle, LPCOMMTIMEOUTS value) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = BeginRecord(handle, ApiSetTimeouts, 0, record);
     if (capture) DescribeTimeouts(record, value);
     SetLastError(incoming);
@@ -486,7 +527,7 @@ static BOOL WINAPI HookSetTimeouts(HANDLE handle, LPCOMMTIMEOUTS value) {
     SetLastError(error); return result;
 }
 static BOOL WINAPI HookGetTimeouts(HANDLE handle, LPCOMMTIMEOUTS value) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = BeginRecord(handle, ApiGetTimeouts, 0, record);
     SetLastError(incoming);
     BOOL result = CallOriginal([&] { return realGetTimeouts(handle, value); }); DWORD error = GetLastError();
@@ -494,7 +535,7 @@ static BOOL WINAPI HookGetTimeouts(HANDLE handle, LPCOMMTIMEOUTS value) {
     SetLastError(error); return result;
 }
 template<typename F> static BOOL ObserveControl(HANDLE handle, Api api, const wchar_t* detail, F operation) {
-    DWORD incoming = GetLastError(); HookRecord record{};
+    DWORD incoming = GetLastError(); CaptureRecord record{};
     bool capture = BeginRecord(handle, api, 0, record);
     if (capture) wcsncpy_s(record.detail, detail, _TRUNCATE);
     SetLastError(incoming);
@@ -521,6 +562,51 @@ static BOOL WINAPI HookCancelEx(HANDLE handle, LPOVERLAPPED request) {
     DWORD incoming = GetLastError(); wchar_t detail[128]{};
     _snwprintf_s(detail, _TRUNCATE, L"CancelIoEx OVERLAPPED=%p（接受取消不等于请求完成）", request); SetLastError(incoming);
     return ObserveControl(handle, ApiCancel, detail, [&] { return realCancelEx(handle, request); });
+}
+static BOOL WINAPI HookWaitComm(HANDLE handle, LPDWORD events, LPOVERLAPPED overlapped) {
+    DWORD incoming = GetLastError();
+    CaptureRecord abandoned{};
+    if (overlapped && !observationDepth) {
+        AcquireSRWLockExclusive(&pendingLock);
+        for (auto& item : pending) if (item.overlapped == overlapped) {
+            abandoned = item.record;
+            RememberRetired(overlapped, true, item.handle, item.record.generation);
+            // Even invalid reuse must not discard an already-wrapped business callback.
+            if (item.callback) item.record.session = {};
+            else item = {};
+            break;
+        }
+        ReleaseSRWLockExclusive(&pendingLock);
+        if (abandoned.request) {
+            DWORD lock = WaitForSingleObject(queueMutex, QueueWaitMilliseconds);
+            bool active = false;
+            if (lock == WAIT_OBJECT_0 || lock == WAIT_ABANDONED) {
+                active = shared->enabled && !memcmp(&shared->session, &abandoned.session, sizeof(GUID));
+                ReleaseMutex(queueMutex);
+            } else Lose(shared->diagnostics.completionContention, abandoned.epoch);
+            if (active) {
+                abandoned.api = ApiGap; abandoned.direction = 2; abandoned.integrity = Unavailable;
+                wcscpy_s(abandoned.detail, L"完成未被观察：OVERLAPPED 已被 WaitCommEvent 复用；不将控制结果记作串口字节。请重新启动目标并从启动时监控。");
+                Lose(shared->diagnostics.ambiguousCompletion, abandoned.epoch);
+                Finish(abandoned, nullptr, 0, TRUE, ERROR_SUCCESS);
+            }
+        }
+    }
+    SetLastError(incoming);
+    return CallOriginal([&] { return realWaitComm(handle, events, overlapped); });
+}
+static BOOL WINAPI HookNotificationModes(HANDLE handle, UCHAR flags) {
+    BOOL result = CallOriginal([&] { return realNotificationModes(handle, flags); }); DWORD error = GetLastError();
+    SerialHandle serial{};
+    if (result && ObservationEnabled() && Serial(handle, serial)) {
+        AcquireSRWLockExclusive(&handleLock);
+        for (auto& entry : handles) if (entry.value == handle && entry.generation == serial.generation) {
+            entry.skipSuccessfulPacket = entry.skipSuccessfulPacket || (flags & FILE_SKIP_COMPLETION_PORT_ON_SUCCESS) != 0;
+            break;
+        }
+        ReleaseSRWLockExclusive(&handleLock);
+    }
+    SetLastError(error); return result;
 }
 
 extern "C" DWORD WINAPI InitializeProcessMonitor(LPVOID) {
@@ -576,6 +662,8 @@ extern "C" DWORD WINAPI InitializeProcessMonitor(LPVOID) {
         if (result == NO_ERROR) result = DetourAttach(reinterpret_cast<PVOID*>(&realPurge), HookPurge);
         if (result == NO_ERROR) result = DetourAttach(reinterpret_cast<PVOID*>(&realCancel), HookCancel);
         if (result == NO_ERROR) result = DetourAttach(reinterpret_cast<PVOID*>(&realCancelEx), HookCancelEx);
+        if (result == NO_ERROR) result = DetourAttach(reinterpret_cast<PVOID*>(&realWaitComm), HookWaitComm);
+        if (result == NO_ERROR) result = DetourAttach(reinterpret_cast<PVOID*>(&realNotificationModes), HookNotificationModes);
         if (result == NO_ERROR) result = DetourTransactionCommit();
         else DetourTransactionAbort();
     }

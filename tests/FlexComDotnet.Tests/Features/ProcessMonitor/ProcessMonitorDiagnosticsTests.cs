@@ -9,12 +9,12 @@ public class ProcessMonitorDiagnosticsTests
     [Fact]
     public void FromWire_ShouldSeparateLostObservationsFromTrackingWarnings()
     {
-        var bytes = new byte[64];
-        for (var i = 0; i < 8; i++) BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(i * 4), (uint)(i + 1));
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(32), 256);
-        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(40), 100);
-        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(48), 2000);
-        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(56), 90);
+        var bytes = new byte[104];
+        for (var i = 0; i < 8; i++) BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(i * 8), (17ul << 32) | (uint)(i + 1));
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(64), 256);
+        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(80), 100);
+        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(88), 2000);
+        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(96), 90);
         var result = ProcessMonitorDiagnostics.FromWire(bytes);
         result.LostObservations.Should().Be(28);
         result.RetirementCapacity.Should().Be(8);

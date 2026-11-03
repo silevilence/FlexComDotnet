@@ -1,0 +1,41 @@
+Copying fixed test bundle to VM: C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-6f1ae3d9ff704a93ae24cbed98a518d4
+00:37:07 START UTC=2026-11-03T00:37:07.7542825Z OS=Microsoft Windows NT 10.0.19045.0 architecture=X64 local=C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-6f1ae3d9ff704a93ae24cbed98a518d4\
+00:37:07 Dedicated ports COM10/20, COM11/21, COM12/22; system security and drivers unchanged.
+00:37:07 BEGIN .NET SerialPort x64
+00:37:08 managed x64-attach-1: business bytes PASS; captured completions=1/4, bytes=7
+00:37:08 FAIL .NET SerialPort x64: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 95
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 185
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 193
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 193
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 193
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 92
+00:37:08 BEGIN .NET SerialPort x86
+00:37:10 managed x86-attach-1: business bytes PASS; captured completions=3/4, bytes=21
+00:37:10 FAIL .NET SerialPort x86: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 95
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 185
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 193
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 193
+   at Program.ManagedCase(String architecture, Boolean launchMode, Int32 rounds) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 193
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 92
+00:37:10 BEGIN .NET launch x64
+00:37:10 managed x64-launch-1: business bytes PASS; captured completions=4/4, bytes=28
+00:37:10 PASS .NET launch x64
+00:37:10 BEGIN .NET attach concurrent reuse x64
+00:37:14 managed x64-attach-200: business bytes PASS; captured completions=800/800, bytes=5600
+00:37:14 PASS .NET attach concurrent reuse x64
+00:37:14 BEGIN .NET launch concurrent reuse x64
+00:37:18 managed x64-launch-200: business bytes PASS; captured completions=800/800, bytes=5600
+00:37:18 PASS .NET launch concurrent reuse x64
+00:37:18 BEGIN .NET launch x86
+00:37:19 managed x86-launch-1: business bytes PASS; captured completions=4/4, bytes=28
+00:37:19 PASS .NET launch x86
+00:37:19 BEGIN .NET attach concurrent reuse x86
+00:37:23 managed x86-attach-200: business bytes PASS; captured completions=800/800, bytes=5600
+00:37:23 PASS .NET attach concurrent reuse x86
+00:37:23 BEGIN .NET launch concurrent reuse x86
+00:37:27 managed x86-launch-200: business bytes PASS; captured completions=800/800, bytes=5600
+00:37:27 PASS .NET launch concurrent reuse x86
+00:37:27 SHORT SERIAL TESTS COMPLETE. Both architectures now run on separate port pairs concurrently.
+00:37:27 FINISHED failures=2 UTC=2026-11-03T00:37:27.3360899Z

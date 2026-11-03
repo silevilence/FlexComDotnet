@@ -7,13 +7,15 @@ using FlexComDotnet.Core.Features.ProcessMonitor.Models;
 
 namespace FlexComDotnet.Core.Features.ProcessMonitor.Services;
 
-/// <summary>Versioned bounded shared queue. The producer never waits for this consumer.</summary>
+/// <summary>Versioned bounded shared queue. Producer waits are bounded; decoding occurs outside the queue lock.</summary>
 public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : IProcessMonitorTransport
 {
-    private const int HeaderSize = 128, RecordSize = 2464, Capacity = 256;
+    private const int HeaderSize = 176, RecordSize = 2464, Capacity = 256, ProtocolVersion = 4;
+    private const int LossStateOffset = 48, EpochOffset = 52, StartupOffset = 56, SequenceOffset = 64, DiagnosticsOffset = 72;
     private readonly string _nativeRoot = nativeRoot ?? Path.Combine(AppContext.BaseDirectory, "ProcessHook");
     private MemoryMappedFile? _mapping;
     private MemoryMappedViewAccessor? _view;
+    private MemoryMappedViewStream? _recordView;
     private Mutex? _queueMutex;
     private Semaphore? _owner;
     private bool _ownsSession;
@@ -44,17 +46,25 @@ public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : I
             _queueMutex = new Mutex(false, name + ".lock");
             _mapping = MemoryMappedFile.CreateOrOpen(name, HeaderSize + RecordSize * Capacity);
             _view = _mapping.CreateViewAccessor();
+            _recordView = _mapping.CreateViewStream(HeaderSize, RecordSize * Capacity, MemoryMappedFileAccess.Read);
             WithQueue(() =>
             {
                 var version = _view.ReadUInt32(0);
-                if (version != 0 && (version != 3 || _view.ReadUInt32(4) != RecordSize)) throw new IOException("采集组件版本不匹配；请重启目标后重试。");
+                if (version != 0 && (version != ProtocolVersion || _view.ReadUInt32(4) != RecordSize)) throw new IOException("采集组件版本不匹配；请重启目标后重试。");
+                var epoch = checked(_view.ReadUInt32(EpochOffset) + 1);
                 _view.Write(12, 0u);
-                _view.Write(0, 3u); _view.Write(4, RecordSize); _view.Write(8, Capacity);
+                _view.Write(0, (uint)ProtocolVersion); _view.Write(4, RecordSize); _view.Write(8, Capacity);
                 _view.WriteArray(16, sessionId.ToByteArray(), 0, 16);
                 _view.Write(32, 0u); _view.Write(36, 0u); _view.Write(40, 0u);
-                _view.Write(48, 0u); _view.Write(56, 0ul);
-                _view.WriteArray(64, new byte[64], 0, 64); Diagnostics = null;
-                _view.Write(52, launch is null ? 0u : 1u);
+                _view.Write(SequenceOffset, 0ul);
+                _view.WriteArray(DiagnosticsOffset, new byte[ProcessMonitorDiagnostics.WireSize], 0, ProcessMonitorDiagnostics.WireSize);
+                // Aligned epoch/count pairs are reset atomically. Old native CAS increments cannot hit a new session.
+                var counterState = (ulong)epoch << 32;
+                for (var i = 0; i < 8; ++i) ResetCounter(DiagnosticsOffset + i * sizeof(ulong), counterState);
+                const int NotificationCounterOffset = 72;
+                ResetCounter(DiagnosticsOffset + NotificationCounterOffset, counterState);
+                ResetCounter(LossStateOffset, counterState); Diagnostics = null;
+                _view.Write(StartupOffset, launch is null ? 0u : 1u);
                 _view.Write(12, 1u);
             });
             if (launch is not null) await launch.ActivateAsync(cancellationToken).ConfigureAwait(false);
@@ -69,10 +79,27 @@ public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : I
             }
             for (var i = 0; i < 250 && _view.ReadUInt32(44) == 0 && !_targetProcess.HasExited; i++) await Task.Delay(20, cancellationToken).ConfigureAwait(false);
             if (_view.ReadUInt32(44) != 1) throw new IOException("采集模块尚未就绪。");
+            if (launch is null)
+                RecordReceived?.Invoke(this, new ProcessMonitorRecord
+                {
+                    SessionId = sessionId, ProcessId = target.ProcessId, ProcessStartTime = target.StartTime,
+                    Api = "能力提示", Direction = CaptureDirection.Control, Integrity = CaptureIntegrity.Unavailable,
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Detail = "运行中附加无法回溯已进入的异步完成等待，可能漏采且无法确定数量；.NET SerialPort 请使用启动并监控。此提示不计入已知丢弃数。"
+                });
             _stop = new CancellationTokenSource();
             _reader = Task.Run(() => ReadLoopAsync(_stop.Token), CancellationToken.None);
         }
         catch { await DisconnectAsync().ConfigureAwait(false); throw; }
+    }
+
+    private unsafe void ResetCounter(int offset, ulong state)
+    {
+        byte* pointer = null;
+        var handle = _view!.SafeMemoryMappedViewHandle;
+        handle.AcquirePointer(ref pointer);
+        try { Interlocked.Exchange(ref *(long*)(pointer + _view.PointerOffset + offset), unchecked((long)state)); }
+        finally { handle.ReleasePointer(); }
     }
 
     private void WithQueue(Action action)
@@ -93,27 +120,35 @@ public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : I
         string? reason = null;
         try
         {
+            // Allocate once, before taking the interprocess mutex. Copy the ring in at most two bulk reads.
+            var batch = new byte[RecordSize * Capacity];
+            var diagnosticBytes = new byte[ProcessMonitorDiagnostics.WireSize];
             while (!cancellationToken.IsCancellationRequested)
             {
-                var records = new List<byte[]>();
-                uint dropped = 0;
+                uint dropped = 0, count = 0;
                 WithQueue(() =>
                 {
-                    var count = _view!.ReadUInt32(40); var index = _view.ReadUInt32(32);
+                    count = _view!.ReadUInt32(40); var index = _view.ReadUInt32(32);
                     if (count > Capacity || index >= Capacity) throw new IOException("采集队列损坏。");
-                    dropped = _view.ReadUInt32(48);
-                    for (var i = 0; i < count; i++)
+                    if (count != 0)
                     {
-                        var bytes = new byte[RecordSize];
-                        _view.ReadArray(HeaderSize + index * RecordSize, bytes, 0, bytes.Length);
-                        records.Add(bytes); index = (index + 1) % Capacity;
+                        var firstBytes = checked((int)Math.Min(count, Capacity - index) * RecordSize);
+                        _recordView!.Position = index * RecordSize;
+                        _recordView.ReadExactly(batch.AsSpan(0, firstBytes));
+                        var remainingBytes = checked((int)count * RecordSize - firstBytes);
+                        if (remainingBytes != 0)
+                        {
+                            _recordView.Position = 0;
+                            _recordView.ReadExactly(batch.AsSpan(firstBytes, remainingBytes));
+                        }
                     }
-                    dropped = _view.ReadUInt32(48);
-                    _view.Write(32, index); _view.Write(40, 0u);
-                    var diagnosticBytes = new byte[64];
-                    _view.ReadArray(64, diagnosticBytes, 0, 64);
-                    Diagnostics = ProcessMonitorDiagnostics.FromWire(diagnosticBytes);
+                    dropped = _view.ReadUInt32(LossStateOffset);
+                    _view.Write(32, (index + count) % Capacity); _view.Write(40, 0u);
+                    _view.ReadArray(DiagnosticsOffset, diagnosticBytes, 0, diagnosticBytes.Length);
                 });
+                Diagnostics = ProcessMonitorDiagnostics.FromWire(diagnosticBytes);
+                var records = new List<byte[]>((int)count);
+                for (var i = 0; i < count; ++i) records.Add(batch.AsSpan(i * RecordSize, RecordSize).ToArray());
                 foreach (var record in _records!.ReadBatch(records, dropped)) RecordReceived?.Invoke(this, record);
                 if (_targetProcess!.HasExited) { reason = "目标进程已退出"; return; }
                 await Task.Delay(20, cancellationToken).ConfigureAwait(false);
@@ -150,6 +185,7 @@ public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : I
         }
         finally
         {
+            _recordView?.Dispose(); _recordView = null;
             _view?.Dispose(); _view = null; _mapping?.Dispose(); _mapping = null;
             _queueMutex?.Dispose(); _queueMutex = null;
             if (_ownsSession) _owner!.Release();
