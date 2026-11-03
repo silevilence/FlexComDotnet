@@ -4,15 +4,17 @@
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![WPF](https://img.shields.io/badge/WPF-Windows-0078D4?logo=windows)
-![Tests](https://img.shields.io/badge/Tests-1059_passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-1140_passing-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Rust](https://img.shields.io/badge/Driver-Rust_%2F_WDK-orange?logo=rust)
 
 ## 📋 项目状态
 
-**🚀 开发中 - 驱动安装生命周期管理与串口传输控制优化**
+**V1.7.0 — 新增实验性进程串口监控**
 
-当前版本 v1.5.0。已完成串口/网络通信、协议解析引擎（通用/DL/T 645-2007/Modbus-RTU）、Lua 脚本系统、智能自动回复（规则池架构）、数据可视化、协议组帧与解析联动、Rust 内核驱动框架等核心功能。当前正在开发驱动安装与生命周期管理、串口帧定界与传输控制、自动响应防抖机制。
+当前版本 V1.7.0。提供串口/网络通信、协议解析（通用/DL/T 645-2007/Modbus RTU）、Lua 脚本、自动回复、数据可视化及内核驱动串口监控；本版本新增用户态 API Hook 进程串口监控，保持实验性状态。完整变更见 [更新日志](CHANGELOG.md)。
+
+**进程串口监控（用户态 API Hook，实验性）** 可观察指定 x86/x64 程序的串口收发与控制调用，无需安装 FlexCom 监控驱动。建议使用“启动并监控”：原生及 .NET SerialPort 启动模式已通过受控回归；.NET 运行中附加仍可能漏采且数量未知。适合辅助调试，不保证完整录制，物理串口性能与干净环境仍待验证。使用范围见 [组件说明](src/FlexCom.ProcessHook/README.md)。原有内核驱动监控的测试模式及权限要求不变；USB 抓包目前仅有入口和偏好设置，尚未实现采集。
 
 ## ✨ 功能列表
 

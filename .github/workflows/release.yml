@@ -109,6 +109,10 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             & "./src/FlexCom.ProcessHook/artifacts/$architecture/HookContractTests.exe"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & "./src/FlexCom.ProcessHook/artifacts/$architecture/HookContractTests.exe" --diagnostics
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & "./src/FlexCom.ProcessHook/artifacts/$architecture/HookContractTests.exe" --reuse
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             & "./src/FlexCom.ProcessHook/artifacts/$architecture/NativeTests.exe"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
