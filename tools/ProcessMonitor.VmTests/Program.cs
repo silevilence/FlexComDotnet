@@ -182,7 +182,8 @@ internal static class Program
         foreach (var argument in new[] { "--traffic", directory, @"\\.\" + targetPort, @"\\.\" + peerPort }) start.ArgumentList.Add(argument);
         using var child = Process.Start(start)!;
         var targets = new ProcessMonitorTargets(nativeRoot);
-        await using var session = new ProcessMonitorSession(new NativeProcessMonitorTransport(nativeRoot));
+        var transport = new NativeProcessMonitorTransport(nativeRoot);
+        await using var session = new ProcessMonitorSession(transport);
         var counter = new CaptureCounter(); session.RecordReceived += counter.Receive;
         var command = 0;
         async Task<long[]> Cycle(int milliseconds, int pause, bool capture)
@@ -194,6 +195,8 @@ internal static class Program
             var metrics = (await File.ReadAllTextAsync(Path.Combine(directory, $"done-{id}.txt"))).Split(' ').Select(long.Parse).ToArray();
             var records = Interlocked.Read(ref counter.Records) - beforeRecords; var gaps = Interlocked.Read(ref counter.Gaps) - beforeGaps;
             Log($"{architecture} cycle={id} capture={capture} cycles={metrics[0]} elapsedMs={metrics[1]} p99us={metrics[2]} records={records}/{metrics[3]} gaps={gaps} invalid={counter.Invalid - beforeInvalid}");
+            await File.WriteAllTextAsync(Path.Combine(s_output, $"diagnostics-{architecture}-{id}.json"),
+                JsonSerializer.Serialize(new { metrics, records, gaps, qpcFrequency = Stopwatch.Frequency, diagnostics = transport.Diagnostics }));
             Require(counter.Invalid == beforeInvalid, "captured payload or completion mismatch");
             if (capture && pause > 0) Require(records + gaps == metrics[3], "capture has unaccounted missing records");
             if (!capture) Require(records == 0, "capture continued after stop");
@@ -208,8 +211,10 @@ internal static class Program
             await session.StopAsync(); Require(!child.HasExited, "stop terminated target"); await Cycle(1000, 6, false);
             Interlocked.Exchange(ref counter.Gaps, 0);
             await session.AttachAsync(targets.GetTarget(child.Id)); Require(session.SessionId != oldSession, "reattach reused session"); await Cycle(1000, 6, true);
-            Log($"{architecture} lifecycle and bytes PASS; entering 30-minute paced bidirectional run at configured 115200 baud.");
-            var longRun = Cycle(1800000, 6, true); var samples = new List<object>(); var sampleIndex = 0;
+            var durationFile = Path.Combine(AppContext.BaseDirectory, "diagnostic-baseline.txt");
+            var durationMs = File.Exists(durationFile) ? 30000 : 1800000;
+            Log($"{architecture} lifecycle and bytes PASS; entering {durationMs} ms paced bidirectional run at configured 115200 baud.");
+            var longRun = Cycle(durationMs, 6, true); var samples = new List<object>(); var sampleIndex = 0;
             while (!longRun.IsCompleted)
             {
                 await Task.WhenAny(longRun, Task.Delay(5000)); child.Refresh(); using var self = Process.GetCurrentProcess();

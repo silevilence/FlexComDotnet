@@ -10,7 +10,7 @@ namespace FlexComDotnet.Core.Features.ProcessMonitor.Services;
 /// <summary>Versioned bounded shared queue. The producer never waits for this consumer.</summary>
 public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : IProcessMonitorTransport
 {
-    private const int HeaderSize = 64, RecordSize = 2464, Capacity = 256;
+    private const int HeaderSize = 128, RecordSize = 2464, Capacity = 256;
     private readonly string _nativeRoot = nativeRoot ?? Path.Combine(AppContext.BaseDirectory, "ProcessHook");
     private MemoryMappedFile? _mapping;
     private MemoryMappedViewAccessor? _view;
@@ -23,6 +23,7 @@ public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : I
     private ProcessMonitorRecordStream? _records;
     public event EventHandler<ProcessMonitorRecord>? RecordReceived;
     public event EventHandler<string>? DisconnectedUnexpectedly;
+    public ProcessMonitorDiagnostics? Diagnostics { get; private set; }
 
     public async Task ConnectAsync(ProcessMonitorTarget target, Guid sessionId, CancellationToken cancellationToken, ProcessMonitorLaunch? launch = null)
     {
@@ -46,12 +47,13 @@ public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : I
             WithQueue(() =>
             {
                 var version = _view.ReadUInt32(0);
-                if (version != 0 && (version != 2 || _view.ReadUInt32(4) != RecordSize)) throw new IOException("采集组件版本不匹配；请重启目标后重试。");
+                if (version != 0 && (version != 3 || _view.ReadUInt32(4) != RecordSize)) throw new IOException("采集组件版本不匹配；请重启目标后重试。");
                 _view.Write(12, 0u);
-                _view.Write(0, 2u); _view.Write(4, RecordSize); _view.Write(8, Capacity);
+                _view.Write(0, 3u); _view.Write(4, RecordSize); _view.Write(8, Capacity);
                 _view.WriteArray(16, sessionId.ToByteArray(), 0, 16);
                 _view.Write(32, 0u); _view.Write(36, 0u); _view.Write(40, 0u);
                 _view.Write(48, 0u); _view.Write(56, 0ul);
+                _view.WriteArray(64, new byte[64], 0, 64); Diagnostics = null;
                 _view.Write(52, launch is null ? 0u : 1u);
                 _view.Write(12, 1u);
             });
@@ -108,6 +110,9 @@ public sealed class NativeProcessMonitorTransport(string? nativeRoot = null) : I
                     }
                     dropped = _view.ReadUInt32(48);
                     _view.Write(32, index); _view.Write(40, 0u);
+                    var diagnosticBytes = new byte[64];
+                    _view.ReadArray(64, diagnosticBytes, 0, 64);
+                    Diagnostics = ProcessMonitorDiagnostics.FromWire(diagnosticBytes);
                 });
                 foreach (var record in _records!.ReadBatch(records, dropped)) RecordReceived?.Invoke(this, record);
                 if (_targetProcess!.HasExited) { reason = "目标进程已退出"; return; }

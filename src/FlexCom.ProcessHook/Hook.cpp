@@ -9,6 +9,10 @@ static HANDLE queueMutex = nullptr;
 static HANDLE mappingHandle = nullptr;
 static SRWLOCK initializationLock = SRWLOCK_INIT;
 static bool installed = false;
+static void Lose(volatile LONG& reason) {
+    InterlockedIncrement(&reason);
+    InterlockedIncrement(&shared->dropped);
+}
 static std::wstring ownerName;
 alignas(8) static volatile LONG64 nextOwnerCheck = 0;
 static decltype(&ReadFile) realRead = ReadFile;
@@ -57,7 +61,8 @@ static void RememberRetired(OVERLAPPED* pointer, bool ambiguous, HANDLE handle, 
         if (!item.overlapped && !empty) empty = &item;
     }
     if (empty) *empty = {pointer, ambiguous, handle, generation};
-    else if (!retirementOverflow) { retirementOverflow = true; InterlockedIncrement(&shared->dropped); }
+    // Tracking saturation is a capability diagnostic, not another lost business completion.
+    else if (!retirementOverflow) { retirementOverflow = true; InterlockedIncrement(&shared->diagnostics.retirementCapacity); }
 }
 static bool KnownWithoutCompletionPort(HANDLE handle, uint64_t generation) {
     bool absent = false;
@@ -104,7 +109,7 @@ static bool Serial(HANDLE value, SerialHandle& result, bool newlyOpened = false)
     }
     if (empty) { empty->value = value; empty->generation = ++nextGeneration; wcscpy_s(empty->port, L"未知（附加前已打开）"); result = *empty; }
     ReleaseSRWLockExclusive(&handleLock);
-    if (!empty && shared) InterlockedIncrement(&shared->dropped);
+    if (!empty && shared) Lose(shared->diagnostics.handleCapacity);
     return empty != nullptr;
 }
 static bool ObservationEnabled() {
@@ -130,7 +135,7 @@ static bool ObservationEnabled() {
 static bool SnapshotSession(HookRecord& record) {
     if (!ObservationEnabled()) return false;
     DWORD lock = WaitForSingleObject(queueMutex, 0);
-    if (lock != WAIT_OBJECT_0 && lock != WAIT_ABANDONED) { InterlockedIncrement(&shared->dropped); return false; }
+    if (lock != WAIT_OBJECT_0 && lock != WAIT_ABANDONED) { Lose(shared->diagnostics.snapshotContention); return false; }
     bool enabled = shared->enabled != 0;
     if (enabled) record.session = shared->session;
     ReleaseMutex(queueMutex);
@@ -146,18 +151,28 @@ static bool BeginRecord(HANDLE handle, Api api, DWORD requested, HookRecord& rec
     return true;
 }
 static void Publish(HookRecord& record) {
+    LARGE_INTEGER started{}, ended{}; QueryPerformanceCounter(&started);
+    auto loseRecord = [&](volatile LONG& reason) {
+        if (record.api == ApiGap) InterlockedIncrement(&shared->diagnostics.notificationLoss);
+        else Lose(reason);
+    };
     DWORD lock = WaitForSingleObject(queueMutex, 0);
-    if (lock != WAIT_OBJECT_0 && lock != WAIT_ABANDONED) { InterlockedIncrement(&shared->dropped); return; }
+    if (lock != WAIT_OBJECT_0 && lock != WAIT_ABANDONED) { loseRecord(shared->diagnostics.publishContention); return; }
     if (shared->enabled && !memcmp(&record.session, &shared->session, sizeof(GUID))) {
         if (shared->count >= QueueCapacity || shared->writeIndex >= QueueCapacity || shared->readIndex >= QueueCapacity)
-            InterlockedIncrement(&shared->dropped);
+            loseRecord(shared->diagnostics.queueFull);
         else {
             record.sequence = ++shared->sequence;
             record.dropped = static_cast<uint32_t>(shared->dropped);
             shared->records[shared->writeIndex] = record;
             shared->writeIndex = (shared->writeIndex + 1) % QueueCapacity;
             shared->count++;
+            shared->diagnostics.highWater = (std::max)(shared->diagnostics.highWater, shared->count);
         }
+        QueryPerformanceCounter(&ended);
+        auto elapsed = static_cast<uint64_t>(ended.QuadPart - started.QuadPart);
+        ++shared->diagnostics.publishCalls; shared->diagnostics.publishTicks += elapsed;
+        shared->diagnostics.maxPublishTicks = (std::max)(shared->diagnostics.maxPublishTicks, elapsed);
     }
     ReleaseMutex(queueMutex);
 }
@@ -179,7 +194,7 @@ static bool StorePending(OVERLAPPED* overlapped, HANDLE handle, const void* buff
     PendingRequest* slot = nullptr;
     for (auto& item : pending) {
         if (item.overlapped == overlapped) {
-            InterlockedIncrement(&shared->dropped);
+            Lose(shared->diagnostics.ambiguousCompletion);
             // Never lose a business callback, even for an invalid early OVERLAPPED reuse.
             if (item.callback) { ReleaseSRWLockExclusive(&pendingLock); return false; }
             RememberRetired(overlapped, true, item.handle, item.record.generation);
@@ -188,7 +203,7 @@ static bool StorePending(OVERLAPPED* overlapped, HANDLE handle, const void* buff
         if (!item.overlapped && !slot) slot = &item;
     }
     if (slot) *slot = {overlapped, handle, buffer, record, callback, HasRetired(overlapped)};
-    else InterlockedIncrement(&shared->dropped);
+    else Lose(shared->diagnostics.pendingCapacity);
     ReleaseSRWLockExclusive(&pendingLock);
     return slot != nullptr;
 }
@@ -217,13 +232,13 @@ static LPOVERLAPPED_COMPLETION_ROUTINE CompletePending(OVERLAPPED* overlapped, H
     if (lock == WAIT_OBJECT_0 || lock == WAIT_ABANDONED) {
         active = shared->enabled && !memcmp(&completed.record.session, &shared->session, sizeof(GUID));
         ReleaseMutex(queueMutex);
-    } else InterlockedIncrement(&shared->dropped);
+    } else Lose(shared->diagnostics.completionContention);
     if (active && ambiguous) {
         FILETIME now{}; GetSystemTimePreciseAsFileTime(&now);
         completed.record.time = (static_cast<uint64_t>(now.dwHighDateTime) << 32) | now.dwLowDateTime;
         completed.record.api = ApiGap; completed.record.direction = 2; completed.record.integrity = Unavailable;
         wcscpy_s(completed.record.detail, L"完成来源不明确：OVERLAPPED 在旧完成包取出前被复用；此地址的 IOCP 记录需重启目标后恢复。");
-        InterlockedIncrement(&shared->dropped); Publish(completed.record);
+        Lose(shared->diagnostics.ambiguousCompletion); Publish(completed.record);
     } else if (active) Finish(completed.record, completed.record.direction == 0 ? completed.record.attempt : completed.buffer, count, success, error);
     return completed.callback;
 }

@@ -4,7 +4,7 @@
 #include <string>
 
 // Versioned little-endian ABI shared with NativeProcessMonitorTransport. No pointers cross it.
-constexpr uint32_t HookVersion = 2, QueueCapacity = 256, PayloadCapacity = 1024;
+constexpr uint32_t HookVersion = 3, QueueCapacity = 256, PayloadCapacity = 1024;
 #pragma pack(push, 8)
 struct HookRecord {
     GUID session;
@@ -15,6 +15,13 @@ struct HookRecord {
     BYTE data[PayloadCapacity], attempt[PayloadCapacity];
     uint32_t dropped;
 };
+struct HookDiagnostics {
+    volatile LONG snapshotContention, publishContention, completionContention, queueFull;
+    volatile LONG handleCapacity, pendingCapacity, ambiguousCompletion, retirementCapacity;
+    uint32_t highWater;
+    volatile LONG notificationLoss;
+    uint64_t publishCalls, publishTicks, maxPublishTicks;
+};
 struct HookShared {
     uint32_t version, recordSize, capacity, enabled;
     GUID session;
@@ -22,6 +29,7 @@ struct HookShared {
     volatile LONG dropped;
     uint32_t startup;
     uint64_t sequence;
+    HookDiagnostics diagnostics;
     HookRecord records[QueueCapacity];
 };
 #pragma pack(pop)
@@ -30,7 +38,8 @@ static_assert(offsetof(HookRecord, time) == 48 && offsetof(HookRecord, api) == 5
 static_assert(offsetof(HookRecord, port) == 92 && offsetof(HookRecord, detail) == 156);
 static_assert(offsetof(HookRecord, data) == 412 && offsetof(HookRecord, attempt) == 1436);
 static_assert(offsetof(HookRecord, dropped) == 2460);
-static_assert(offsetof(HookShared, records) == 64);
+static_assert(sizeof(HookDiagnostics) == 64);
+static_assert(offsetof(HookShared, diagnostics) == 64 && offsetof(HookShared, records) == 128);
 enum Api : uint32_t { ApiOpen = 1, ApiClose, ApiRead, ApiWrite, ApiReadEx, ApiWriteEx,
     ApiSetState, ApiGetState, ApiSetTimeouts, ApiGetTimeouts, ApiEscape, ApiPurge, ApiCancel, ApiGap };
 enum Integrity : uint32_t { Complete, Gap, Truncated, Failed, Disconnected, Unavailable };

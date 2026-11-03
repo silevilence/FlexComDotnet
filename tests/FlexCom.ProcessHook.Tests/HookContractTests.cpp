@@ -21,6 +21,7 @@ static Request requests[2048]{};
 static COMMTIMEOUTS configuredTimeouts{};
 static DWORD writeLimit = MAXDWORD;
 static bool failWrite = false;
+static HANDLE writeEntered = nullptr, writeReleased = nullptr;
 static bool immediateRead = false;
 static std::deque<OVERLAPPED_ENTRY> packets;
 static Request* Find(OVERLAPPED* overlapped) {
@@ -102,7 +103,9 @@ __declspec(noinline) BOOL WINAPI Write(HANDLE handle, const void* data, DWORD le
         Read(handle, const_cast<void*>(data), length, count, overlapped);
         Find(overlapped)->write = true; return FALSE;
     }
-    *count = length < writeLimit ? length : writeLimit; return TRUE;
+    *count = length < writeLimit ? length : writeLimit;
+    if (writeEntered) { SetEvent(writeEntered); WaitForSingleObject(writeReleased, INFINITE); }
+    return TRUE;
 }
 __declspec(noinline) BOOL WINAPI WriteEx(HANDLE handle, const void* data, DWORD length, OVERLAPPED* overlapped, LPOVERLAPPED_COMPLETION_ROUTINE callback) {
     if (handle != port) return WriteFileEx(handle, data, length, overlapped, callback);
@@ -199,7 +202,114 @@ static OVERLAPPED* callbackRequest = nullptr;
 static void WINAPI BusinessCallback(DWORD error, DWORD count, OVERLAPPED* request) {
     callbackCount++; callbackError = error; callbackBytes = count; callbackRequest = request; SetLastError(777);
 }
-int main() {
+static void DiagnosticTests(HookShared* queue, HANDLE mutex) {
+    const BYTE payload[] = {0, 1, 2, 0x7f, 0x80, 0xfe, 0xff};
+    DWORD count = 0;
+    HANDLE held = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE release = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    std::thread consumer([&] {
+        WaitForSingleObject(mutex, INFINITE); SetEvent(held);
+        WaitForSingleObject(release, INFINITE); ReleaseMutex(mutex);
+    });
+    WaitForSingleObject(held, INFINITE);
+    SetLastError(12345);
+    bool business = TestOs::Write(TestOs::port, payload, 7, &count, nullptr) && count == 7 && GetLastError() == 12345;
+    SetEvent(release); consumer.join(); CloseHandle(held); CloseHandle(release);
+    Require(business, "consumer lock preserves business bytes and LastError");
+    Require(queue->dropped == 1 && queue->diagnostics.snapshotContention == 1,
+        "consumer-held lock has one independently classified lost completion");
+    for (uint32_t i = 0; i < QueueCapacity + 17; ++i)
+        Require(TestOs::Write(TestOs::port, payload, 7, &count, nullptr) && count == 7, "burst preserves business writes");
+    Require(queue->count == QueueCapacity && queue->diagnostics.queueFull == 17
+        && queue->diagnostics.highWater == QueueCapacity && queue->dropped == 18,
+        "slow consumer and burst have exact queue-full count and high-water mark");
+    Require(queue->diagnostics.publishCalls == QueueCapacity + 17 && queue->diagnostics.publishTicks > 0,
+        "publish processing time is measured independently of diagnostic notification count");
+    std::cout << "DIAGNOSTICS baseline: business=274 captured=" << queue->count
+        << " snapshotContention=" << queue->diagnostics.snapshotContention
+        << " queueFull=" << queue->diagnostics.queueFull << " dropped=" << queue->dropped << '\n';
+    auto reset = [&] {
+        queue->count = queue->readIndex = queue->writeIndex = 0; queue->dropped = 0; queue->diagnostics = {};
+    };
+    reset();
+    TestOs::writeEntered = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    TestOs::writeReleased = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    std::thread delayedWriter([&] { DWORD actual = 0; TestOs::Write(TestOs::port, payload, 7, &actual, nullptr); });
+    WaitForSingleObject(TestOs::writeEntered, INFINITE);
+    WaitForSingleObject(mutex, INFINITE); SetEvent(TestOs::writeReleased);
+    delayedWriter.join(); ReleaseMutex(mutex);
+    CloseHandle(TestOs::writeEntered); CloseHandle(TestOs::writeReleased);
+    TestOs::writeEntered = TestOs::writeReleased = nullptr;
+    Require(queue->diagnostics.publishContention == 1 && queue->dropped == 1, "publish contention loses exactly one completed observation");
+    reset();
+    OVERLAPPED blockedCompletion{}; BYTE incoming[8]{};
+    Require(!TestOs::Read(TestOs::port, incoming, 8, &count, &blockedCompletion), "completion contention submission");
+    TestOs::Complete(&blockedCompletion);
+    WaitForSingleObject(mutex, INFINITE);
+    std::thread completing([&] { DWORD actual = 0; TestOs::Result(TestOs::port, &blockedCompletion, &actual, FALSE); });
+    completing.join(); ReleaseMutex(mutex);
+    Require(queue->diagnostics.completionContention == 1 && queue->dropped == 1, "completion session check contention is classified once");
+    memset(retired, 0, sizeof(retired)); memset(TestOs::requests, 0, sizeof(TestOs::requests)); TestOs::packets.clear();
+    reset();
+    std::vector<std::thread> writers;
+    std::atomic<int> businessWrites{0};
+    for (int t = 0; t < 8; ++t) writers.emplace_back([&] {
+        for (int i = 0; i < 100; ++i) {
+            DWORD actual = 0; SetLastError(12345);
+            if (TestOs::Write(TestOs::port, payload, 7, &actual, nullptr) && actual == 7 && GetLastError() == 12345) ++businessWrites;
+        }
+    });
+    for (auto& writer : writers) writer.join();
+    Require(businessWrites == 800 && queue->count + queue->dropped == 800,
+        "multithreaded sync business completions equal records plus true losses");
+    Require(queue->dropped == queue->diagnostics.snapshotContention + queue->diagnostics.publishContention + queue->diagnostics.queueFull,
+        "concurrent classified losses equal total after producers quiesce");
+    std::cout << "DIAGNOSTICS concurrent: captured=" << queue->count << " snapshot=" << queue->diagnostics.snapshotContention
+        << " publish=" << queue->diagnostics.publishContention << " full=" << queue->diagnostics.queueFull << '\n';
+    reset();
+    struct Work { OVERLAPPED request{}; BYTE data[8]{}; };
+    std::vector<Work> work(1025);
+    for (auto& item : work) Require(!TestOs::Read(TestOs::port, item.data, 8, &count, &item.request), "pending business request");
+    Require(queue->diagnostics.pendingCapacity == 1 && queue->dropped == 1, "pending capacity counts one lost observation");
+    // Isolate the next capacity scenario; no OS requests or callbacks exist in this simulated boundary.
+    memset(pending, 0, sizeof(pending)); memset(TestOs::requests, 0, sizeof(TestOs::requests));
+    reset();
+    for (auto& item : work) {
+        Require(!TestOs::Read(TestOs::port, item.data, 8, &count, &item.request), "retirement request");
+        TestOs::Complete(&item.request);
+        Require(TestOs::Result(TestOs::port, &item.request, &count, FALSE), "retirement query");
+        queue->count = queue->readIndex = queue->writeIndex = 0;
+    }
+    Require(queue->diagnostics.retirementCapacity == 1 && queue->dropped == 0,
+        "retirement saturation is a capability warning, not a second business completion loss");
+    reset();
+    auto& reused = work[0];
+    Require(!TestOs::Read(TestOs::port, reused.data, 8, &count, &reused.request), "ambiguous reuse submission");
+    TestOs::Complete(&reused.request);
+    OVERLAPPED_ENTRY entry{}; ULONG removed = 0;
+    Require(TestOs::CompletionEx(nullptr, &entry, 1, &removed, 0, FALSE), "old packet delivered");
+    Require(queue->diagnostics.ambiguousCompletion == 1 && queue->dropped == 1
+        && queue->records[0].api == ApiGap && queue->records[0].dataLength == 0,
+        "ambiguous completion has one loss plus a notification, never two business completions");
+    reset(); queue->count = QueueCapacity;
+    auto& hiddenGap = work[1];
+    Require(!TestOs::Read(TestOs::port, hiddenGap.data, 8, &count, &hiddenGap.request), "overloaded ambiguous submission");
+    TestOs::Complete(&hiddenGap.request);
+    Require(TestOs::CompletionEx(nullptr, &entry, 1, &removed, 0, FALSE), "overloaded ambiguous completion");
+    Require(queue->dropped == 1 && queue->diagnostics.ambiguousCompletion == 1,
+        "losing an ambiguity notification must not count the same observation twice");
+    reset();
+    auto originalPort = TestOs::port;
+    for (int i = 0; i < 1024; ++i) {
+        TestOs::port = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x10000 + i));
+        Require(TestOs::Write(TestOs::port, payload, 7, &count, nullptr), "handle capacity preserves business I/O");
+        queue->count = queue->readIndex = queue->writeIndex = 0;
+    }
+    TestOs::port = originalPort;
+    Require(queue->diagnostics.handleCapacity == 1 && queue->dropped == 1, "handle tracking saturation has an independent counter");
+    std::cout << "PASS: independent pending, retirement and handle capacity diagnostics\n";
+}
+int main(int argc, char** argv) {
     try {
         auto name = MappingName(GetCurrentProcessId(), ProcessCreationTime(GetCurrentProcess()));
         HANDLE mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(HookShared), name.c_str());
@@ -210,6 +320,11 @@ int main() {
         HANDLE mutex = CreateMutexW(nullptr, FALSE, (name + L".lock").c_str());
         HANDLE owner = CreateSemaphoreW(nullptr, 0, 1, (name + L".owner").c_str());
         Require(InitializeProcessMonitor(nullptr) == 0, "initialize production hooks over test OS boundary");
+        if (argc == 2 && !strcmp(argv[1], "--diagnostics")) {
+            DiagnosticTests(queue, mutex);
+            queue->enabled = 0;
+            return 0;
+        }
         OVERLAPPED request{}; BYTE data[8]; memset(data, 0xcc, sizeof(data)); DWORD count = 0;
         Require(!TestOs::Read(TestOs::port, data, 8, &count, &request) && GetLastError() == ERROR_IO_PENDING, "pending business result");
         Require(queue->count == 0, "pending buffer is never captured");

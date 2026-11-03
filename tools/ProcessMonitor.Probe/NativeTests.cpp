@@ -224,6 +224,7 @@ static void EmitWireFixture() {
     record.sequence = record.request = 2; record.dropped = 2; record.completed = record.dataLength = 1; record.data[0] = 0x11;
     queue->records[1] = record;
     queue->readIndex = 0; queue->writeIndex = queue->count = 2; queue->sequence = 2; queue->dropped = 2;
+    queue->diagnostics.queueFull = 2; queue->diagnostics.highWater = 2;
     ReleaseMutex(mutex); CloseHandle(mutex); UnmapViewOfFile(queue); CloseHandle(mapping);
 }
 int wmain(int argc, wchar_t** argv) {

@@ -16,7 +16,8 @@ foreach (var architecture in new[] { "x64", "x86" })
         var targets = new ProcessMonitorTargets(nativeRoot);
         var target = targets.GetTarget(worker.Id);
         if (target.Architecture != architecture) throw new Exception("Wrong architecture.");
-        await using var session = new ProcessMonitorSession(new NativeProcessMonitorTransport(nativeRoot));
+        var transport = new NativeProcessMonitorTransport(nativeRoot);
+        await using var session = new ProcessMonitorSession(transport);
         await session.AttachAsync(target);
         if (!session.IsMonitoring) throw new Exception("Attach failed.");
         await worker.StandardInput.WriteLineAsync("EMIT");
@@ -29,6 +30,9 @@ foreach (var architecture in new[] { "x64", "x86" })
             || received[1].Integrity != FlexComDotnet.Core.Features.Capture.Models.CaptureIntegrity.Gap
             || received[1].DroppedRecords != 2 || !received[2].Data.SequenceEqual(new byte[] { 0x11 }))
             throw new Exception("Native ABI bytes or ordered loss markers did not reach the managed session intact.");
+        if (transport.Diagnostics?.QueueFull != 2 || transport.Diagnostics.LostObservations != 2
+            || transport.Diagnostics.QueueHighWater != 2)
+            throw new Exception("Native diagnostic ABI did not reach the managed transport intact.");
         // A resident DLL must not be initialized using an export offset from a different on-disk build.
         var variantDirectory = Path.Combine(Path.GetTempPath(), "flexcom-hook-build-" + Guid.NewGuid());
         Directory.CreateDirectory(variantDirectory);

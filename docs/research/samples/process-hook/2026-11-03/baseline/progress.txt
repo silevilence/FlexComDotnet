@@ -1,0 +1,44 @@
+Copying fixed test bundle to VM: C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-d68fe08cbf7a489689483ce8e6bde6f0
+00:21:05 START UTC=2026-11-03T00:21:05.2397002Z OS=Microsoft Windows NT 10.0.19045.0 architecture=X64 local=C:\Users\gdqq\AppData\Local\Temp\FlexComVmTests-d68fe08cbf7a489689483ce8e6bde6f0\
+00:21:05 Dedicated ports COM10/20, COM11/21, COM12/22; system security and drivers unchanged.
+00:21:05 BEGIN native full serial x64
+00:21:06 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+00:21:06 PASS native full serial x64
+00:21:06 BEGIN native full serial x86
+00:21:08 NativeTests.exe: PASS: production initialization, NUL exclusion, business result/last-error preservation
+
+00:21:08 PASS native full serial x86
+00:21:08 BEGIN .NET SerialPort x64
+00:21:10 managed x64: business bytes PASS; captured completions=4, bytes=28
+00:21:11 PASS .NET SerialPort x64
+00:21:11 BEGIN .NET SerialPort x86
+00:21:12 managed x86: business bytes PASS; captured completions=3, bytes=21
+00:21:13 FAIL .NET SerialPort x86: System.InvalidOperationException: .NET SerialPort completion capture incomplete; do not declare this runtime supported
+   at Program.Require(Boolean value, String message) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 85
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 155
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.ManagedCase(String architecture) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 161
+   at Program.Case(String name, Func`1 action) in C:\code\dotnet\FlexComDotnet\tools\ProcessMonitor.VmTests\Program.cs:line 82
+00:21:13 SHORT SERIAL TESTS COMPLETE. Both architectures now run on separate port pairs concurrently.
+00:21:13 BEGIN native lifecycle/performance x64
+00:21:13 BEGIN native lifecycle/performance x86
+00:21:16 x64 cycle=1 capture=False cycles=181 elapsedMs=3000 p99us=479 records=0/724 gaps=0 invalid=0
+00:21:16 x86 cycle=1 capture=False cycles=182 elapsedMs=3000 p99us=1289 records=0/728 gaps=0 invalid=0
+00:21:20 x64 cycle=2 capture=True cycles=187 elapsedMs=3000 p99us=598 records=661/748 gaps=87 invalid=0
+00:21:20 x86 cycle=2 capture=True cycles=187 elapsedMs=3000 p99us=1441 records=735/748 gaps=13 invalid=0
+00:21:21 x64 cycle=3 capture=False cycles=64 elapsedMs=1000 p99us=318 records=0/256 gaps=0 invalid=0
+00:21:21 x86 cycle=3 capture=False cycles=64 elapsedMs=1000 p99us=1297 records=0/256 gaps=0 invalid=0
+00:21:23 x64 cycle=4 capture=True cycles=63 elapsedMs=1000 p99us=639 records=215/252 gaps=37 invalid=0
+00:21:23 x86 cycle=4 capture=True cycles=63 elapsedMs=1000 p99us=1265 records=251/252 gaps=1 invalid=0
+00:21:23 x64 lifecycle and bytes PASS; entering 30000 ms paced bidirectional run at configured 115200 baud.
+00:21:23 x86 lifecycle and bytes PASS; entering 30000 ms paced bidirectional run at configured 115200 baud.
+00:21:53 x64 cycle=5 capture=True cycles=1860 elapsedMs=30000 p99us=480 records=6826/7440 gaps=614 invalid=0
+00:21:53 x86 cycle=5 capture=True cycles=1861 elapsedMs=30000 p99us=1369 records=7423/7444 gaps=21 invalid=0
+00:21:56 x86 cycle=6 capture=False cycles=188 elapsedMs=3000 p99us=1245 records=0/752 gaps=0 invalid=0
+00:21:56 x64 cycle=6 capture=False cycles=188 elapsedMs=3000 p99us=407 records=0/752 gaps=0 invalid=0
+00:21:57 x86 pacedThroughputRatio=1.0275, p99IncreaseUs=152, longCycles=1861; paced virtual-port result, not saturation benchmark.
+00:21:57 x64 pacedThroughputRatio=1.0331, p99IncreaseUs=119, longCycles=1860; paced virtual-port result, not saturation benchmark.
+00:21:58 PASS native lifecycle/performance x86
+00:21:58 PASS native lifecycle/performance x64
+00:21:58 FINISHED failures=1 UTC=2026-11-03T00:21:58.7125727Z
