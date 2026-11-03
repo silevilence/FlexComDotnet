@@ -5,10 +5,17 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'V[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag to rebuild without moving the tag (for example V1.7.0)'
+        required: true
+        type: string
 
 env:
   DOTNET_VERSION: '10.0.x'
   PROJECT_PATH: src/FlexComDotnet/FlexComDotnet.csproj
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -22,6 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -49,7 +57,8 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = $env:RELEASE_TAG
+          if ($tag -notmatch '^[vV]\d+\.\d+\.\d+$') { throw 'Expected a release tag such as V1.7.0.' }
           $version = $tag -replace '^[vV]', ''
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
           echo "TAG=$tag" >> $env:GITHUB_OUTPUT
@@ -162,8 +171,14 @@ jobs:
             -c Release `
             -r win-x64 `
             --self-contained true `
+            -p:PublishSingleFile=false `
+            -p:UseExistingProcessHookAssets=true `
             -p:Version=$version `
             -o ./publish/msix-content
+          if ($LASTEXITCODE -ne 0) { throw "MSIX application publish failed: $LASTEXITCODE" }
+          if (-not (Test-Path -LiteralPath './publish/msix-content/FlexComDotnet.exe')) {
+            throw 'MSIX application payload is missing.'
+          }
           
           # 创建 MSIX 打包所需的 AppxManifest.xml
           $manifestContent = @"
@@ -257,9 +272,10 @@ jobs:
           if ($makeappx) {
             $msixName = "FlexComDotnet_$version.msix"
             & $makeappx.FullName pack /d ./publish/msix-content /p "./publish/$msixName" /nv
+            if ($LASTEXITCODE -ne 0) { throw "MSIX packing failed: $LASTEXITCODE" }
             Write-Host "Created: $msixName"
           } else {
-            Write-Warning "makeappx.exe not found, skipping MSIX creation"
+            throw 'makeappx.exe not found; the release requires both ZIP and MSIX.'
           }
 
       - name: Sign MSIX package
@@ -318,10 +334,53 @@ jobs:
           Remove-Item $certPath -Force
           Write-Host "Temporary certificate file removed"
 
+      - name: Verify release archives
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $packageDirectory = if ($env:RELEASE_DIRECTORY) { $env:RELEASE_DIRECTORY } else { './publish' }
+          $version = $env:RELEASE_VERSION
+          foreach ($extension in @('msix', 'zip')) {
+              $path = Join-Path $packageDirectory "FlexComDotnet_$version.$extension"
+              $archive = [IO.Compression.ZipFile]::OpenRead([IO.Path]::GetFullPath($path))
+              try {
+                  $required = @('FlexComDotnet.exe', 'ProcessHook/README.md')
+                  foreach ($architecture in @('x86', 'x64')) {
+                      foreach ($file in @('FlexCom.ProcessHook.dll', 'FlexCom.ProcessHook.Helper.exe', 'Detours-LICENSE.md')) {
+                          $required += "ProcessHook/$architecture/$file"
+                      }
+                  }
+                  foreach ($file in @('serial_monitor.sys', 'serial_monitor.inf', 'serial_monitor.cat', 'WDRLocalTestCert.cer')) {
+                      $required += "driver/serial-monitor/$file"
+                  }
+                  if ($extension -eq 'msix') {
+                      $required += @('AppxManifest.xml', 'FlexComDotnet.dll', 'FlexComDotnet.Core.dll', 'coreclr.dll')
+                  }
+                  foreach ($file in $required) {
+                      $entry = $archive.GetEntry($file)
+                      if ($null -eq $entry -or $entry.Length -eq 0) { throw "Missing or empty release payload: $path :: $file" }
+                  }
+                  $reader = [IO.StreamReader]::new($archive.GetEntry('driver/serial-monitor/serial_monitor.inf').Open())
+                  try { $inf = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                  if ($inf -notmatch ('(?m)^DriverVer\s*=\s*[^,]+,\s*' + [regex]::Escape("$version.0") + '\s*$')) {
+                      throw "Driver version mismatch in $path"
+                  }
+                  if ($extension -eq 'msix') {
+                      $reader = [IO.StreamReader]::new($archive.GetEntry('AppxManifest.xml').Open())
+                      try { [xml]$manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                      if ($manifest.Package.Identity.Version -ne "$version.0") { throw "MSIX version mismatch in $path" }
+                  }
+                  Write-Host "Verified $path ($($archive.Entries.Count) entries)"
+              } finally { $archive.Dispose() }
+          }
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG }}
           name: Release ${{ steps.version.outputs.TAG }}
           body_path: RELEASE_NOTES.md
           draft: false
