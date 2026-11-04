@@ -12,7 +12,8 @@
              xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              mc:Ignorable="d" 
              d:DesignHeight="500" d:DesignWidth="350"
-             Background="{DynamicResource SurfaceBrush}">
+             Background="{DynamicResource SurfaceBrush}"
+             Foreground="{DynamicResource TextPrimaryBrush}">
     
     <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>

@@ -223,8 +223,8 @@ public partial class MultiZoneLayout : UserControl
 
         if (isActive)
         {
-            button.Background = (Brush)FindResource("ActiveTabBrush");
-            button.Foreground = (Brush)FindResource("TextPrimaryBrush");
+            button.SetResourceReference(BackgroundProperty, "ActiveTabBrush");
+            button.SetResourceReference(ForegroundProperty, "TextPrimaryBrush");
         }
 
         button.Click += (_, _) =>

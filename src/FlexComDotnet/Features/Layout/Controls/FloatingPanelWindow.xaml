@@ -15,7 +15,8 @@
         AllowDrop="True"
         Closing="Window_Closing"
         LocationChanged="Window_LocationChanged"
-        SizeChanged="Window_SizeChanged">
+        SizeChanged="Window_SizeChanged"
+        Foreground="{DynamicResource TextPrimaryBrush}">
     
     <Window.Resources>
         <Style x:Key="DockButtonStyle" TargetType="Button">

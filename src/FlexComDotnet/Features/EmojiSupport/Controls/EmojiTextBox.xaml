@@ -4,7 +4,8 @@
              xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              xmlns:emojiBehavior="clr-namespace:FlexComDotnet.Features.EmojiSupport.Behaviors"
              Focusable="True"
-             MouseDown="UserControl_MouseDown">
+             MouseDown="UserControl_MouseDown"
+             Foreground="{DynamicResource TextPrimaryBrush}">
   <Grid>
     <!-- 彩色 Emoji 显示层（始终可见，底层渲染） -->
     <emoji:TextBlock x:Name="DisplayBlock"

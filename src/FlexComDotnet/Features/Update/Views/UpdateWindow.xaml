@@ -13,7 +13,8 @@
         MinWidth="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
     
     <Window.Resources>
         <Style x:Key="SectionTitleStyle" TargetType="TextBlock">

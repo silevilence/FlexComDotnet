@@ -13,7 +13,8 @@
         WindowStyle="ToolWindow"
         ShowInTaskbar="False"
         ResizeMode="CanResizeWithGrip"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
   <Grid Margin="12">
     <Grid.RowDefinitions>

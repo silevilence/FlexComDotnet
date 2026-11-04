@@ -8,10 +8,10 @@
              xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="800"
-             Background="{DynamicResource SurfaceBrush}">
+             Background="{DynamicResource SurfaceBrush}"
+             Foreground="{DynamicResource TextPrimaryBrush}">
 
   <UserControl.Resources>
-    <converters:UnifiedLogLevelToColorConverter x:Key="LogLevelToColorConverter"/>
     <converters:UnifiedLogLevelToEmojiConverter x:Key="LogLevelToEmojiConverter"/>
     <converters:UnifiedLogLevelToLabelConverter x:Key="LogLevelToLabelConverter"/>
     <converters:LogSourceToDisplayNameConverter x:Key="LogSourceToDisplayNameConverter"/>
@@ -39,7 +39,7 @@
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
                 <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
-                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
                 <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
@@ -222,9 +222,25 @@
                              Margin="0,0,4,0"/>
             <!-- 等级标签 -->
             <TextBlock Text="{Binding Level, Converter={StaticResource LogLevelToLabelConverter}}"
-                       Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"
                        FontWeight="SemiBold"
-                       MinWidth="28" Margin="0,0,6,0"/>
+                       MinWidth="28" Margin="0,0,6,0">
+              <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                  <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding Level}" Value="Info">
+                      <Setter Property="Foreground" Value="{DynamicResource InfoBrush}"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Level}" Value="Warning">
+                      <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Level}" Value="Error">
+                      <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}"/>
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
             <!-- 来源模块 -->
             <Border Background="{DynamicResource CardBrush}" CornerRadius="3"
                     Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center">
@@ -234,7 +250,7 @@
             </Border>
             <!-- 消息内容 -->
             <emoji:TextBlock Text="{Binding Message}"
-                       Foreground="{Binding Level, Converter={StaticResource LogLevelToColorConverter}}"/>
+                            Foreground="{DynamicResource TextPrimaryBrush}"/>
           </StackPanel>
         </DataTemplate>
       </ListBox.ItemTemplate>

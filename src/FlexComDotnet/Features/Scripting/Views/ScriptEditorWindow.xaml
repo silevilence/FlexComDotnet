@@ -13,7 +13,8 @@
         MinHeight="500"
         MinWidth="600"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
     
     <Window.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
@@ -58,14 +59,14 @@
         <!-- 运行按钮样式 -->
         <Style x:Key="RunButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
             <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
         <!-- 停止按钮样式 -->
         <Style x:Key="StopButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
-            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource ErrorBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
     </Window.Resources>

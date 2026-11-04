@@ -6,7 +6,8 @@
              xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
              mc:Ignorable="d" 
              d:DesignHeight="400" d:DesignWidth="52"
-             Background="{DynamicResource SidebarBrush}">
+             Background="{DynamicResource SidebarBrush}"
+             Foreground="{DynamicResource TextOnSidebarBrush}">
     
     <UserControl.Resources>
         <!-- 底部普通按钮样式 -->
@@ -30,7 +31,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource SidebarAccentBrush}"/>
                                 <Setter TargetName="border" Property="Background">
                                     <Setter.Value>
                                         <SolidColorBrush Color="{DynamicResource HoverColor}" Opacity="0.3"/>
@@ -70,7 +71,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource SidebarAccentBrush}"/>
                                 <Setter TargetName="border" Property="Background">
                                     <Setter.Value>
                                         <SolidColorBrush Color="{DynamicResource HoverColor}" Opacity="0.3"/>

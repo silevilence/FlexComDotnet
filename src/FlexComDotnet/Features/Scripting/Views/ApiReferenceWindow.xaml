@@ -11,7 +11,8 @@
         MinHeight="400"
         MinWidth="400"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
     <Window.Resources>
         <Style x:Key="CategoryHeader" TargetType="TextBlock">

@@ -17,7 +17,8 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource BackgroundBrush}"
         Closing="Window_Closing"
-        KeyDown="Window_KeyDown">
+        KeyDown="Window_KeyDown"
+        Foreground="{DynamicResource TextPrimaryBrush}">
     
     <Grid>
         <Grid.RowDefinitions>

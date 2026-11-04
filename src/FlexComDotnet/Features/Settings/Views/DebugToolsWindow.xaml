@@ -13,7 +13,8 @@
         MinWidth="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
   <Window.Resources>
     <converters:LogSourceToDisplayNameConverter x:Key="LogSourceToDisplayNameConverter"/>

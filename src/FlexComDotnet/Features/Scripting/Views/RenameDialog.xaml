@@ -10,7 +10,8 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
     
     <StackPanel Margin="16">
         <TextBlock Text="请输入新名称：" FontSize="12"
@@ -30,7 +31,7 @@
                     Click="Cancel_Click"/>
             <Button Content="确定" Padding="16,6"
                     Background="{DynamicResource PrimaryBrush}"
-                    Foreground="White"
+                    Foreground="{DynamicResource TextOnPrimaryBrush}"
                     pu:ButtonHelper.CornerRadius="4"
                     Click="OK_Click"/>
         </StackPanel>

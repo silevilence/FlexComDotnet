@@ -16,7 +16,8 @@
         Height="700" Width="1000"
         MinHeight="500" MinWidth="800"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
     
     <Window.Resources>
         <converters:NullToBoolConverter x:Key="NullToBoolConverter"/>
@@ -571,7 +572,7 @@
                     <Button Content="保存" Command="{Binding SaveDefinitionCommand}"
                             pu:ButtonHelper.CornerRadius="4" Padding="16,8"
                             Background="{DynamicResource PrimaryBrush}"
-                            Foreground="White"/>
+                            Foreground="{DynamicResource TextOnPrimaryBrush}"/>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

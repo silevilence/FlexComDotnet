@@ -10,6 +10,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <!-- 默认深色主题 (科技感) -->
                 <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
+                <ResourceDictionary Source="Themes/Controls.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             
             <!-- 全局字体设置 -->

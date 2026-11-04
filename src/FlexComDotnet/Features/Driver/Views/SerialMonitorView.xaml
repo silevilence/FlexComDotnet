@@ -6,7 +6,8 @@
              xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
              mc:Ignorable="d"
              d:DesignHeight="260" d:DesignWidth="820"
-             Background="{DynamicResource SurfaceBrush}">
+             Background="{DynamicResource SurfaceBrush}"
+             Foreground="{DynamicResource TextPrimaryBrush}">
   <UserControl.CommandBindings>
     <CommandBinding Command="ApplicationCommands.Open"
                     Executed="ViewRawRecord_Executed" CanExecute="ViewRawRecord_CanExecute"/>

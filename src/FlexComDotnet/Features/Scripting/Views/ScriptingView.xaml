@@ -12,7 +12,8 @@
              xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="300"
-             Background="{DynamicResource SurfaceBrush}">
+             Background="{DynamicResource SurfaceBrush}"
+             Foreground="{DynamicResource TextPrimaryBrush}">
     
     <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
@@ -56,21 +57,21 @@
         <!-- 运行按钮样式 -->
         <Style x:Key="RunButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
             <Setter Property="Background" Value="{DynamicResource SuccessBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
         <!-- 停止按钮样式 -->
         <Style x:Key="StopButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
-            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource ErrorBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
 
         <!-- 打开编辑器按钮样式 -->
         <Style x:Key="OpenEditorButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
             <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnPrimaryBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="MinWidth" Value="80"/>
         </Style>

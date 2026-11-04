@@ -12,7 +12,8 @@
         MinWidth="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
   <Window.Resources>
     <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
@@ -145,7 +146,7 @@
                       Click="OpenLogDirectory_Click"
                       Padding="12,6"
                       pu:ButtonHelper.CornerRadius="4"
-                      Background="{DynamicResource SurfaceHighBrush}"
+                      Background="{DynamicResource CardBrush}"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       BorderBrush="{DynamicResource BorderBrush}"
                       BorderThickness="1"
@@ -167,7 +168,7 @@
                       Command="{Binding InstallDriverCommand}"
                       Padding="12,6"
                       pu:ButtonHelper.CornerRadius="4"
-                      Background="{DynamicResource SurfaceHighBrush}"
+                      Background="{DynamicResource CardBrush}"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       BorderBrush="{DynamicResource BorderBrush}"
                       BorderThickness="1"
@@ -177,7 +178,7 @@
                       Command="{Binding StopDriverCommand}"
                       Padding="12,6"
                       pu:ButtonHelper.CornerRadius="4"
-                      Background="{DynamicResource SurfaceHighBrush}"
+                      Background="{DynamicResource CardBrush}"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       BorderBrush="{DynamicResource BorderBrush}"
                       BorderThickness="1"
@@ -187,7 +188,7 @@
                       Command="{Binding UninstallDriverCommand}"
                       Padding="12,6"
                       pu:ButtonHelper.CornerRadius="4"
-                      Background="{DynamicResource SurfaceHighBrush}"
+                      Background="{DynamicResource CardBrush}"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       BorderBrush="{DynamicResource BorderBrush}"
                       BorderThickness="1"
@@ -197,7 +198,7 @@
                       Command="{Binding RestartAsAdministratorCommand}"
                       Padding="12,6"
                       pu:ButtonHelper.CornerRadius="4"
-                      Background="{DynamicResource SurfaceHighBrush}"
+                      Background="{DynamicResource CardBrush}"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       BorderBrush="{DynamicResource BorderBrush}"
                       BorderThickness="1"

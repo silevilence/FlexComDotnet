@@ -8,7 +8,8 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
     
     <StackPanel Margin="16">
         <StackPanel Orientation="Horizontal" Margin="0,0,0,16">

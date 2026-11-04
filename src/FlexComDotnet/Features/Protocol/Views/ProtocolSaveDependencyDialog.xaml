@@ -8,7 +8,8 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
     <StackPanel Margin="20">
         <!-- 警告图标 + 标题 -->
@@ -34,7 +35,7 @@
         <Button Content="覆盖保存" Padding="12,8" Margin="0,0,0,8"
                 HorizontalAlignment="Stretch"
                 Background="{DynamicResource PrimaryBrush}"
-                Foreground="White"
+                Foreground="{DynamicResource TextOnPrimaryBrush}"
                 pu:ButtonHelper.CornerRadius="4"
                 Click="ForceSave_Click"/>
 

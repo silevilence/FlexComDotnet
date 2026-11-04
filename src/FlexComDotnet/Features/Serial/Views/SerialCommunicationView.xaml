@@ -10,7 +10,8 @@
              xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              mc:Ignorable="d" 
              d:DesignHeight="600" d:DesignWidth="800"
-             Background="{DynamicResource BackgroundBrush}">
+             Background="{DynamicResource BackgroundBrush}"
+             Foreground="{DynamicResource TextPrimaryBrush}">
     
     <UserControl.Resources>
         <converters:DataRecordFormatConverter x:Key="DataRecordFormatConverter"/>
