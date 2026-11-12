@@ -4,15 +4,17 @@
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![WPF](https://img.shields.io/badge/WPF-Windows-0078D4?logo=windows)
-![Tests](https://img.shields.io/badge/Tests-1140_passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-1169_passing-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Rust](https://img.shields.io/badge/Driver-Rust_%2F_WDK-orange?logo=rust)
 
 ## 📋 项目状态
 
-**V1.7.0 — 新增实验性进程串口监控**
+**V1.8.0 — 可自由拖放的停靠页签工作区**
 
-当前版本 V1.7.0。提供串口/网络通信、协议解析（通用/DL/T 645-2007/Modbus RTU）、Lua 脚本、自动回复、数据可视化及内核驱动串口监控；本版本新增用户态 API Hook 进程串口监控，保持实验性状态。完整变更见 [更新日志](CHANGELOG.md)。
+当前版本 V1.8.0。提供串口/网络通信、协议解析（通用/DL/T 645-2007/Modbus RTU）、Lua 脚本、自动回复、数据可视化及内核驱动串口监控；本版本新增可拖放、浮动、分组和自动隐藏的停靠页签工作区，并修复主题文字可见性与默认构建问题。完整变更见 [更新日志](CHANGELOG.md)。
+
+新工作区已通过自动化测试与本机界面操作验证，持续实机采集和多显示器混合 DPI 等组合仍待补充验收。
 
 **进程串口监控（用户态 API Hook，实验性）** 可观察指定 x86/x64 程序的串口收发与控制调用，无需安装 FlexCom 监控驱动。建议使用“启动并监控”：原生及 .NET SerialPort 启动模式已通过受控回归；.NET 运行中附加仍可能漏采且数量未知。适合辅助调试，不保证完整录制，物理串口性能与干净环境仍待验证。使用范围见 [组件说明](src/FlexCom.ProcessHook/README.md)。原有内核驱动监控的测试模式及权限要求不变；USB 抓包目前仅有入口和偏好设置，尚未实现采集。
 
@@ -29,7 +31,7 @@
 - [x] **通用帧协议引擎** - 策略模式架构 (IProtocolParser)、可配置字段提取 (字节/位域/端序)、帧结构定义 UI
 - [x] **DL/T 645-2007 解析器** - 粘包处理、BCD 地址解析、控制码解析、数据域偏置还原、数据标识字典映射、异常应答翻译
 - [x] **协议组帧** - 基于数据域值动态构建完整帧、发送区快捷组帧回填 (覆盖/追加)
-- [x] **Rx 协议逆向解析** - 接收区选中帧右键触发解析、独立非模态浮窗展示
+- [x] **Rx 协议逆向解析** - 接收区选中帧右键触发解析，在可停靠、浮动的文档页签中展示
 
 **自动回复**
 - [x] **统一规则池架构** - 匹配规则/顺序帧/协议回复三种类型统一管理、多选并发触发、优先级执行
@@ -50,7 +52,7 @@
 - [x] **数据源绑定** - 与协议解析引擎联动，从解析字段中选择 Y 轴数据
 
 **界面与交互**
-- [x] **多区域布局** - VS Code 风格三区架构 (Left/Right/Bottom)、标签式展开/折叠、面板可见性独立配置
+- [x] **停靠页签工作区** - 自由拖放、浮动、自动隐藏、横纵分组；脚本和协议使用文档页签，支持布局保存、旧布局迁移与默认布局恢复
 - [x] **主题系统** - 浅色/深色/跟随系统、Panuon.WPF.UI 科技风格
 - [x] **彩色 Emoji** - Emoji.Wpf 渲染引擎、`:shortcode:` 智能补全 (IntelliSense)
 - [x] **设置窗口** - 调试设置/面板管理/日志目录/关于信息、F12 调试工具窗口
