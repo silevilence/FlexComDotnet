@@ -10,8 +10,10 @@
           Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildProcessHook)' != 'false' and '$(UseExistingProcessHookAssets)' != 'true'"
           Inputs="@(_ProcessHookSource)"
           Outputs="$(ProcessHookArtifacts)\x86\FlexCom.ProcessHook.dll;$(ProcessHookArtifacts)\x86\FlexCom.ProcessHook.Helper.exe;$(ProcessHookArtifacts)\x86\Detours-LICENSE.md;$(ProcessHookArtifacts)\x64\FlexCom.ProcessHook.dll;$(ProcessHookArtifacts)\x64\FlexCom.ProcessHook.Helper.exe;$(ProcessHookArtifacts)\x64\Detours-LICENSE.md">
-    <Exec Command="powershell -NoProfile -File &quot;$(ProcessHookSource)Build-Hook.ps1&quot; -Architecture x86"/>
-    <Exec Command="powershell -NoProfile -File &quot;$(ProcessHookSource)Build-Hook.ps1&quot; -Architecture x64"/>
+    <!-- Use a process-local policy for repository scripts and let Windows PowerShell resolve its own
+         built-in modules instead of inheriting incompatible PowerShell 7 module paths through MSBuild. -->
+    <Exec EnvironmentVariables="PSModulePath=" Command="powershell -NoProfile -ExecutionPolicy RemoteSigned -File &quot;$(ProcessHookSource)Build-Hook.ps1&quot; -Architecture x86"/>
+    <Exec EnvironmentVariables="PSModulePath=" Command="powershell -NoProfile -ExecutionPolicy RemoteSigned -File &quot;$(ProcessHookSource)Build-Hook.ps1&quot; -Architecture x64"/>
   </Target>
   <Target Name="IncludeProcessHookAssets" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildProcessHookAssets"
           Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildProcessHook)' != 'false'">

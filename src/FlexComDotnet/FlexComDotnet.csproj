@@ -23,7 +23,7 @@
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.7.0</Version>
+    <Version>1.8.0</Version>
     <SerialMonitorDriverProjectDirectory>$(MSBuildProjectDirectory)\..\..\driver\serial-monitor</SerialMonitorDriverProjectDirectory>
     <SerialMonitorDriverCargoProfile>debug</SerialMonitorDriverCargoProfile>
     <SerialMonitorDriverBuildCommand>powershell -NoProfile -ExecutionPolicy Bypass -File "$(SerialMonitorDriverProjectDirectory)\scripts\Package-DebugDriver.ps1"</SerialMonitorDriverBuildCommand>
