@@ -111,7 +111,7 @@ public class SettingsViewModelTests
     }
 
     [Fact]
-    public void PanelItems_ShouldExcludeConnectionConfig()
+    public void PanelItems_ShouldIncludeMovableConnectionConfig()
     {
         // Arrange
         var panels = new List<PanelInfo>
@@ -127,8 +127,8 @@ public class SettingsViewModelTests
         var items = vm.PanelItems.ToList();
 
         // Assert
-        items.Should().HaveCount(2);
-        items.Should().NotContain(p => p.Id == "connection-config");
+        items.Should().HaveCount(3);
+        items.Should().Contain(p => p.Id == "connection-config");
     }
 
     [Fact]

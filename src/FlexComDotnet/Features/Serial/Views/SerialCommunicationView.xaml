@@ -96,7 +96,9 @@
         <converters:BoolToTextConverter x:Key="BoolToTextConverter"/>
     </UserControl.Resources>
     
-    <Grid Margin="12">
+    <Border Padding="12">
+    <ScrollViewer x:Name="PageViewport" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+    <Grid Width="{Binding ViewportWidth, ElementName=PageViewport}" Height="{Binding ViewportHeight, ElementName=PageViewport}" MinHeight="420" MinWidth="580">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" MinHeight="150"/>
             <RowDefinition Height="Auto"/>
@@ -462,4 +464,6 @@
             </Grid>
         </Border>
     </Grid>
+    </ScrollViewer>
+    </Border>
 </UserControl>

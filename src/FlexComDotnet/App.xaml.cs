@@ -19,6 +19,15 @@ public partial class App : Application
     /// 服务提供者
     /// </summary>
     public static IServiceProvider Services { get; private set; } = null!;
+    public static string DataDirectory { get; private set; } = AppContext.BaseDirectory;
+    private static bool s_servicesDisposed;
+
+    internal static async ValueTask DisposeServicesAsync()
+    {
+        if (s_servicesDisposed || Services is not IAsyncDisposable disposable) return;
+        await disposable.DisposeAsync();
+        s_servicesDisposed = true;
+    }
 
     /// <summary>
     /// 崩溃日志文件路径
@@ -40,7 +49,20 @@ public partial class App : Application
 
         // 配置依赖注入
         var services = new ServiceCollection();
-        services.AddAppServices();
+        string? dataDirectory = null;
+        var directoryOption = Array.IndexOf(e.Args, "--data-directory");
+        if (directoryOption >= 0)
+        {
+            if (directoryOption + 1 >= e.Args.Length)
+            {
+                MessageBox.Show("--data-directory 需要指定目录。", "启动参数");
+                Shutdown(1);
+                return;
+            }
+            dataDirectory = Path.GetFullPath(e.Args[directoryOption + 1]);
+            DataDirectory = dataDirectory;
+        }
+        services.AddAppServices(dataDirectory);
         Services = services.BuildServiceProvider();
 
         // 初始化主题服务
@@ -60,7 +82,7 @@ public partial class App : Application
         // The capture service has no Dispatcher dependency; finish ownership cleanup before process exit.
         try
         {
-            var session = Services.GetService<Core.Features.ProcessMonitor.Services.ProcessMonitorSession>();
+            var session = s_servicesDisposed ? null : Services?.GetService<Core.Features.ProcessMonitor.Services.ProcessMonitorSession>();
             if (session is not null) Task.Run(async () => await session.DisposeAsync()).GetAwaiter().GetResult();
         }
         catch (Exception error) { WriteCrashLog("ProcessMonitorShutdown", error); }

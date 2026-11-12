@@ -53,7 +53,6 @@ public partial class SettingsViewModel : ObservableObject
     /// </summary>
     public IEnumerable<PanelVisibilityItem> PanelItems =>
         _panelManager.Panels
-            .Where(p => p.Id != "connection-config")
             .Select(p => new PanelVisibilityItem(p.Id, p.Title, p.IsVisible));
 
     /// <summary>

@@ -43,6 +43,44 @@ public class ScriptingViewModelTests : IDisposable
     #region 初始化测试
 
     [Fact]
+    public void RefreshSavedScript_ShouldUpdatePreviewWithoutOverwritingDirtyBuffer()
+    {
+        _mockManager.Setup(m => m.ReadScriptContent("1")).Returns("original");
+        _viewModel.SelectedScript = new ScriptFileInfo { Id = "1" };
+        _mockManager.Setup(m => m.ReadScriptContent("1")).Returns("saved in document");
+        _viewModel.RefreshSavedScript("1");
+        _viewModel.EditorContent.Should().Be("saved in document");
+        _viewModel.IsEditorDirty.Should().BeFalse();
+        _viewModel.EditorContent = "local draft";
+        _viewModel.RefreshSavedScript("1");
+        _viewModel.EditorContent.Should().Be("local draft");
+    }
+
+    [Fact]
+    public void SaveScript_WhenWriteFails_ShouldKeepDirtyDraft()
+    {
+        _mockManager.Setup(m => m.ReadScriptContent("1")).Returns("saved");
+        _viewModel.SelectedScript = new ScriptFileInfo { Id = "1", Name = "one" };
+        _viewModel.EditorContent = "draft";
+        _viewModel.SaveScriptCommand.Execute(null);
+        _viewModel.IsEditorDirty.Should().BeTrue();
+        _viewModel.StatusText.Should().Contain("失败");
+    }
+
+    [Fact]
+    public void SelectScript_ShouldRetainUnsavedDraftWhenSwitchingBack()
+    {
+        _mockManager.Setup(m => m.ReadScriptContent("1")).Returns("saved");
+        var first = new ScriptFileInfo { Id = "1", Name = "one" };
+        _viewModel.SelectedScript = first;
+        _viewModel.EditorContent = "draft";
+        _viewModel.SelectedScript = new ScriptFileInfo { Id = "2", Name = "two" };
+        _viewModel.SelectedScript = first;
+        _viewModel.EditorContent.Should().Be("draft");
+        _viewModel.IsEditorDirty.Should().BeTrue();
+    }
+
+    [Fact]
     public void Constructor_ShouldLoadScriptList()
     {
         _mockManager.Verify(m => m.GetAllScripts(), Times.Once);

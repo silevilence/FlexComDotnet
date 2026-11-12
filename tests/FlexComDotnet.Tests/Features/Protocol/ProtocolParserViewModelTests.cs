@@ -20,6 +20,26 @@ public class ProtocolParserViewModelTests
     {
         _mockConfigService = new Mock<IConfigurationService>();
         _mockConfigService.Setup(c => c.Load()).Returns(new AppConfig());
+        _mockConfigService.Setup(c => c.Save(It.IsAny<AppConfig>())).Returns(true);
+    }
+
+    [Fact]
+    public async Task SaveDefinition_WhenPersistenceFails_ShouldKeepDraftAndRegisteredDefinition()
+    {
+        var service = new ProtocolParserService(_checksumService);
+        var original = new FrameDefinition { Name = "Existing", Header = "AA" };
+        service.RegisterDefinition(original);
+        var vm = CreateViewModel(service);
+        vm.SelectedDefinition = original;
+        vm.EditDefinitionCommand.Execute(null);
+        vm.EditingDefinition.Header = "BB";
+        vm.MarkDirty();
+        _mockConfigService.Setup(c => c.Save(It.IsAny<AppConfig>())).Returns(false);
+        await vm.SaveDefinitionCommand.ExecuteAsync(null);
+        vm.IsDirty.Should().BeTrue();
+        vm.IsEditing.Should().BeTrue();
+        vm.StatusMessage.Should().Contain("失败");
+        service.GetAllDefinitions().Single().Header.Should().Be("AA");
     }
 
     private ProtocolParserViewModel CreateViewModel(

@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -18,21 +19,30 @@ public partial class SerialCommunicationView : UserControl
 {
     private ScrollViewer? _scrollViewer;
     private bool _isUserScrollingUp;
+    private INotifyCollectionChanged? _observedRecords;
 
     public SerialCommunicationView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         ReceivedDataListBox.Loaded += OnListBoxLoaded;
+        ReceivedDataListBox.Unloaded += (_, _) => DetachScrollViewer();
     }
 
     private void OnListBoxLoaded(object sender, RoutedEventArgs e)
     {
+        DetachScrollViewer();
         _scrollViewer = FindVisualChild<ScrollViewer>(ReceivedDataListBox);
         if (_scrollViewer != null)
         {
             _scrollViewer.ScrollChanged += OnScrollChanged;
         }
+    }
+
+    private void DetachScrollViewer()
+    {
+        if (_scrollViewer != null) _scrollViewer.ScrollChanged -= OnScrollChanged;
+        _scrollViewer = null;
     }
 
     private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -55,25 +65,31 @@ public partial class SerialCommunicationView : UserControl
     {
         if (e.OldValue is SerialCommunicationViewModel oldVm)
         {
-            oldVm.DisplayRecords.CollectionChanged -= OnDisplayRecordsChanged;
+            oldVm.PropertyChanged -= OnViewModelPropertyChanged;
         }
         if (e.NewValue is SerialCommunicationViewModel newVm)
         {
-            newVm.DisplayRecords.CollectionChanged += OnDisplayRecordsChanged;
-            // 当 DisplayRecords 属性被替换时（如 InvalidateDisplay），重新订阅
-            newVm.PropertyChanged += (s, args) =>
-            {
-                if (args.PropertyName == nameof(SerialCommunicationViewModel.DisplayRecords))
-                {
-                    newVm.DisplayRecords.CollectionChanged += OnDisplayRecordsChanged;
-                }
-            };
+            newVm.PropertyChanged += OnViewModelPropertyChanged;
         }
+        ObserveRecords();
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SerialCommunicationViewModel.DisplayRecords)) ObserveRecords();
+    }
+
+    private void ObserveRecords()
+    {
+        if (_observedRecords != null) _observedRecords.CollectionChanged -= OnDisplayRecordsChanged;
+        _observedRecords = (DataContext as SerialCommunicationViewModel)?.DisplayRecords;
+        if (_observedRecords != null) _observedRecords.CollectionChanged += OnDisplayRecordsChanged;
     }
 
     private void OnDisplayRecordsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.Action != NotifyCollectionChangedAction.Add) return;
+        if (!IsVisible) return;
         if (_isUserScrollingUp) return;
 
         // 延迟到布局完成后再滚动，确保虚拟化项已生成
@@ -138,7 +154,7 @@ public partial class SerialCommunicationView : UserControl
             FileName = $"SerialLog_{DateTime.Now:yyyyMMdd_HHmmss}{extension}"
         };
 
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog(Window.GetWindow(this)) == true)
         {
             viewModel.SaveLog(dialog.FileName);
         }
@@ -163,12 +179,7 @@ public partial class SerialCommunicationView : UserControl
             }
         }
 
-        var parserService = App.Services.GetRequiredService<IProtocolParserService>();
-        var window = new RxProtocolParseWindow(parserService, hexData)
-        {
-            Owner = Window.GetWindow(this)
-        };
-        window.Show(); // 非模态
+        if (Application.Current.MainWindow is MainWindow main) main.OpenProtocolParse(hexData);
     }
 
     /// <summary>
@@ -179,11 +190,6 @@ public partial class SerialCommunicationView : UserControl
         if (DataContext is not SerialCommunicationViewModel viewModel)
             return;
 
-        var parserService = App.Services.GetRequiredService<IProtocolParserService>();
-        var window = new TxProtocolBuildWindow(parserService, viewModel)
-        {
-            Owner = Window.GetWindow(this)
-        };
-        window.Show(); // 非模态
+        if (Application.Current.MainWindow is MainWindow main) main.OpenProtocolBuild();
     }
 }

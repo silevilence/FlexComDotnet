@@ -31,8 +31,9 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// 注册应用程序服务
     /// </summary>
-    public static IServiceCollection AddAppServices(this IServiceCollection services)
+    public static IServiceCollection AddAppServices(this IServiceCollection services, string? dataDirectory = null)
     {
+        if (dataDirectory != null) System.IO.Directory.CreateDirectory(dataDirectory);
         // Emoji 服务 (单例)
         services.AddSingleton<IEmojiService, EmojiService>();
 
@@ -49,7 +50,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Core.Features.UsbCapture.ViewModels.UsbCaptureViewModel>();
 
         // 配置服务 (单例)
-        services.AddSingleton<IConfigurationService, JsonConfigurationService>();
+        services.AddSingleton<IConfigurationService>(_ => new JsonConfigurationService(
+            dataDirectory == null ? null : System.IO.Path.Combine(dataDirectory, "config.json")));
         
         // 串口服务 (单例)
         services.AddSingleton<ISerialPortService, SerialPortService>();
@@ -63,7 +65,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILogSaveService, LogSaveService>();
 
         // 指令存储服务 (单例)
-        services.AddSingleton<ICommandStorageService, LiteDbCommandStorageService>();
+        services.AddSingleton<ICommandStorageService>(_ => new LiteDbCommandStorageService(
+            dataDirectory == null ? null : System.IO.Path.Combine(dataDirectory, "commands.db")));
 
         // 面板管理器 (单例)
         services.AddSingleton<IPanelManager, PanelManager>();
@@ -80,7 +83,7 @@ public static class ServiceCollectionExtensions
         // 统一日志服务 (单例)
         services.AddSingleton<ILogPersistenceService>(sp =>
         {
-            var logsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            var logsDir = System.IO.Path.Combine(dataDirectory ?? AppDomain.CurrentDomain.BaseDirectory, "logs");
             return new LogPersistenceService(logsDir);
         });
         services.AddSingleton<ILoggingService>(sp =>
@@ -112,7 +115,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddSingleton<IScriptManager>(sp =>
         {
-            var scriptsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scripts");
+            var scriptsDir = System.IO.Path.Combine(dataDirectory ?? AppDomain.CurrentDomain.BaseDirectory, "scripts");
             return new ScriptManager(scriptsDir);
         });
         services.AddSingleton<IScriptHookService>(sp =>

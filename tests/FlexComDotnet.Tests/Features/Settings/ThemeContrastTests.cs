@@ -39,24 +39,15 @@ public class ThemeContrastTests
     [Fact]
     public void Theme_WhenSwitchingWithExistingControls_ShouldKeepTextReadable()
     {
-        Exception? failure = null;
-        var thread = new Thread(() =>
-        {
-            try { VerifyThemes(); }
-            catch (Exception exception) { failure = exception; }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.IsBackground = true;
-        thread.Start();
-        thread.Join(TimeSpan.FromSeconds(30)).Should().BeTrue();
-        if (failure != null)
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        FlexComDotnet.Tests.Features.Layout.DockWorkspaceTests.RunSta(VerifyThemes);
     }
 
     private static void VerifyThemes()
     {
         var uiRoot = GetUiRoot();
-        var app = new Application();
+        var app = Application.Current;
+        var originalResources = app.Resources;
+        app.Resources = new ResourceDictionary();
         var failures = new List<string>();
         var window = new Window();
         try
@@ -146,7 +137,7 @@ public class ThemeContrastTests
         finally
         {
             window.Close();
-            app.Shutdown();
+            app.Resources = originalResources;
         }
 
         void Check(Brush foreground, Brush background, string label)

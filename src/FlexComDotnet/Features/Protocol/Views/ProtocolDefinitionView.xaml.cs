@@ -10,23 +10,44 @@ namespace FlexComDotnet.Features.Protocol.Views;
 /// <summary>
 /// 协议定义编辑器窗口
 /// </summary>
-public partial class ProtocolDefinitionWindow : Window
+public partial class ProtocolDefinitionView : UserControl
 {
-    public ProtocolDefinitionWindow(ProtocolParserViewModel viewModel)
+    private readonly Func<MessageBoxResult> _confirmClose;
+
+    public ProtocolDefinitionView(ProtocolParserViewModel viewModel, Func<MessageBoxResult>? confirmClose = null)
     {
         InitializeComponent();
         DataContext = viewModel;
+        _confirmClose = confirmClose ?? (() => MessageBox.Show(Window.GetWindow(this),
+            "协议尚未保存。是否保存后关闭？", "保存协议", MessageBoxButton.YesNoCancel, MessageBoxImage.Question));
 
         // 注册依赖拦截事件
         viewModel.SaveInterceptRequested += OnSaveInterceptRequested;
         viewModel.DeleteInterceptRequested += OnDeleteInterceptRequested;
     }
 
+    public async Task<bool> RequestCloseAsync()
+    {
+        if (DataContext is not ProtocolParserViewModel vm || !vm.IsEditing || !vm.IsDirty) return true;
+        var result = _confirmClose();
+        if (result == MessageBoxResult.Cancel) return false;
+        if (result == MessageBoxResult.No) return true;
+        await vm.SaveDefinitionCommand.ExecuteAsync(null);
+        return !vm.IsDirty && !vm.IsEditing;
+    }
+
+    public void Release()
+    {
+        if (DataContext is not ProtocolParserViewModel vm) return;
+        vm.SaveInterceptRequested -= OnSaveInterceptRequested;
+        vm.DeleteInterceptRequested -= OnDeleteInterceptRequested;
+    }
+
     private Task<ProtocolSaveAction> OnSaveInterceptRequested(string protocolName, List<string> referencingScripts)
     {
         var dialog = new ProtocolSaveDependencyDialog(protocolName, referencingScripts)
         {
-            Owner = this
+            Owner = Window.GetWindow(this)
         };
         dialog.ShowDialog();
         return Task.FromResult(dialog.SelectedAction);
@@ -36,7 +57,7 @@ public partial class ProtocolDefinitionWindow : Window
     {
         var dialog = new ProtocolDeleteDependencyDialog(protocolName, referencingScripts)
         {
-            Owner = this
+            Owner = Window.GetWindow(this)
         };
         return Task.FromResult(dialog.ShowDialog() == true);
     }
@@ -56,7 +77,7 @@ public partial class ProtocolDefinitionWindow : Window
         {
             if (vm.IsEditing && vm.IsDirty)
             {
-                var result = MessageBox.Show(
+                var result = MessageBox.Show(Window.GetWindow(this),
                     "当前编辑已修改，是否放弃修改并切换？",
                     "确认",
                     MessageBoxButton.YesNo,
@@ -79,7 +100,7 @@ public partial class ProtocolDefinitionWindow : Window
 
         if (vm.IsDirty)
         {
-            var result = MessageBox.Show(
+            var result = MessageBox.Show(Window.GetWindow(this),
                 "当前编辑已修改，确定放弃修改？",
                 "确认",
                 MessageBoxButton.YesNo,

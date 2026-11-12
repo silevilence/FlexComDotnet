@@ -328,9 +328,18 @@ public partial class ProtocolParserViewModel : ObservableObject
 
         EditingDefinition.Fields = EditingFields.ToList();
         EditingDefinition.ModifiedAt = DateTime.Now;
+        var config = _configService.Load();
+        config.ProtocolDefinitions = _parserService.GetAllDefinitions()
+            .Where(definition => !definition.Name.Equals(EditingDefinition.Name, StringComparison.OrdinalIgnoreCase))
+            .Append(EditingDefinition).ToList();
+        if (!_configService.Save(config))
+        {
+            IsDirty = true;
+            StatusMessage = "保存失败：无法写入配置，编辑内容已保留";
+            return;
+        }
         _parserService.RegisterDefinition(EditingDefinition);
         LoadDefinitions();
-        SaveToConfig();
         IsEditing = false;
         IsDirty = false;
         _editingSnapshot = null;

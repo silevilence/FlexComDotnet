@@ -53,7 +53,7 @@ public partial class ActivityBar : UserControl
     /// <summary>
     /// 主题模式变化回调
     /// </summary>
-    private void OnThemeModeChanged(object? sender, Services.ThemeMode mode)
+    private void OnThemeModeChanged(object? sender, FlexComDotnet.Services.ThemeMode mode)
     {
         Dispatcher.Invoke(() => UpdateThemeIcon(mode));
     }
@@ -61,17 +61,17 @@ public partial class ActivityBar : UserControl
     /// <summary>
     /// 更新主题图标显示
     /// </summary>
-    private void UpdateThemeIcon(Services.ThemeMode mode)
+    private void UpdateThemeIcon(FlexComDotnet.Services.ThemeMode mode)
     {
-        SunIcon.Visibility = mode == Services.ThemeMode.Light ? Visibility.Visible : Visibility.Collapsed;
-        MoonIcon.Visibility = mode == Services.ThemeMode.Dark ? Visibility.Visible : Visibility.Collapsed;
-        AutoIcon.Visibility = mode == Services.ThemeMode.System ? Visibility.Visible : Visibility.Collapsed;
+        SunIcon.Visibility = mode == FlexComDotnet.Services.ThemeMode.Light ? Visibility.Visible : Visibility.Collapsed;
+        MoonIcon.Visibility = mode == FlexComDotnet.Services.ThemeMode.Dark ? Visibility.Visible : Visibility.Collapsed;
+        AutoIcon.Visibility = mode == FlexComDotnet.Services.ThemeMode.System ? Visibility.Visible : Visibility.Collapsed;
 
         ThemeCycleButton.ToolTip = mode switch
         {
-            Services.ThemeMode.Light => "当前: 浅色模式\n点击切换到: 深色模式",
-            Services.ThemeMode.Dark => "当前: 深色模式\n点击切换到: 跟随系统",
-            Services.ThemeMode.System => "当前: 跟随系统\n点击切换到: 浅色模式",
+            FlexComDotnet.Services.ThemeMode.Light => "当前: 浅色模式\n点击切换到: 深色模式",
+            FlexComDotnet.Services.ThemeMode.Dark => "当前: 深色模式\n点击切换到: 跟随系统",
+            FlexComDotnet.Services.ThemeMode.System => "当前: 跟随系统\n点击切换到: 浅色模式",
             _ => "切换主题"
         };
     }

@@ -12,13 +12,13 @@ namespace FlexComDotnet.Features.Protocol.Views;
 /// <summary>
 /// 发送区协议组帧浮窗
 /// </summary>
-public partial class TxProtocolBuildWindow : Window
+public partial class TxProtocolBuildView : UserControl
 {
     private readonly IProtocolParserService _parserService;
     private readonly SerialCommunicationViewModel _commViewModel;
     private readonly ObservableCollection<FieldInputItem> _fieldInputs = [];
 
-    public TxProtocolBuildWindow(IProtocolParserService parserService, SerialCommunicationViewModel commViewModel)
+    public TxProtocolBuildView(IProtocolParserService parserService, SerialCommunicationViewModel commViewModel)
     {
         InitializeComponent();
         _parserService = parserService;

@@ -1,3 +1,4 @@
+using System.Windows.Controls;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -14,9 +15,9 @@ using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 namespace FlexComDotnet.Features.Scripting.Views;
 
 /// <summary>
-/// 脚本编辑器弹出窗口 - 支持 Lua 语法高亮和智能补全
+/// 脚本编辑器文档 - 支持 Lua 语法高亮和智能补全
 /// </summary>
-public partial class ScriptEditorWindow : Window
+public partial class ScriptEditorView : UserControl
 {
     private readonly ScriptingViewModel _viewModel;
     private readonly IProtocolParserService? _protocolParserService;
@@ -47,7 +48,7 @@ public partial class ScriptEditorWindow : Window
         @"\.fields\[\s*""([^""]*)$",
         RegexOptions.Compiled);
 
-    public ScriptEditorWindow(ScriptingViewModel viewModel, IProtocolParserService? protocolParserService = null)
+    public ScriptEditorView(ScriptingViewModel viewModel, IProtocolParserService? protocolParserService = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -55,9 +56,11 @@ public partial class ScriptEditorWindow : Window
         DataContext = viewModel;
 
         // 加载 Lua 语法高亮
-        LoadLuaSyntaxHighlighting();
+        LuaEditorTheme.Initialize(CodeEditor);
 
-        // 应用深色主题样式
+        viewModel.DispatcherAction = action => Dispatcher.Invoke(action);
+
+        // 应用编辑器主题
         ApplyEditorTheme();
 
         // 初始化编辑器内容
@@ -78,44 +81,21 @@ public partial class ScriptEditorWindow : Window
                 new ProtocolReferenceColorizer(_protocolParserService));
         }
 
-        Closed += OnWindowClosed;
-    }
 
-    private void LoadLuaSyntaxHighlighting()
-    {
-        try
-        {
-            var assembly = typeof(ScriptEditorWindow).Assembly;
-            var resourceName = "FlexComDotnet.Features.Scripting.Resources.LuaSyntax.xshd";
-
-            using var stream = assembly.GetManifestResourceStream(resourceName);
-            if (stream != null)
-            {
-                using var reader = new XmlTextReader(stream);
-                var highlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
-                CodeEditor.SyntaxHighlighting = highlighting;
-            }
-        }
-        catch
-        {
-            // 加载失败时使用默认无高亮
-        }
     }
 
     private void ApplyEditorTheme()
     {
-        // 深色主题配色
-        CodeEditor.Background = new SolidColorBrush(Color.FromRgb(30, 30, 30));
-        CodeEditor.Foreground = new SolidColorBrush(Color.FromRgb(212, 212, 212));
-        CodeEditor.LineNumbersForeground = new SolidColorBrush(Color.FromRgb(133, 133, 133));
+        CodeEditor.SetResourceReference(BackgroundProperty, "BackgroundBrush");
+        CodeEditor.SetResourceReference(ForegroundProperty, "TextPrimaryBrush");
+        CodeEditor.SetResourceReference(ICSharpCode.AvalonEdit.TextEditor.LineNumbersForegroundProperty, "TextSecondaryBrush");
 
         // 设置选中文本颜色
-        CodeEditor.TextArea.SelectionBrush = new SolidColorBrush(Color.FromArgb(100, 51, 153, 255));
+        CodeEditor.TextArea.SetResourceReference(ICSharpCode.AvalonEdit.Editing.TextArea.SelectionBrushProperty, "SelectedBrush");
         CodeEditor.TextArea.SelectionForeground = null;
 
         // 设置当前行高亮
-        CodeEditor.TextArea.TextView.CurrentLineBackground = new SolidColorBrush(Color.FromArgb(20, 255, 255, 255));
-        CodeEditor.TextArea.TextView.CurrentLineBorder = new Pen(new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)), 1);
+        CodeEditor.TextArea.TextView.SetResourceReference(ICSharpCode.AvalonEdit.Rendering.TextView.CurrentLineBackgroundProperty, "HoverBrush");
     }
 
     private void OnTextEntering(object sender, TextCompositionEventArgs e)
@@ -456,15 +436,14 @@ public partial class ScriptEditorWindow : Window
 
     private static void ApplyCompletionWindowStyle(CompletionWindow window)
     {
-        // 深色主题样式
-        window.Background = new SolidColorBrush(Color.FromRgb(37, 37, 38));
-        window.Foreground = new SolidColorBrush(Color.FromRgb(212, 212, 212));
-        window.BorderBrush = new SolidColorBrush(Color.FromRgb(69, 69, 69));
+        window.SetResourceReference(BackgroundProperty, "SurfaceBrush");
+        window.SetResourceReference(ForegroundProperty, "TextPrimaryBrush");
+        window.SetResourceReference(BorderBrushProperty, "BorderBrush");
         window.BorderThickness = new Thickness(1);
         
         // 设置补全列表样式
-        window.CompletionList.Background = new SolidColorBrush(Color.FromRgb(37, 37, 38));
-        window.CompletionList.Foreground = new SolidColorBrush(Color.FromRgb(212, 212, 212));
+        window.CompletionList.SetResourceReference(BackgroundProperty, "SurfaceBrush");
+        window.CompletionList.SetResourceReference(ForegroundProperty, "TextPrimaryBrush");
         
         // 设置窗口大小，避免滚动条
         window.Width = 380;
@@ -498,18 +477,30 @@ public partial class ScriptEditorWindow : Window
     {
         var apiWindow = new ApiReferenceWindow
         {
-            Owner = this
+            Owner = Window.GetWindow(this)
         };
         apiWindow.Show();
     }
 
-    private void OnWindowClosed(object? sender, EventArgs e)
+    public Task<bool> RequestCloseAsync()
+    {
+        if (!_viewModel.IsEditorDirty) return Task.FromResult(true);
+        var result = MessageBox.Show(Window.GetWindow(this), "脚本尚未保存。是否保存后关闭？", "保存脚本",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        if (result == MessageBoxResult.Cancel) return Task.FromResult(false);
+        if (result == MessageBoxResult.No) return Task.FromResult(true);
+        _viewModel.SaveScriptCommand.Execute(null);
+        return Task.FromResult(!_viewModel.IsEditorDirty);
+    }
+
+    public void Release()
     {
         CodeEditor.TextArea.TextEntering -= OnTextEntering;
         CodeEditor.TextArea.TextEntered -= OnTextEntered;
         CodeEditor.TextChanged -= OnEditorTextChanged;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
 
-        Owner?.Activate();
+        _completionWindow?.Close();
+        _viewModel.Dispose();
     }
 }

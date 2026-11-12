@@ -483,4 +483,17 @@
         <Setter Property="Margin" Value="8,4"/>
     </Style>
     
+
+  <!-- Lua syntax colors for docked editors and previews -->
+  <Color x:Key="LuaCommentColor">#23752D</Color>
+  <Color x:Key="LuaStringColor">#A31515</Color>
+  <Color x:Key="LuaKeywordColor">#0000AA</Color>
+  <Color x:Key="LuaControlKeywordColor">#9300B7</Color>
+  <Color x:Key="LuaNumberColor">#087343</Color>
+  <Color x:Key="LuaOperatorColor">#24292F</Color>
+  <Color x:Key="LuaFunctionColor">#795E26</Color>
+  <Color x:Key="LuaGlobalFunctionColor">#006B63</Color>
+  <Color x:Key="LuaBooleanColor">#0000AA</Color>
+  <Color x:Key="LuaNilColor">#0000AA</Color>
+  <Color x:Key="LuaFComColor">#005A9E</Color>
 </ResourceDictionary>

@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlexComDotnet.Core\FlexComDotnet.Core.csproj" />
+    <ProjectReference Include="..\..\src\FlexComDotnet\FlexComDotnet.csproj" />
   </ItemGroup>
 
 </Project>

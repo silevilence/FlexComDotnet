@@ -10,11 +10,11 @@ namespace FlexComDotnet.Features.Protocol.Views;
 /// <summary>
 /// 接收区协议解析浮窗
 /// </summary>
-public partial class RxProtocolParseWindow : Window
+public partial class RxProtocolParseView : UserControl
 {
     private readonly IProtocolParserService _parserService;
 
-    public RxProtocolParseWindow(IProtocolParserService parserService, string initialHexData = "")
+    public RxProtocolParseView(IProtocolParserService parserService, string initialHexData = "")
     {
         InitializeComponent();
         _parserService = parserService;

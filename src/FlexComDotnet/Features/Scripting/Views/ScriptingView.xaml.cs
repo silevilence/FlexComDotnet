@@ -17,7 +17,7 @@ namespace FlexComDotnet.Features.Scripting.Views;
 public partial class ScriptingView : UserControl
 {
     private readonly ScriptingViewModel _viewModel;
-    private ScriptEditorWindow? _editorWindow;
+
 
     public ScriptingView(ScriptingViewModel viewModel)
     {
@@ -46,28 +46,10 @@ public partial class ScriptingView : UserControl
 
     private void InitializeCodePreviewEditor()
     {
-        // 加载 Lua 语法高亮
-        try
-        {
-            var assembly = typeof(ScriptingView).Assembly;
-            var resourceName = "FlexComDotnet.Features.Scripting.Resources.LuaSyntax.xshd";
+        LuaEditorTheme.Initialize(CodePreviewEditor);
 
-            using var stream = assembly.GetManifestResourceStream(resourceName);
-            if (stream != null)
-            {
-                using var reader = new XmlTextReader(stream);
-                var highlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
-                CodePreviewEditor.SyntaxHighlighting = highlighting;
-            }
-        }
-        catch
-        {
-            // 加载失败时使用默认无高亮
-        }
-
-        // 应用深色主题
-        CodePreviewEditor.Background = new SolidColorBrush(Color.FromRgb(30, 30, 30));
-        CodePreviewEditor.Foreground = new SolidColorBrush(Color.FromRgb(212, 212, 212));
+        CodePreviewEditor.SetResourceReference(BackgroundProperty, "BackgroundBrush");
+        CodePreviewEditor.SetResourceReference(ForegroundProperty, "TextPrimaryBrush");
 
         // 初始化内容
         CodePreviewEditor.Text = _viewModel.EditorContent;
@@ -88,21 +70,8 @@ public partial class ScriptingView : UserControl
 
     private void OpenEditorWindow()
     {
-        // 如果编辑器窗口已打开，则激活它
-        if (_editorWindow is { IsLoaded: true })
-        {
-            _editorWindow.Activate();
-            return;
-        }
-
-        // 创建并显示编辑器窗口
-        var protocolService = App.Services.GetRequiredService<IProtocolParserService>();
-        _editorWindow = new ScriptEditorWindow(_viewModel, protocolService)
-        {
-            Owner = Window.GetWindow(this)
-        };
-        _editorWindow.Closed += (_, _) => _editorWindow = null;
-        _editorWindow.Show();
+        if (_viewModel.SelectedScript is { } script && Application.Current.MainWindow is MainWindow main)
+            main.OpenScriptEditor(script.Id);
     }
 
     #region 脚本列表右键菜单

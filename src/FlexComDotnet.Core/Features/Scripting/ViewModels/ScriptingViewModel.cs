@@ -166,17 +166,38 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
 
     #region 属性变更处理
 
+    private readonly Dictionary<string, string> _editorDrafts = [];
+    private string _savedEditorContent = string.Empty;
+    public bool IsEditorDirty => SelectedScript != null && EditorContent != _savedEditorContent;
+
+    /// <summary>Refresh a read-only preview after another editor saves the file.</summary>
+    public void RefreshSavedScript(string scriptId)
+    {
+        if (SelectedScript?.Id == scriptId && !IsEditorDirty)
+            OnSelectedScriptChanged(SelectedScript);
+    }
+
+    partial void OnEditorContentChanged(string value) => OnPropertyChanged(nameof(IsEditorDirty));
+
+    partial void OnSelectedScriptChanging(ScriptFileInfo? value)
+    {
+        if (SelectedScript != null && IsEditorDirty) _editorDrafts[SelectedScript.Id] = EditorContent;
+    }
+
     partial void OnSelectedScriptChanged(ScriptFileInfo? value)
     {
         if (value != null)
         {
             var content = _manager.ReadScriptContent(value.Id);
-            EditorContent = content ?? string.Empty;
+            _savedEditorContent = content ?? string.Empty;
+            EditorContent = _editorDrafts.GetValueOrDefault(value.Id, _savedEditorContent);
         }
         else
         {
+            _savedEditorContent = string.Empty;
             EditorContent = string.Empty;
         }
+        OnPropertyChanged(nameof(IsEditorDirty));
     }
 
     #endregion
@@ -308,7 +329,14 @@ public partial class ScriptingViewModel : ObservableObject, IDisposable
     {
         if (SelectedScript == null) return;
 
-        _manager.SaveScriptContent(SelectedScript.Id, EditorContent);
+        if (!_manager.SaveScriptContent(SelectedScript.Id, EditorContent))
+        {
+            StatusText = "保存失败：脚本不存在或无法写入";
+            return;
+        }
+        _savedEditorContent = EditorContent;
+        _editorDrafts.Remove(SelectedScript.Id);
+        OnPropertyChanged(nameof(IsEditorDirty));
         StatusText = "已保存";
     }
 

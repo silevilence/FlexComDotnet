@@ -1,22 +1,14 @@
-<Window x:Class="FlexComDotnet.Features.Protocol.Views.RxProtocolParseWindow"
+<UserControl x:Class="FlexComDotnet.Features.Protocol.Views.RxProtocolParseView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:pu="clr-namespace:Panuon.WPF.UI;assembly=Panuon.WPF.UI"
         mc:Ignorable="d"
-        Title="协议解析" 
-        Height="500" 
-        Width="600"
-        MinHeight="350"
-        MinWidth="450"
-        WindowStyle="ToolWindow"
-        ShowInTaskbar="False"
-        ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource BackgroundBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}">
 
-  <Window.Resources>
+  <UserControl.Resources>
     <Style x:Key="ThemedDataGridColumnHeader" TargetType="DataGridColumnHeader">
       <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
@@ -36,9 +28,10 @@
         </Trigger>
       </Style.Triggers>
     </Style>
-  </Window.Resources>
+  </UserControl.Resources>
 
-  <Grid Margin="12">
+    <ScrollViewer x:Name="PageViewport" Margin="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+    <Grid Width="{Binding ViewportWidth, ElementName=PageViewport}" Height="{Binding ViewportHeight, ElementName=PageViewport}" MinHeight="360" MinWidth="560">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
@@ -195,4 +188,5 @@
                  Foreground="{DynamicResource TextSecondaryBrush}"/>
     </StackPanel>
   </Grid>
-</Window>
+    </ScrollViewer>
+</UserControl>

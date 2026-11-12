@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using FlexComDotnet.Core.Features.Serial.ViewModels;
@@ -38,6 +38,9 @@ namespace FlexComDotnet;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private readonly Features.Layout.Services.DockLayoutStore _layoutStore;
+    private bool _closeApproved;
+    private bool _closeInProgress;
     private readonly IPanelManager _panelManager;
     private readonly IConfigurationService _configService;
     private readonly ConnectionConfigView _connectionConfigView;
@@ -68,19 +71,21 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        
+
         // 获取服务
         _panelManager = App.Services.GetRequiredService<IPanelManager>();
         _configService = App.Services.GetRequiredService<IConfigurationService>();
-        
+        var configDirectory = System.IO.Path.GetDirectoryName((_configService as JsonConfigurationService)?.ConfigFilePath) ?? App.DataDirectory;
+        _layoutStore = new(System.IO.Path.Combine(configDirectory, "workspace-layout.xml"));
+
         // 加载并恢复布局状态
-        LoadLayoutState();
-        
+
+
         // 创建收发区域视图实例
         _serialCommunicationView = new SerialCommunicationView();
         var communicationViewModel = App.Services.GetRequiredService<SerialCommunicationViewModel>();
         _serialCommunicationView.DataContext = communicationViewModel;
-        
+
         // 订阅 ViewModel 属性变更以更新状态栏
         communicationViewModel.PropertyChanged += (sender, e) =>
         {
@@ -93,10 +98,10 @@ public partial class MainWindow : Window
                 TxBytesText.Text = FormatByteCount(communicationViewModel.TxBytes);
             }
         };
-        
+
         // 设置中央内容
-        MultiZoneLayout.CenterContentElement = _serialCommunicationView;
-        
+        Workspace.CenterContentElement = _serialCommunicationView;
+
         // 创建视图实例
         _connectionConfigView = new ConnectionConfigView
         {
@@ -108,7 +113,7 @@ public partial class MainWindow : Window
         // 获取 CommandListViewModel 并订阅发送请求事件
         var commandListViewModel = App.Services.GetRequiredService<CommandListViewModel>();
         _commandListView.DataContext = commandListViewModel;
-        
+
         commandListViewModel.SendDataRequested += (sender, data) =>
         {
             communicationViewModel.SendData(data);
@@ -157,15 +162,33 @@ public partial class MainWindow : Window
 
         // 初始化布局
         InitializeLayout();
-        
+        Workspace.OperationFailed += (_, error) => MessageBox.Show(this, error.Message, "工作区操作失败");
+        Workspace.DocumentRestoreRequested += (_, id) =>
+        {
+            if (id.StartsWith("script:", StringComparison.Ordinal)) OpenScriptEditor(id[7..]);
+            else if (id == "protocol-definitions") OpenProtocolParser();
+            else if (id == "protocol-tx") OpenProtocolBuild();
+        };
+        Workspace.Manager.LayoutFloatingWindowControlCreated += (_, args) =>
+        {
+            args.LayoutFloatingWindowControl.PreviewKeyDown += WorkspaceWindow_KeyDown;
+        };
+        PreviewKeyDown += WorkspaceWindow_KeyDown;
+
         // 设置所有者窗口（用于浮动窗口）
-        MultiZoneLayout.SetOwnerWindow(this);
-        
+        var themes = App.Services.GetRequiredService<Services.IThemeService>();
+        Workspace.ApplyTheme(themes.CurrentTheme);
+        themes.ThemeChanged += OnWorkspaceThemeChanged;
+        Closed += (_, _) => themes.ThemeChanged -= OnWorkspaceThemeChanged;
+
         // 窗口加载完成后恢复浮动面板并检查更新
         Loaded += async (_, _) =>
         {
-            MultiZoneLayout.RestoreFloatingPanels();
-            
+            if (!_layoutStore.Load(Workspace, _configService.Load().LayoutState,
+                (_configService as JsonConfigurationService)?.ConfigFilePath))
+                App.Services.GetRequiredService<ILoggingService>().Warning(Core.Features.Logging.Models.LogSource.System,
+                    "布局无法恢复，已使用默认布局；原文件保留在 workspace-layout.xml.invalid（如可写）。");
+
             // 后台检查更新
             await CheckForUpdateInBackgroundAsync();
         };
@@ -179,20 +202,20 @@ public partial class MainWindow : Window
         try
         {
             var updateViewModel = App.Services.GetRequiredService<UpdateViewModel>();
-            
+
             // 先订阅更新可用事件
             updateViewModel.UpdateAvailable += OnUpdateAvailable;
-            
+
             // 如果之前已经检查过有更新，直接显示徽章
             if (updateViewModel.HasUpdate)
             {
                 ActivityBar.ShowUpdateBadge(true);
                 return;
             }
-            
+
             // 静默检查更新
             await updateViewModel.CheckForUpdateSilentlyAsync();
-            
+
             // 检查完成后再次检查状态，防止事件未触发的情况
             if (updateViewModel.HasUpdate)
             {
@@ -214,26 +237,62 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() => ActivityBar.ShowUpdateBadge(true));
     }
 
-    private void LoadLayoutState()
+    private void SaveLayoutState() => _layoutStore.Save(Workspace);
+
+    private void OnWorkspaceThemeChanged(object? sender, Services.ThemeType theme) => Workspace.ApplyTheme(theme);
+
+    private void ResetLayout_Click(object sender, RoutedEventArgs e) => Workspace.ResetLayout();
+
+    private void WorkspaceMenu_Opened(object sender, RoutedEventArgs e)
     {
-        var config = _configService.Load();
-        if (config.LayoutState.Panels.Count > 0)
+        var items = new List<System.Windows.Controls.MenuItem>();
+        foreach (var panel in _panelManager.Panels)
         {
-            _panelManager.RestoreLayoutState(config.LayoutState);
+            var item = new System.Windows.Controls.MenuItem { Header = panel.Title };
+            item.Click += (_, _) => Workspace.ShowPanel(panel.Id);
+            items.Add(item);
         }
+        RefreshMenuItems(WorkspaceMenu, items);
     }
 
-    private void SaveLayoutState()
+    private void WindowMenu_Opened(object sender, RoutedEventArgs e)
     {
-        var config = _configService.Load();
-        config.LayoutState = _panelManager.GetLayoutState();
-        _configService.Save(config);
+        var items = new List<System.Windows.Controls.MenuItem>();
+        var model = Workspace.Manager.Layout.ActiveContent;
+        var item = model == null ? null : Workspace.Manager.GetLayoutItemFromModel(model);
+        if (item == null)
+        {
+            RefreshMenuItems(WindowMenu, [new System.Windows.Controls.MenuItem { Header = "请选择页面", IsEnabled = false }]);
+            return;
+        }
+        void Add(string label, ICommand command) => items.Add(
+            new System.Windows.Controls.MenuItem { Header = label, Command = command });
+        Add("浮动(_F)", item.FloatCommand);
+        Add("移到文档区(_D)", item.DockAsDocumentCommand);
+        Add("新建水平页签组(_H)", item.NewHorizontalTabGroupCommand);
+        Add("新建垂直页签组(_V)", item.NewVerticalTabGroupCommand);
+        if (item is AvalonDock.Controls.LayoutAnchorableItem tool)
+        {
+            Add("停靠(_K)", tool.DockCommand);
+            Add("自动隐藏(_A)", tool.AutoHideCommand);
+            Add("隐藏(_I)", tool.HideCommand);
+        }
+        else Add("关闭(_C)", item.CloseCommand);
+        RefreshMenuItems(WindowMenu, items);
+    }
+
+    private static void RefreshMenuItems(System.Windows.Controls.MenuItem menu, IEnumerable<System.Windows.Controls.MenuItem> items)
+    {
+        // Keep HasItems true while the submenu is open; clearing first closes the popup.
+        var previous = menu.Items.Cast<object>().ToArray();
+        foreach (var item in items) menu.Items.Add(item);
+        foreach (var item in previous) menu.Items.Remove(item);
     }
 
     private void InitializeLayout()
     {
         // 设置面板管理器
-        MultiZoneLayout.SetPanelManager(_panelManager);
+        Workspace.SetPanelManager(_panelManager);
 
         // 检查是否已有保存的面板状态
         var savedConnectionConfig = _panelManager.GetPanel(PanelIds.ConnectionConfig);
@@ -242,18 +301,18 @@ public partial class MainWindow : Window
         var savedScripting = _panelManager.GetPanel(PanelIds.Scripting);
         var savedSerialMonitor = _panelManager.GetPanel(PanelIds.SerialMonitor);
 
-        // 添加连接配置面板（固定在左侧，不可移动）
-        MultiZoneLayout.AddPanel(
+        // 添加连接配置面板（默认在左侧，可自由移动）
+        Workspace.AddPanel(
             PanelIds.ConnectionConfig,
             "连接配置",
             _connectionConfigView,
             savedConnectionConfig?.Zone ?? PanelZone.Left,
-            isMovable: false,  // 连接配置面板固定不可移动
+            isMovable: true,
             order: savedConnectionConfig?.Order ?? 0
         );
 
         // 添加指令列表面板（可移动，使用保存的状态）
-        MultiZoneLayout.AddPanel(
+        Workspace.AddPanel(
             PanelIds.CommandList,
             "指令列表",
             _commandListView,
@@ -263,7 +322,7 @@ public partial class MainWindow : Window
         );
 
         // 添加自动回复面板（可移动，默认在右侧）
-        MultiZoneLayout.AddPanel(
+        Workspace.AddPanel(
             PanelIds.AutoReply,
             "自动回复",
             _autoReplyView,
@@ -273,7 +332,7 @@ public partial class MainWindow : Window
         );
 
         // 添加脚本面板（可移动，默认在右侧）
-        MultiZoneLayout.AddPanel(
+        Workspace.AddPanel(
             PanelIds.Scripting,
             "脚本",
             _scriptingView,
@@ -282,7 +341,7 @@ public partial class MainWindow : Window
             order: savedScripting?.Order ?? 2
         );
 
-        MultiZoneLayout.AddPanel(
+        Workspace.AddPanel(
             PanelIds.SerialMonitor,
             "串口监控",
             _serialMonitorView,
@@ -292,19 +351,19 @@ public partial class MainWindow : Window
         );
 
         // 添加数据可视化面板（可移动，默认在底部）
-        MultiZoneLayout.AddPanel(PanelIds.ProcessMonitor, "进程串口监控（API Hook）",
+        Workspace.AddPanel(PanelIds.ProcessMonitor, "进程串口监控（API Hook）",
             new Features.ProcessMonitor.Views.ProcessMonitorView
             { DataContext = App.Services.GetRequiredService<Core.Features.ProcessMonitor.ViewModels.ProcessMonitorViewModel>() },
             _panelManager.GetPanel(PanelIds.ProcessMonitor)?.Zone ?? PanelZone.Bottom,
             isMovable: true, order: _panelManager.GetPanel(PanelIds.ProcessMonitor)?.Order ?? 3);
-        MultiZoneLayout.AddPanel(PanelIds.UsbCapture, "USB 抓包（USBPcap）",
+        Workspace.AddPanel(PanelIds.UsbCapture, "USB 抓包（USBPcap）",
             new Features.UsbCapture.Views.UsbCaptureView
             { DataContext = App.Services.GetRequiredService<Core.Features.UsbCapture.ViewModels.UsbCaptureViewModel>() },
             _panelManager.GetPanel(PanelIds.UsbCapture)?.Zone ?? PanelZone.Bottom,
             isMovable: true, order: _panelManager.GetPanel(PanelIds.UsbCapture)?.Order ?? 4);
 
         var savedVisualization = _panelManager.GetPanel(PanelIds.DataVisualization);
-        MultiZoneLayout.AddPanel(
+        Workspace.AddPanel(
             PanelIds.DataVisualization,
             "数据可视化",
             _dataVisualizationView,
@@ -315,7 +374,7 @@ public partial class MainWindow : Window
 
         // 添加统一日志面板（可移动，默认在底部）
         var savedLogPanel = _panelManager.GetPanel(PanelIds.LogPanel);
-        MultiZoneLayout.AddPanel(
+        Workspace.AddPanel(
             PanelIds.LogPanel,
             "日志",
             _logPanelView,
@@ -326,21 +385,15 @@ public partial class MainWindow : Window
 
         // 设置面板列表提供器（保留兼容性）
         ActivityBar.SetPanelsProvider(() => _panelManager.Panels
-            .Where(p => p.Id != PanelIds.ConnectionConfig)
+
             .Select(p => (p.Id, p.Title, p.IsVisible)));
-        
+
         // 订阅面板可见性切换事件
         ActivityBar.PanelVisibilityToggled += (sender, args) =>
         {
-            MultiZoneLayout.TogglePanelVisibility(args.PanelId);
+            Workspace.ShowPanel(args.PanelId);
         };
-        
-        // 订阅面板可见性变更事件
-        MultiZoneLayout.PanelVisibilityChanged += (sender, args) =>
-        {
-            // 可以在这里更新 ActivityBar 或其他 UI
-        };
-        
+
         // 订阅校验计算器按钮点击事件
         ActivityBar.ChecksumCalculatorClicked += (sender, args) =>
         {
@@ -377,7 +430,7 @@ public partial class MainWindow : Window
         {
             Owner = this
         };
-        
+
         // 设置回调以获取发送帧数据（返回原始数据和模式）
         window.GetSendFrameData = () =>
         {
@@ -388,7 +441,7 @@ public partial class MainWindow : Window
             }
             return (null, true);
         };
-        
+
         // 设置回调以附加数据到发送帧（强制切换到 Hex 模式）
         window.AppendToSendFrame = (data) =>
         {
@@ -400,14 +453,14 @@ public partial class MainWindow : Window
                 {
                     communicationVm.SwitchToHexModeWithConversion();
                 }
-                
+
                 var hexString = HexHelper.BytesToHexString(data);
                 communicationVm.SendText = string.IsNullOrEmpty(communicationVm.SendText)
                     ? hexString
                     : $"{communicationVm.SendText} {hexString}";
             }
         };
-        
+
         window.ShowDialog();
     }
 
@@ -416,14 +469,44 @@ public partial class MainWindow : Window
     /// </summary>
     private void OpenProtocolParser()
     {
-        var viewModel = App.Services.GetRequiredService<ProtocolParserViewModel>();
-        var window = new ProtocolDefinitionWindow(viewModel)
-        {
-            Owner = this
-        };
-        
-        window.ShowDialog();
+        ProtocolDefinitionView? view = null;
+        Workspace.OpenDocument("protocol-definitions", "协议管理",
+            () => view = new ProtocolDefinitionView(App.Services.GetRequiredService<ProtocolParserViewModel>()),
+            () => view!.RequestCloseAsync(), () => view!.Release());
     }
+
+    public void OpenScriptEditor(string scriptId)
+    {
+        ScriptEditorView? view = null;
+        var manager = App.Services.GetRequiredService<Core.Features.Scripting.Services.IScriptManager>();
+        var script = manager.GetAllScripts().FirstOrDefault(s => s.Id == scriptId);
+        if (script == null) return;
+        Workspace.OpenDocument("script:" + scriptId, script.Name, () =>
+        {
+            // An editor owns its buffer; selecting a different script in the tool pane cannot replace it.
+            var vm = new ScriptingViewModel(
+                App.Services.GetRequiredService<Core.Features.Scripting.Services.IScriptEngine>(), manager,
+                App.Services.GetRequiredService<Core.Features.Scripting.Services.IScriptApiBridge>());
+            vm.SelectedScript = script;
+            vm.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(ScriptingViewModel.IsEditorDirty) && !vm.IsEditorDirty)
+                    ((ScriptingViewModel)_scriptingView.DataContext).RefreshSavedScript(scriptId);
+            };
+            return view = new ScriptEditorView(vm, App.Services.GetRequiredService<IProtocolParserService>());
+        }, () => view!.RequestCloseAsync(), () => view!.Release());
+    }
+
+    public void OpenProtocolParse(string hex)
+    {
+        // Separate records can be compared without replacing another page's working input.
+        Workspace.OpenDocument("protocol-rx:" + Guid.NewGuid().ToString("N"), "接收帧解析",
+            () => new RxProtocolParseView(App.Services.GetRequiredService<IProtocolParserService>(), hex));
+    }
+
+    public void OpenProtocolBuild() => Workspace.OpenDocument("protocol-tx", "发送帧组帧",
+        () => new TxProtocolBuildView(App.Services.GetRequiredService<IProtocolParserService>(),
+            (SerialCommunicationViewModel)_serialCommunicationView.DataContext));
 
     /// <summary>
     /// 打开更新窗口
@@ -432,13 +515,13 @@ public partial class MainWindow : Window
     {
         // 隐藏更新徽章
         ActivityBar.ShowUpdateBadge(false);
-        
+
         var viewModel = App.Services.GetRequiredService<UpdateViewModel>();
         var window = new UpdateWindow(viewModel)
         {
             Owner = this
         };
-        
+
         window.ShowDialog();
     }
 
@@ -447,7 +530,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void OpenSettingsWindow()
     {
-        var logDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        var logDir = System.IO.Path.Combine(App.DataDirectory, "logs");
         var viewModel = new SettingsViewModel(
             _configService,
             App.Services.GetRequiredService<Core.Features.Update.Services.IVersionService>(),
@@ -463,12 +546,12 @@ public partial class MainWindow : Window
         // 订阅面板可见性切换事件
         window.PanelVisibilityToggled += (_, panelId) =>
         {
-            MultiZoneLayout.TogglePanelVisibility(panelId);
+            Workspace.TogglePanelVisibility(panelId);
         };
 
         viewModel.PanelVisibilityToggled += (_, panelId) =>
         {
-            MultiZoneLayout.TogglePanelVisibility(panelId);
+            Workspace.TogglePanelVisibility(panelId);
         };
 
         window.ShowDialog();
@@ -492,12 +575,6 @@ public partial class MainWindow : Window
         window.ShowDialog();
     }
 
-    private void MultiZoneLayout_ZoneSizeChanged(object? sender, (PanelZone Zone, double Size) e)
-    {
-        // 区域尺寸变更时自动保存
-        // 面板管理器已自动更新尺寸
-    }
-
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F12)
@@ -507,25 +584,51 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private async void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        // 记录会话结束
+        if (_closeApproved) return;
+        e.Cancel = true;
+        if (_closeInProgress) return;
+        _closeInProgress = true;
         try
         {
-            var loggingService = App.Services.GetRequiredService<ILoggingService>();
-            loggingService.Info(Core.Features.Logging.Models.LogSource.System, "应用程序关闭");
-            
+            if (!await Workspace.CanCloseDocumentsAsync()) return;
+            SaveLayoutState();
+            var logging = App.Services.GetRequiredService<ILoggingService>();
+            logging.Info(Core.Features.Logging.Models.LogSource.System, "应用程序关闭");
             var persistence = App.Services.GetRequiredService<ILogPersistenceService>();
             persistence.WriteSessionEnd();
             persistence.Flush();
+            Workspace.ReleaseDocuments();
+            await App.DisposeServicesAsync();
+            _closeApproved = true;
+            // Defer the second close until the current Closing event has completed.
+            _ = Dispatcher.BeginInvoke(Close);
         }
-        catch { /* 关闭时忽略日志错误 */ }
-        
-        // 关闭所有浮动窗口
-        MultiZoneLayout.CloseAllFloatingWindows();
-        
-        // 保存布局状态
-        SaveLayoutState();
+        catch (Exception error)
+        {
+            MessageBox.Show(this, $"无法关闭工作区：{error.Message}", "工作区");
+        }
+        finally { _closeInProgress = false; }
+    }
+
+    private void WorkspaceWindow_KeyDown(object sender, KeyEventArgs e)
+    {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.F12) { OpenDebugToolsWindow(); e.Handled = true; }
+        else if (key == Key.Tab && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            Workspace.ActivateNextPage(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? -1 : 1);
+            e.Handled = true;
+        }
+        else if (key == Key.V && Keyboard.Modifiers == ModifierKeys.Alt)
+        {
+            Activate(); WorkspaceMenu.Focus(); WorkspaceMenu.IsSubmenuOpen = true; e.Handled = true;
+        }
+        else if (key == Key.W && Keyboard.Modifiers == ModifierKeys.Alt)
+        {
+            Activate(); WindowMenu.Focus(); WindowMenu.IsSubmenuOpen = true; e.Handled = true;
+        }
     }
 
     /// <summary>
